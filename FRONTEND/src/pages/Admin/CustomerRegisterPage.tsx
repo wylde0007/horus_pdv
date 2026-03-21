@@ -1,0 +1,417 @@
+import { Edit, Plus, Search, X } from "lucide-react";
+import { useMemo, useState } from "react";
+import PageHeader from "@/components/Admin/PageHeader";
+import { DatePickerField } from "@/components/Form";
+import AddressContactFields from "@/components/Register/AddressContactFields";
+import { Toast } from "@/hooks/Dialog";
+import useInputMasks from "@/hooks/InputMasks/useInputMasks";
+import PageLayout from "@/layout/PageLayout";
+import { lookupAddressByCep } from "@/utils/cepLookup";
+import {
+  getAgeFromBirthDate,
+  isValidCnpj,
+  isValidCpf,
+  isValidEmail,
+} from "@/utils/validators";
+
+type Customer = {
+  id: string;
+  customerName: string;
+  document: string;
+  birthDate: string;
+  age: string;
+  cep: string;
+  city: string;
+  state: string;
+  address: string;
+  neighborhood: string;
+  streetComplement: string;
+  number: string;
+  referencePoint: string;
+  telephone: string;
+  cellphone: string;
+  email: string;
+};
+
+type CustomerFormData = Omit<Customer, "id">;
+
+const EMPTY_FORM: CustomerFormData = {
+  customerName: "",
+  document: "",
+  birthDate: "",
+  age: "",
+  cep: "",
+  city: "",
+  state: "",
+  address: "",
+  neighborhood: "",
+  streetComplement: "",
+  number: "",
+  referencePoint: "",
+  telephone: "",
+  cellphone: "",
+  email: "",
+};
+
+const INITIAL_CUSTOMERS: Customer[] = [
+  {
+    id: "cl-001",
+    customerName: "Ana Martins",
+    document: "123.456.789-09",
+    birthDate: "16/10/1991",
+    age: "34",
+    cep: "06010-000",
+    city: "Osasco",
+    state: "SP",
+    address: "Rua Primitiva Vianco",
+    neighborhood: "Centro",
+    streetComplement: "",
+    number: "100",
+    referencePoint: "",
+    telephone: "(11) 3681-1000",
+    cellphone: "(11) 99888-1122",
+    email: "ana.martins@email.com",
+  },
+];
+
+function CustomerFormDrawer({
+  open,
+  isEditMode,
+  value,
+  loadingCep,
+  onClose,
+  onChange,
+  onSave,
+  onFillAddressFromCep,
+}: {
+  open: boolean;
+  isEditMode: boolean;
+  value: CustomerFormData;
+  loadingCep: boolean;
+  onClose: () => void;
+  onChange: (next: CustomerFormData) => void;
+  onSave: () => void;
+  onFillAddressFromCep: () => void;
+}) {
+  const { maskCpfOrCnpj } = useInputMasks();
+
+  if (!open) return null;
+
+  const setField = <K extends keyof CustomerFormData>(
+    key: K,
+    fieldValue: CustomerFormData[K],
+  ) => {
+    onChange({ ...value, [key]: fieldValue });
+  };
+
+  return (
+    <div className="dept-drawer-overlay" onClick={onClose}>
+      <aside className="dept-drawer-panel" onClick={(event) => event.stopPropagation()}>
+        <div className="flex items-start justify-between border-b border-border-primary p-5">
+          <div>
+            <h3 className="text-xl font-semibold text-text-primary">
+              {isEditMode ? "Editar cliente" : "Novo cliente"}
+            </h3>
+            <p className="mt-1 text-sm text-text-secondary">
+              Preencha os dados cadastrais e de contato do cliente.
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={onClose}
+            className="rounded-lg p-2 text-text-secondary transition hover:bg-hover-light hover:text-text-primary"
+            aria-label="Fechar formulário"
+          >
+            <X size={18} />
+          </button>
+        </div>
+
+        <div className="flex-1 space-y-4 overflow-y-auto p-5">
+          <section className="card rounded-2xl p-4">
+            <h4 className="text-sm font-semibold text-text-secondary">Dados pessoais</h4>
+            <div className="mt-3 grid gap-3 md:grid-cols-2">
+              <label className="block">
+                <span className="mb-1.5 block text-sm text-text-secondary">
+                  Documento (CPF/CNPJ) *
+                </span>
+                <input
+                  value={value.document}
+                  onChange={(event) => setField("document", maskCpfOrCnpj(event.target.value))}
+                  className="input-field w-full"
+                  placeholder="000.000.000-00 ou 00.000.000/0000-00"
+                />
+              </label>
+              <label className="block">
+                <span className="mb-1.5 block text-sm text-text-secondary">Nome *</span>
+                <input
+                  value={value.customerName}
+                  onChange={(event) => setField("customerName", event.target.value)}
+                  className="input-field w-full"
+                  placeholder="Nome"
+                />
+              </label>
+              <label className="block">
+                <span className="mb-1.5 block text-sm text-text-secondary">DN *</span>
+                <DatePickerField
+                  value={value.birthDate}
+                  onChange={(nextDate) => {
+                    const age = getAgeFromBirthDate(nextDate);
+                    onChange({
+                      ...value,
+                      birthDate: nextDate,
+                      age: age !== null ? String(age) : "",
+                    });
+                  }}
+                  className="w-full"
+                  placeholder="dd/mm/aaaa"
+                  format="br"
+                />
+              </label>
+              <label className="block">
+                <span className="mb-1.5 block text-sm text-text-secondary">Idade *</span>
+                <input value={value.age} className="input-field w-full" disabled />
+              </label>
+            </div>
+          </section>
+
+          <AddressContactFields
+            value={{
+              cep: value.cep,
+              city: value.city,
+              state: value.state,
+              address: value.address,
+              neighborhood: value.neighborhood,
+              streetComplement: value.streetComplement,
+              number: value.number,
+              referencePoint: value.referencePoint,
+              telephone: value.telephone,
+              cellphone: value.cellphone,
+              email: value.email,
+            }}
+            loadingCep={loadingCep}
+            onFillAddressFromCep={onFillAddressFromCep}
+            onChange={(field, fieldValue) => setField(field, fieldValue)}
+          />
+        </div>
+
+        <div className="border-t border-border-primary p-4">
+          <div className="grid grid-cols-2 gap-2 sm:flex sm:flex-wrap sm:items-center sm:justify-end">
+            <button type="button" onClick={onClose} className="btn-cancel">
+              Cancelar
+            </button>
+            <button type="button" onClick={onSave} className="btn-primary">
+              {isEditMode ? "Salvar cliente" : "Criar cliente"}
+            </button>
+          </div>
+        </div>
+      </aside>
+    </div>
+  );
+}
+
+export default function CustomerRegisterPage() {
+  const [customers, setCustomers] = useState<Customer[]>(INITIAL_CUSTOMERS);
+  const [search, setSearch] = useState("");
+  const [drawerOpen, setDrawerOpen] = useState(false);
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [loadingCep, setLoadingCep] = useState(false);
+  const [form, setForm] = useState<CustomerFormData>(EMPTY_FORM);
+
+  const filteredCustomers = useMemo(() => {
+    const normalized = search.trim().toLowerCase();
+    if (!normalized) return customers;
+    return customers.filter(
+      (customer) =>
+        customer.customerName.toLowerCase().includes(normalized) ||
+        customer.document.includes(normalized),
+    );
+  }, [customers, search]);
+
+  const openCreateDrawer = () => {
+    setEditingId(null);
+    setForm(EMPTY_FORM);
+    setDrawerOpen(true);
+  };
+
+  const openEditDrawer = (customer: Customer) => {
+    setEditingId(customer.id);
+    setForm({ ...customer });
+    setDrawerOpen(true);
+  };
+
+  const fillAddressFromCep = async () => {
+    if (form.cep.replace(/\D/g, "").length !== 8) {
+      Toast.error("CEP inválido.");
+      return;
+    }
+
+    setLoadingCep(true);
+    const result = await lookupAddressByCep(form.cep);
+    setLoadingCep(false);
+
+    if (!result.success) {
+      Toast.error("CEP não encontrado.");
+      return;
+    }
+
+    setForm((current) => ({
+      ...current,
+      address: result.data.endereco || current.address,
+      neighborhood: result.data.bairro || current.neighborhood,
+      city: result.data.cidade || current.city,
+      state: result.data.estado || current.state,
+      streetComplement: result.data.complemento || current.streetComplement,
+    }));
+  };
+
+  const validateForm = () => {
+    const requiredFields: Array<keyof CustomerFormData> = [
+      "customerName",
+      "document",
+      "birthDate",
+      "age",
+      "cep",
+      "city",
+      "state",
+      "address",
+      "neighborhood",
+      "number",
+      "cellphone",
+    ];
+
+    const missing = requiredFields.some((field) => !String(form[field]).trim());
+    if (missing) {
+      Toast.error("Preencha os campos obrigatórios.");
+      return false;
+    }
+
+    if (form.customerName.trim().length < 3) {
+      Toast.error("O nome do cliente deve ter no mínimo 3 caracteres.");
+      return false;
+    }
+
+    const documentDigits = form.document.replace(/\D/g, "");
+    const isCpf = documentDigits.length === 11;
+    const isCnpj = documentDigits.length === 14;
+
+    if ((!isCpf && !isCnpj) || (isCpf && !isValidCpf(form.document)) || (isCnpj && !isValidCnpj(form.document))) {
+      Toast.error("Documento inválido.");
+      return false;
+    }
+
+    if (!form.age) {
+      Toast.error("Idade inválida.");
+      return false;
+    }
+
+    if (!isValidEmail(form.email)) {
+      Toast.error("E-mail inválido.");
+      return false;
+    }
+
+    return true;
+  };
+
+  const handleSave = () => {
+    if (!validateForm()) return;
+
+    if (editingId) {
+      setCustomers((current) =>
+        current.map((customer) =>
+          customer.id === editingId ? { ...customer, ...form } : customer,
+        ),
+      );
+      Toast.success("Cliente atualizado com sucesso.");
+    } else {
+      const created: Customer = {
+        id: `cl-${Date.now()}`,
+        ...form,
+      };
+      setCustomers((current) => [created, ...current]);
+      Toast.success("Cliente cadastrado com sucesso.");
+    }
+
+    setDrawerOpen(false);
+    setEditingId(null);
+    setForm(EMPTY_FORM);
+  };
+
+  return (
+    <PageLayout className="space-y-4 py-4 md:space-y-6 md:py-6 lg:py-8">
+      <PageHeader
+        title="Cadastro de Cliente"
+        description="Cadastro e manutenção de clientes com os campos do sistema legado."
+        action={
+          <button type="button" onClick={openCreateDrawer} className="btn-primary inline-flex gap-2">
+            <Plus size={16} />
+            Novo cliente
+          </button>
+        }
+      />
+
+      <section className="card p-4 md:p-5">
+        <label className="relative block max-w-xl">
+          <Search
+            size={16}
+            className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-text-tertiary"
+          />
+          <input
+            value={search}
+            onChange={(event) => setSearch(event.target.value)}
+            className="input-field w-full pl-9"
+            placeholder="Pesquise por nome ou CPF"
+          />
+        </label>
+      </section>
+
+      <section className="card overflow-hidden">
+        <div className="overflow-x-auto">
+          <table className="w-full min-w-[880px] text-sm">
+            <thead className="bg-bg-primary text-left text-text-secondary">
+              <tr>
+                <th className="px-4 py-3">Nome</th>
+                <th className="px-4 py-3">Documento</th>
+                <th className="px-4 py-3">Cidade</th>
+                <th className="px-4 py-3">Celular</th>
+                <th className="px-4 py-3">E-mail</th>
+                <th className="px-4 py-3">Ações</th>
+              </tr>
+            </thead>
+            <tbody>
+              {filteredCustomers.map((customer) => (
+                <tr key={customer.id} className="border-t border-border-primary">
+                  <td className="px-4 py-3">{customer.customerName}</td>
+                  <td className="px-4 py-3">{customer.document}</td>
+                  <td className="px-4 py-3">{customer.city}</td>
+                  <td className="px-4 py-3">{customer.cellphone}</td>
+                  <td className="px-4 py-3">{customer.email || "-"}</td>
+                  <td className="px-4 py-3">
+                    <button
+                      type="button"
+                      onClick={() => openEditDrawer(customer)}
+                      className="inline-flex items-center gap-1 rounded-lg border border-border-secondary px-3 py-1.5 text-xs font-semibold text-text-secondary transition hover:bg-accent/10 hover:text-text-primary"
+                    >
+                      <Edit size={13} />
+                      Editar
+                    </button>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <CustomerFormDrawer
+        open={drawerOpen}
+        isEditMode={editingId !== null}
+        value={form}
+        loadingCep={loadingCep}
+        onClose={() => setDrawerOpen(false)}
+        onChange={setForm}
+        onSave={handleSave}
+        onFillAddressFromCep={fillAddressFromCep}
+      />
+    </PageLayout>
+  );
+}

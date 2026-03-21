@@ -1,6 +1,3 @@
-# Ignore environment variables
-horuspdv-app/hpdv/backend/.env
-
 # Dependencies
 node_modules/
 
@@ -15,4 +12,3 @@ dist/
 *.tsbuildinfo
 .vite/
 .cache/
-
