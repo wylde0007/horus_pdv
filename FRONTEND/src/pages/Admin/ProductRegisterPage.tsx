@@ -1,5 +1,5 @@
 import { Edit, Plus, Search, X } from "lucide-react";
-import { useMemo, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import PageHeader from "@/components/Admin/PageHeader";
 import { Toast } from "@/hooks/Dialog";
 import useInputMasks from "@/hooks/InputMasks/useInputMasks";
@@ -7,6 +7,7 @@ import PageLayout from "@/layout/PageLayout";
 
 type Product = {
   id: string;
+  productImageUrl: string;
   productImageName: string;
   productName: string;
   productCode: string;
@@ -27,6 +28,7 @@ const SUPPLIER_OPTIONS = [
 ];
 
 const EMPTY_FORM: ProductFormData = {
+  productImageUrl: "",
   productImageName: "",
   productName: "",
   productCode: "",
@@ -41,6 +43,7 @@ const EMPTY_FORM: ProductFormData = {
 const INITIAL_PRODUCTS: Product[] = [
   {
     id: "pr-001",
+    productImageUrl: "",
     productImageName: "",
     productName: "Café Tradicional 500g",
     productCode: "CAF500",
@@ -69,6 +72,8 @@ function ProductFormDrawer({
   onSave: () => void;
 }) {
   const { maskMoneyBr, parseMoneyBr, formatMoneyBr } = useInputMasks();
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
+  const [isDragActive, setIsDragActive] = useState(false);
   if (!open) return null;
 
   const setField = <K extends keyof ProductFormData>(
@@ -80,6 +85,21 @@ function ProductFormDrawer({
     const unitPrice = parseMoneyBr(next.productUnitPrice);
     next.totalPriceOnProduct = quantity > 0 ? formatMoneyBr(quantity * unitPrice) : "";
     onChange(next);
+  };
+
+  const applyImage = (file: File | null) => {
+    if (!file || !file.type.startsWith("image/")) return;
+
+    const reader = new FileReader();
+    reader.onload = () => {
+      const result = typeof reader.result === "string" ? reader.result : "";
+      onChange({
+        ...value,
+        productImageName: file.name,
+        productImageUrl: result,
+      });
+    };
+    reader.readAsDataURL(file);
   };
 
   return (
@@ -110,19 +130,63 @@ function ProductFormDrawer({
             <div className="mt-3 grid gap-3 md:grid-cols-2">
               <label className="block md:col-span-2">
                 <span className="mb-1.5 block text-sm text-text-secondary">Imagem do Produto</span>
-                <input
-                  type="file"
-                  accept="image/*"
-                  className="input-field w-full"
-                  onChange={(event) =>
-                    setField("productImageName", event.target.files?.[0]?.name ?? "")
-                  }
-                />
-                {value.productImageName ? (
-                  <span className="mt-1 block text-xs text-text-secondary">
-                    Arquivo selecionado: {value.productImageName}
-                  </span>
-                ) : null}
+                <div
+                  onDragEnter={(event) => {
+                    event.preventDefault();
+                    setIsDragActive(true);
+                  }}
+                  onDragOver={(event) => {
+                    event.preventDefault();
+                    setIsDragActive(true);
+                  }}
+                  onDragLeave={(event) => {
+                    event.preventDefault();
+                    setIsDragActive(false);
+                  }}
+                  onDrop={(event) => {
+                    event.preventDefault();
+                    setIsDragActive(false);
+                    applyImage(event.dataTransfer.files?.[0] ?? null);
+                  }}
+                  className={`flex flex-col items-center justify-center rounded-xl border border-dashed p-4 transition ${
+                    isDragActive
+                      ? "border-accent bg-accent/10"
+                      : "border-border-secondary bg-bg-primary/50"
+                  }`}
+                >
+                  <div className="mb-3 h-24 w-24 overflow-hidden rounded-2xl border border-border-primary bg-bg-light shadow-sm">
+                    {value.productImageUrl ? (
+                      <img
+                        src={value.productImageUrl}
+                        alt="Pré-visualização do produto"
+                        className="h-full w-full object-cover"
+                      />
+                    ) : (
+                      <div className="flex h-full w-full items-center justify-center text-center text-sm font-medium text-text-tertiary">
+                        Sem imagem
+                      </div>
+                    )}
+                  </div>
+                  <input
+                    ref={fileInputRef}
+                    type="file"
+                    accept="image/*"
+                    className="hidden"
+                    onChange={(event) => applyImage(event.target.files?.[0] ?? null)}
+                  />
+                  <button
+                    type="button"
+                    className="btn-outline-secondary"
+                    onClick={() => fileInputRef.current?.click()}
+                  >
+                    Arraste e solte ou clique para enviar
+                  </button>
+                  {value.productImageName ? (
+                    <span className="mt-2 text-xs text-text-secondary">
+                      Arquivo: {value.productImageName}
+                    </span>
+                  ) : null}
+                </div>
               </label>
               <label className="block">
                 <span className="mb-1.5 block text-sm text-text-secondary">Nome do Produto *</span>
@@ -365,6 +429,7 @@ export default function ProductRegisterPage() {
           <table className="w-full min-w-[920px] text-sm">
             <thead className="bg-bg-primary text-left text-text-secondary">
               <tr>
+                <th className="px-4 py-3">Imagem</th>
                 <th className="px-4 py-3">Produto</th>
                 <th className="px-4 py-3">Código</th>
                 <th className="px-4 py-3">Fornecedor</th>
@@ -376,6 +441,21 @@ export default function ProductRegisterPage() {
             <tbody>
               {filteredProducts.map((product) => (
                 <tr key={product.id} className="border-t border-border-primary">
+                  <td className="px-4 py-3">
+                    <div className="h-12 w-12 overflow-hidden rounded-lg border border-border-primary bg-bg-light">
+                      {product.productImageUrl ? (
+                        <img
+                          src={product.productImageUrl}
+                          alt={product.productName}
+                          className="h-full w-full object-cover"
+                        />
+                      ) : (
+                        <div className="flex h-full w-full items-center justify-center text-[10px] text-text-tertiary">
+                          Sem
+                        </div>
+                      )}
+                    </div>
+                  </td>
                   <td className="px-4 py-3">{product.productName}</td>
                   <td className="px-4 py-3">{product.productCode}</td>
                   <td className="px-4 py-3">{product.productSupplier}</td>
