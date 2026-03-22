@@ -1,9 +1,10 @@
-import { Edit, Plus, Search, X } from "lucide-react";
+import { Pencil, Plus, Search, Trash2, X } from "lucide-react";
 import { useMemo, useState } from "react";
 import PageHeader from "@/components/Admin/PageHeader";
+import RowActionsMenu from "@/components/Admin/RowActionsMenu";
 import { DatePickerField } from "@/components/Form";
 import AddressContactFields from "@/components/Register/AddressContactFields";
-import { Toast } from "@/hooks/Dialog";
+import { Toast, useStatusDialog } from "@/hooks/Dialog";
 import useInputMasks from "@/hooks/InputMasks/useInputMasks";
 import PageLayout from "@/layout/PageLayout";
 import { lookupAddressByCep } from "@/utils/cepLookup";
@@ -210,6 +211,7 @@ function CustomerFormDrawer({
 }
 
 export default function CustomerRegisterPage() {
+  const statusDialog = useStatusDialog();
   const [customers, setCustomers] = useState<Customer[]>(INITIAL_CUSTOMERS);
   const [search, setSearch] = useState("");
   const [drawerOpen, setDrawerOpen] = useState(false);
@@ -237,6 +239,15 @@ export default function CustomerRegisterPage() {
     setEditingId(customer.id);
     setForm({ ...customer });
     setDrawerOpen(true);
+  };
+
+  const handleDelete = async (customer: Customer) => {
+    const confirmed = await statusDialog.confirm(
+      `Deseja excluir o cliente "${customer.customerName}"?`,
+    );
+    if (!confirmed) return;
+    setCustomers((current) => current.filter((item) => item.id !== customer.id));
+    statusDialog.success("Cliente excluído com sucesso.");
   };
 
   const fillAddressFromCep = async () => {
@@ -386,14 +397,23 @@ export default function CustomerRegisterPage() {
                   <td className="px-4 py-3">{customer.cellphone}</td>
                   <td className="px-4 py-3">{customer.email || "-"}</td>
                   <td className="px-4 py-3">
-                    <button
-                      type="button"
-                      onClick={() => openEditDrawer(customer)}
-                      className="inline-flex items-center gap-1 rounded-lg border border-border-secondary px-3 py-1.5 text-xs font-semibold text-text-secondary transition hover:bg-accent/10 hover:text-text-primary"
-                    >
-                      <Edit size={13} />
-                      Editar
-                    </button>
+                    <RowActionsMenu
+                      items={[
+                        {
+                          key: "edit",
+                          label: "Editar",
+                          icon: <Pencil size={13} />,
+                          onClick: () => openEditDrawer(customer),
+                        },
+                        {
+                          key: "delete",
+                          label: "Excluir",
+                          icon: <Trash2 size={13} />,
+                          onClick: () => handleDelete(customer),
+                          danger: true,
+                        },
+                      ]}
+                    />
                   </td>
                 </tr>
               ))}
@@ -412,6 +432,7 @@ export default function CustomerRegisterPage() {
         onSave={handleSave}
         onFillAddressFromCep={fillAddressFromCep}
       />
+      {statusDialog.Dialog}
     </PageLayout>
   );
 }

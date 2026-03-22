@@ -1,7 +1,8 @@
-import { Edit, Plus, Search, X } from "lucide-react";
+import { Pencil, Plus, Search, Trash2, X } from "lucide-react";
 import { useMemo, useRef, useState } from "react";
 import PageHeader from "@/components/Admin/PageHeader";
-import { Toast } from "@/hooks/Dialog";
+import RowActionsMenu from "@/components/Admin/RowActionsMenu";
+import { Toast, useStatusDialog } from "@/hooks/Dialog";
 import useInputMasks from "@/hooks/InputMasks/useInputMasks";
 import PageLayout from "@/layout/PageLayout";
 
@@ -308,6 +309,7 @@ function ProductFormDrawer({
 }
 
 export default function ProductRegisterPage() {
+  const statusDialog = useStatusDialog();
   const [products, setProducts] = useState<Product[]>(INITIAL_PRODUCTS);
   const [search, setSearch] = useState("");
   const [drawerOpen, setDrawerOpen] = useState(false);
@@ -334,6 +336,15 @@ export default function ProductRegisterPage() {
     setEditingId(product.id);
     setForm({ ...product });
     setDrawerOpen(true);
+  };
+
+  const handleDelete = async (product: Product) => {
+    const confirmed = await statusDialog.confirm(
+      `Deseja excluir o produto "${product.productName}"?`,
+    );
+    if (!confirmed) return;
+    setProducts((current) => current.filter((item) => item.id !== product.id));
+    statusDialog.success("Produto excluído com sucesso.");
   };
 
   const validateForm = () => {
@@ -462,14 +473,23 @@ export default function ProductRegisterPage() {
                   <td className="px-4 py-3">{product.productQnt}</td>
                   <td className="px-4 py-3">{product.productSalePrice}</td>
                   <td className="px-4 py-3">
-                    <button
-                      type="button"
-                      onClick={() => openEditDrawer(product)}
-                      className="inline-flex items-center gap-1 rounded-lg border border-border-secondary px-3 py-1.5 text-xs font-semibold text-text-secondary transition hover:bg-accent/10 hover:text-text-primary"
-                    >
-                      <Edit size={13} />
-                      Editar
-                    </button>
+                    <RowActionsMenu
+                      items={[
+                        {
+                          key: "edit",
+                          label: "Editar",
+                          icon: <Pencil size={13} />,
+                          onClick: () => openEditDrawer(product),
+                        },
+                        {
+                          key: "delete",
+                          label: "Excluir",
+                          icon: <Trash2 size={13} />,
+                          onClick: () => handleDelete(product),
+                          danger: true,
+                        },
+                      ]}
+                    />
                   </td>
                 </tr>
               ))}
@@ -486,6 +506,7 @@ export default function ProductRegisterPage() {
         onChange={setForm}
         onSave={handleSave}
       />
+      {statusDialog.Dialog}
     </PageLayout>
   );
 }
