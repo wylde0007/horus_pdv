@@ -1,81 +1,193 @@
-<h3 align="center">SISTEMA DE VENDAS - HÓRUS PDV</h3>
+# Hórus PDV
 
-### Sobre o Projeto
+[PT-BR](#pt-br) | [EN](#en)
 
-O Sistema de Ponto de Venda (PDV) é uma solução completa para gestão de vendas e operações comerciais. Ele oferece uma ampla gama de recursos para facilitar o gerenciamento de vendas, clientes, produtos, fornecedores e relatórios. Abaixo estão os principais aspectos e funcionalidades do sistema:
+---
 
-* ##### Cadastro de Cliente, Produto e Fornecedor:
-O sistema permite o cadastro detalhado de clientes, produtos e fornecedores. Para clientes, é possível armazenar informações como nome, endereço, e-mail e telefone entre outras informações. Para produtos, são registrados detalhes como nome, descrição, preço, código de barras e estoque. Para fornecedores, são mantidos dados como nome, contato e informações de pagamento.
+## PT-BR
 
-* ##### Geração de Relatórios:
-O sistema gera relatórios detalhados em formatos Excel e PDF. Os relatórios são essenciais para uma análise abrangente do negócio e tomada de decisões estratégicas.
+Projeto open source de frente de caixa (PDV) criado por **Flávio Oliveira**.
 
-* ##### Histórico de Vendas:
-O sistema mantém um histórico completo de todas as vendas realizadas. Isso inclui informações sobre os produtos vendidos, os clientes envolvidos, os valores das transações e as datas das vendas. 
+O Hórus PDV começou em 2020, passou por evoluções de arquitetura e UX ao longo dos anos, e nesta fase de 2026 está organizado para crescimento em camadas separadas de frontend e backend.
 
-* ##### Tela de Venda:
-A tela de venda é a interface principal para realizar transações de vendas. Nesta tela, os usuários podem selecionar produtos, adicionar ao carrinho, aplicar descontos, escolher opções de pagamento e concluir a venda. A interface é intuitiva e fácil de usar, agilizando o processo de venda.
+### Filosofia do Projeto
 
-* ##### Autenticação e Segurança:
-O sistema inclui uma tela de login segura para acesso aos usuários autorizados. Além disso, oferece funcionalidades de recuperação de senha para garantir o acesso contínuo aos usuários. 
+- Uso gratuito nesta versão open source.
+- Reutilização e aprendizado para a comunidade.
+- Evolução contínua com foco em qualidade de código, clareza e manutenção.
+- Possibilidade de versões pagas no futuro com módulos adicionais.
 
-* ##### Configurações e Gerenciamento de Contas de Usuário:
-As configurações do sistema permitem o gerenciamento de contas de usuário, incluindo a criação, edição e exclusão de contas. Os administradores podem atribuir diferentes níveis de permissão aos usuários para controlar o acesso às funcionalidades do sistema. Além disso, os usuários têm a capacidade de editar seus perfis para manter informações pessoais atualizadas.
+### Estrutura do Repositório
 
-* ##### Licenciamento:
-O sistema possui um sistema de licenciamento para garantir o uso adequado do software. 
+```text
+horus_pdv/
+├── FRONTEND/       # Aplicação cliente (React + Vite + TypeScript)
+├── API/            # Backends em desenvolvimento (NETCORE, NODE, PHP)
+└── SYSTEM-LEGACY/  # Base legada para consulta histórica/migração
+```
 
+### Status Atual
 
-#### Construído com
+- `FRONTEND`: em desenvolvimento ativo.
+- `API/NETCORE`: em desenvolvimento.
+- `API/NODE`: em desenvolvimento.
+- `API/PHP`: em desenvolvimento.
+- `SYSTEM-LEGACY`: referência da versão anterior.
 
-* [HTML](https://www.w3schools.com/html/)
-* [CSS](https://www.w3schools.com/css/)
-* [Bootstrap](https://getbootstrap.com/)
-* [PHP](https://www.php.net/)
-* [Javascript](https://www.javascript.com/)
-* [MySQL](https://www.mysql.com/)
-* [Mpdf](https://mpdf.github.io/)
-* [PHPMailer](https://github.com/PHPMailer/PHPMailer)
-* [JQuery](https://jquery.com/)
-* [JQuery Mask](https://igorescobar.github.io/jQuery-Mask-Plugin/)
-* [Select2](https://select2.org/)
-* [SweetAlert2](https://sweetalert2.github.io/)
-* [ViaCEP](https://viacep.com.br/)
-* [Font Awesome](https://fontawesome.com/)
-* [Google Fonts](https://fonts.google.com/)
-* [PHPspreadsheet](https://phpspreadsheet.readthedocs.io/en/latest/)
+### Executando o Frontend
 
+Pré-requisitos:
 
-#### Demonstração
+- Node.js 20+
+- npm 10+
 
-Para acessar a demonstração do sistema em funcionamento entre no site
-* [Acessar demonstração](https://www.flaviodeoliveira.com.br/hpdv.com.br/app/web/)
+Passos:
 
+```bash
+cd FRONTEND
+npm install
+npm run dev
+```
 
-#### Screenshots
+Build de produção:
 
-![](https://github.com/oliveiradeflavio/horus_pdv/blob/main/img/telacadastroproduto.png)
+```bash
+npm run build
+```
 
-![](https://github.com/oliveiradeflavio/horus_pdv/blob/main/img/telavendaproduto.png)
+### Backend (API)
 
-![](https://github.com/oliveiradeflavio/horus_pdv/blob/main/img/telavendapagamento.png)
+A pasta `API` está preparada para organização de implementações de backend por tecnologia.
 
-![](https://github.com/oliveiradeflavio/horus_pdv/blob/main/img/hpdv-img.png)
+Cada subpasta possui documentação própria:
 
-![](https://github.com/oliveiradeflavio/horus_pdv/blob/main/img/hpdv-img3.png)
+- `API/NETCORE/README.md`
+- `API/NODE/README.md`
+- `API/PHP/README.md`
 
-![](https://github.com/oliveiradeflavio/horus_pdv/blob/main/img/hpdv-img4.png)
+### Open Source e Créditos
 
-![](https://github.com/oliveiradeflavio/horus_pdv/blob/main/img/hpdv-img5.png)
+Você pode usar esta versão gratuitamente em projetos pessoais, estudos e adaptações, mantendo os devidos créditos ao autor.
 
-![](https://github.com/oliveiradeflavio/horus_pdv/blob/main/img/hpdv-img6.png)
+Autor:
 
+- **Flávio Oliveira**
+- GitHub: https://github.com/flaviooliveira-code
+- LinkedIn: https://www.linkedin.com/in/fladoliveira
 
+### Contribuindo
 
+Contribuições são bem-vindas.
 
+Fluxo sugerido:
 
+1. Faça um fork.
+2. Crie uma branch (`feature/minha-melhoria`).
+3. Commit suas alterações.
+4. Abra um Pull Request com contexto técnico e evidências de teste.
 
+### Roadmap (alto nível)
 
-[linkedin-shield]: https://img.shields.io/badge/-LinkedIn-black.svg?style=for-the-badge&logo=linkedin&colorB=555
-[linkedin-url]: https://www.linkedin.com/in/fladoliveira/
-[product-screenshot]: https://raw.githubusercontent.com/oliveiradeflavio/horus_pdv/main/screen/dashboard.png
+- Consolidação da API principal.
+- Integração real entre frontend e backend.
+- Módulos extras (financeiro avançado, fiscal, integrações externas).
+- Melhorias contínuas de UX mobile e acessibilidade.
+
+### Licença
+
+Consulte o arquivo [LICENSE](./LICENSE).
+
+---
+
+## EN
+
+Open-source point of sale (POS) project created by **Flávio Oliveira**.
+
+Hórus PDV started in 2020 and has gone through architecture and UX evolution over the years. In this 2026 phase, it is organized for growth with separated frontend and backend layers.
+
+### Project Philosophy
+
+- Free usage in this open-source version.
+- Reuse and learning for the community.
+- Continuous evolution focused on code quality, clarity, and maintainability.
+- Possible paid editions in the future with additional modules.
+
+### Repository Structure
+
+```text
+horus_pdv/
+├── FRONTEND/       # Client application (React + Vite + TypeScript)
+├── API/            # Backends in development (NETCORE, NODE, PHP)
+└── SYSTEM-LEGACY/  # Legacy base for historical reference/migration
+```
+
+### Current Status
+
+- `FRONTEND`: actively under development.
+- `API/NETCORE`: in development.
+- `API/NODE`: in development.
+- `API/PHP`: in development.
+- `SYSTEM-LEGACY`: previous version reference.
+
+### Running the Frontend
+
+Requirements:
+
+- Node.js 20+
+- npm 10+
+
+Steps:
+
+```bash
+cd FRONTEND
+npm install
+npm run dev
+```
+
+Production build:
+
+```bash
+npm run build
+```
+
+### Backend (API)
+
+The `API` folder is prepared to organize backend implementations by technology.
+
+Each subfolder has its own documentation:
+
+- `API/NETCORE/README.md`
+- `API/NODE/README.md`
+- `API/PHP/README.md`
+
+### Open Source and Credits
+
+You can use this version for free in personal projects, studies, and adaptations, keeping proper credit to the author.
+
+Author:
+
+- **Flávio Oliveira**
+- GitHub: https://github.com/flaviooliveira-code
+- LinkedIn: https://www.linkedin.com/in/fladoliveira
+
+### Contributing
+
+Contributions are welcome.
+
+Suggested flow:
+
+1. Fork this repository.
+2. Create a branch (`feature/my-improvement`).
+3. Commit your changes.
+4. Open a Pull Request with technical context and test evidence.
+
+### Roadmap (high-level)
+
+- Main API consolidation.
+- Real frontend-backend integration.
+- Extra modules (advanced finance, fiscal, external integrations).
+- Ongoing mobile UX and accessibility improvements.
+
+### License
+
+See [LICENSE](./LICENSE).

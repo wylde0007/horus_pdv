@@ -567,39 +567,41 @@ export default function SalesStartPage({ standalone = false }: SalesStartPagePro
               </div>
             </div>
 
-            <div className="border-t border-border-primary bg-bg-gray-theme px-3 py-1.5 text-sm text-text-primary">00 - Ajuda</div>
+            <div className="md:sticky md:bottom-0 md:z-10 md:shadow-[0_-8px_18px_rgba(15,23,42,0.08)]">
+              <div className="border-t border-border-primary bg-bg-gray-theme px-3 py-1.5 text-sm text-text-primary">00 - Ajuda</div>
 
-            <div className="grid grid-cols-[1fr_160px] border-t border-border-primary md:grid-cols-[1fr_220px]">
-              <div className="bg-bg-gray-theme px-3 py-2 text-right text-sm font-semibold uppercase text-text-primary">
-                SUB TOTAL:
+              <div className="grid grid-cols-[1fr_160px] border-t border-border-primary md:grid-cols-[1fr_220px]">
+                <div className="bg-bg-gray-theme px-3 py-2 text-right text-sm font-semibold uppercase text-text-primary">
+                  SUB TOTAL:
+                </div>
+                <div className="bg-accent px-3 py-2 text-right font-display text-3xl font-bold text-text-light md:text-4xl">
+                  R$ {formatMoneyBr(subtotal)}
+                </div>
               </div>
-              <div className="bg-accent px-3 py-2 text-right font-display text-3xl font-bold text-text-light md:text-4xl">
-                R$ {formatMoneyBr(subtotal)}
+
+              <div className="grid grid-cols-1 gap-2 border-t border-border-primary px-3 py-3 sm:grid-cols-2">
+                <button
+                  type="button"
+                  onClick={cancelSale}
+                  className="btn-cancel h-11 w-full rounded-xl"
+                >
+                  ✖ CANCELAR (F8)
+                </button>
+                <button
+                  type="button"
+                  onClick={openPayment}
+                  className="btn-success h-11 w-full rounded-xl"
+                >
+                  PAGAMENTO (F12)
+                </button>
               </div>
-            </div>
 
-            <div className="grid grid-cols-1 gap-2 border-t border-border-primary px-3 py-3 sm:grid-cols-2">
-              <button
-                type="button"
-                onClick={cancelSale}
-                className="btn-cancel h-11 w-full rounded-xl"
-              >
-                ✖ CANCELAR (F8)
-              </button>
-              <button
-                type="button"
-                onClick={openPayment}
-                className="btn-success h-11 w-full rounded-xl"
-              >
-                PAGAMENTO (F12)
-              </button>
+              <footer className="space-y-0.5 border-t border-border-primary bg-bg-primary px-3 py-2 text-[11px] text-text-secondary sm:grid sm:grid-cols-3 sm:items-center sm:space-y-0 sm:text-xs">
+                <p>Usuário: July</p>
+                <p className="sm:text-center">Estabelecimento: Festa & Fantasia</p>
+                <p className="sm:text-right">Nome caixa: PDV01</p>
+              </footer>
             </div>
-
-            <footer className="space-y-0.5 border-t border-border-primary bg-bg-primary px-3 py-2 text-[11px] text-text-secondary sm:grid sm:grid-cols-3 sm:items-center sm:space-y-0 sm:text-xs">
-              <p>Usuário: July</p>
-              <p className="sm:text-center">Estabelecimento: Festa & Fantasia</p>
-              <p className="sm:text-right">Nome caixa: PDV01</p>
-            </footer>
           </section>
         </main>
       </div>
