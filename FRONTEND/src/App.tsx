@@ -23,6 +23,7 @@ const SalesStartPage = lazy(() => import("@/pages/Admin/SalesStartPage"));
 const ReportsPage = lazy(() => import("@/pages/Admin/ReportsPage"));
 const UserAccountsPage = lazy(() => import("@/pages/Admin/UserAccountsPage"));
 const SettingsPage = lazy(() => import("@/pages/Admin/SettingsPage"));
+const MyCompanyPage = lazy(() => import("@/pages/Admin/MyCompanyPage"));
 const LicenseDetailsPage = lazy(() => import("@/pages/Admin/LicenseDetailsPage"));
 const AboutPdvPage = lazy(() => import("@/pages/Admin/AboutPdvPage"));
 const EditProfilePage = lazy(() => import("@/pages/Admin/EditProfilePage"));
@@ -61,10 +62,11 @@ export default function App() {
       "relatorios",
       "vendas",
       "conta-de-usuario",
-      "configuracoes",
+      "minha-empresa",
       "detalhe-licenca",
       "sobre-pdv",
       "editar-perfil",
+      "configuracoes",
     ].includes(value);
 
   const [collapsed, setCollapsed] = useState(false);
@@ -110,10 +112,11 @@ export default function App() {
     relatorios: "Relatórios",
     vendas: "Iniciar Vendas",
     "conta-de-usuario": "Contas de Usuários",
-    configuracoes: "Configurações",
+    "minha-empresa": "Minha Empresa",
     "detalhe-licenca": "Detalhes da Licença",
     "sobre-pdv": "Sobre PDV",
     "editar-perfil": "Meu Perfil",
+    configuracoes: "Configurações",
   };
 
   const CurrentPage = useMemo(() => {
@@ -134,6 +137,8 @@ export default function App() {
         return SalesStartPage;
       case "conta-de-usuario":
         return UserAccountsPage;
+      case "minha-empresa":
+        return MyCompanyPage;
       case "detalhe-licenca":
         return LicenseDetailsPage;
       case "sobre-pdv":

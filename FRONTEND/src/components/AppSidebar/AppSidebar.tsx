@@ -3,6 +3,7 @@
  * Objetivo: renderiza menu lateral no padrao do legado com suporte a desktop colapsado e drawer mobile.
  */
 import {
+  Building2,
   ChevronRight,
   FileText,
   History,
@@ -10,7 +11,6 @@ import {
   Info,
   Menu,
   Package,
-  Settings,
   ShoppingCart,
   Truck,
   UserCog,
@@ -29,6 +29,7 @@ export type PageKey =
   | "relatorios"
   | "vendas"
   | "conta-de-usuario"
+  | "minha-empresa"
   | "configuracoes"
   | "detalhe-licenca"
   | "sobre-pdv"
@@ -230,11 +231,11 @@ export default function AppSidebar({
           <div className="space-y-2">
             <SidebarSectionTitle label="Sistema" collapsed={collapsed} />
             <SidebarItem
-              icon={<Settings size={20} />}
-              label="Configurações"
-              active={activePage === "configuracoes"}
+              icon={<Building2 size={20} />}
+              label="Minha Empresa"
+              active={activePage === "minha-empresa"}
               collapsed={collapsed}
-              onClick={() => handleChangePage("configuracoes")}
+              onClick={() => handleChangePage("minha-empresa")}
             />
             <SidebarItem
               icon={<WalletCards size={20} />}
