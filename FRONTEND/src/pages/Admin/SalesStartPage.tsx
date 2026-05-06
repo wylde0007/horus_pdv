@@ -34,13 +34,6 @@ type CartItem = {
 
 type PaymentType = "dinheiro" | "pix" | "debito" | "credito";
 
-const INITIAL_PRODUCTS: Product[] = [
-  { id: "pr-001", name: "BOLA DE CAMPO - ADIDAS++", code: "BOL110", stock: 25, salePrice: 110 },
-  { id: "pr-002", name: "Óleo de Soja", code: "OLE900", stock: 56, salePrice: 3.29 },
-  { id: "pr-003", name: "Erva Chimarrão", code: "ERV500", stock: 24, salePrice: 15 },
-  { id: "pr-004", name: "Bala Tic Tac", code: "BAL018", stock: 110, salePrice: 3 },
-];
-
 function formatDateTime(date: Date) {
   return {
     dateLabel: date.toLocaleDateString("pt-BR", {
@@ -64,7 +57,7 @@ export default function SalesStartPage({ standalone = false }: SalesStartPagePro
 
   const [now, setNow] = useState(new Date());
   const [productSearch, setProductSearch] = useState("");
-  const [products, setProducts] = useState<Product[]>(INITIAL_PRODUCTS);
+  const [products, setProducts] = useState<Product[]>([]);
   const [selectedProductId, setSelectedProductId] = useState("");
   const [showProductOptions, setShowProductOptions] = useState(false);
   const [highlightedProductIndex, setHighlightedProductIndex] = useState(0);
@@ -136,7 +129,7 @@ export default function SalesStartPage({ standalone = false }: SalesStartPagePro
         );
       })
       .catch(() => {
-        Toast.info("API indisponível. Usando produtos mockados locais no PDV.");
+        Toast.error("Não foi possível carregar produtos da API no PDV.");
       });
   }, [parseMoneyBr]);
 

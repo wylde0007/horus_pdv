@@ -1,6 +1,5 @@
-import MarketModulePage from "@/components/Admin/MarketModulePage";
-import { cashModuleConfig } from "./marketModuleConfigs";
+import MarketModuleRoutePage from "@/components/Admin/MarketModuleRoutePage";
 
 export default function CashRegisterPage() {
-  return <MarketModulePage config={cashModuleConfig} />;
+  return <MarketModuleRoutePage moduleId="caixa" />;
 }

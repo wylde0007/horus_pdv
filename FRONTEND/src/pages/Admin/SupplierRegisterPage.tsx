@@ -53,26 +53,6 @@ const EMPTY_FORM: SupplierFormData = {
   email: "",
 };
 
-const INITIAL_SUPPLIERS: Supplier[] = [
-  {
-    id: "fr-001",
-    companyName: "Distribuidora Alfa LTDA",
-    fantasyName: "Distribuidora Alfa",
-    cnpj: "12.345.678/0001-95",
-    cep: "01001-000",
-    city: "São Paulo",
-    state: "SP",
-    address: "Praça da Sé",
-    neighborhood: "Sé",
-    streetComplement: "",
-    number: "100",
-    referencePoint: "",
-    telephone: "(11) 3322-1100",
-    cellphone: "(11) 98888-3344",
-    email: "comercial@alfa.com.br",
-  },
-];
-
 function SupplierFormDrawer({
   open,
   isEditMode,
@@ -195,7 +175,7 @@ function SupplierFormDrawer({
 
 export default function SupplierRegisterPage() {
   const statusDialog = useStatusDialog();
-  const [suppliers, setSuppliers] = useState<Supplier[]>(INITIAL_SUPPLIERS);
+  const [suppliers, setSuppliers] = useState<Supplier[]>([]);
   const [search, setSearch] = useState("");
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -205,11 +185,9 @@ export default function SupplierRegisterPage() {
   useEffect(() => {
     supplierService
       .list()
-      .then((items) => {
-        if (items.length > 0) setSuppliers(items);
-      })
+      .then(setSuppliers)
       .catch(() => {
-        Toast.info("API indisponível. Usando fornecedores mockados locais.");
+        Toast.error("Não foi possível carregar fornecedores da API.");
       });
   }, []);
 

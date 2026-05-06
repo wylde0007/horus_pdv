@@ -8,7 +8,6 @@ import { Plus } from "lucide-react";
 import PageHeader from "@/components/Admin/PageHeader";
 import {
   DeactivateUserReasonDialog,
-  USERS_MOCK,
   type AdminUser,
   type UserFormState,
   type UserRoleFilter,
@@ -20,6 +19,7 @@ import TablePagination from "@/components/Pagination/TablePagination";
 import { useStatusDialog } from "@/hooks/Dialog";
 import LoadingBar from "@/components/Loading/LoadingBar";
 import PageLayout from "@/layout/PageLayout";
+import { userService } from "@/services/api/userService";
 
 const UsersFilters = lazy(() => import("@/components/Admin/UsersPage/UsersFilters"));
 const UsersTable = lazy(() => import("@/components/Admin/UsersPage/UsersTable"));
@@ -52,7 +52,7 @@ function toInputForm(user: AdminUser): UserFormState {
 }
 
 export default function UserAccountsPage() {
-  const [users, setUsers] = useState<AdminUser[]>(USERS_MOCK);
+  const [users, setUsers] = useState<AdminUser[]>([]);
   const [searchTerm, setSearchTerm] = useState("");
   const [roleFilter, setRoleFilter] = useState<UserRoleFilter>("todos");
   const [statusFilter, setStatusFilter] = useState<UserStatusFilter>("todos");
@@ -77,6 +77,10 @@ export default function UserAccountsPage() {
     return count;
   }, [searchTerm, roleFilter, statusFilter]);
   const hasActiveFilters = activeFilterCount > 0;
+
+  useEffect(() => {
+    userService.list().then(setUsers).catch(() => setUsers([]));
+  }, []);
 
   const filteredUsers = useMemo(() => {
     const normalizedSearch = normalizeText(searchTerm);

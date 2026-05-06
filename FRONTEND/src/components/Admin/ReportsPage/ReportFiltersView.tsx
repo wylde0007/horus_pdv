@@ -14,7 +14,7 @@ import type {
   ReportResultColumn,
   ReportResultRow,
 } from "./reportResultTypes";
-import { generateReportResult } from "./reportMockResults";
+import { reportService } from "@/services/api/reportService";
 
 type FilterValue = string | string[] | boolean;
 
@@ -270,8 +270,7 @@ export default function ReportFiltersView({ report, onBack }: ReportFiltersViewP
     event.preventDefault();
     setIsLoading(true);
 
-    await new Promise((resolve) => window.setTimeout(resolve, 250));
-    const result = generateReportResult(report.id, values);
+    const result = await reportService.generate(report.id, values);
 
     setSubmittedValues({ ...values });
     setResultColumns(result.columns);

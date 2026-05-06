@@ -9,14 +9,11 @@ export type ApiResponse<T> = {
   data?: T;
 };
 
-const API_BASE_URL =
-  import.meta.env.VITE_API_BASE_URL?.replace(/\/$/, "") ?? "http://localhost:5260/api";
-
 export async function apiRequest<T>(
-  path: string,
+  endpointUrl: string,
   options: RequestInit = {},
 ): Promise<ApiResponse<T>> {
-  const response = await fetch(`${API_BASE_URL}${path}`, {
+  const response = await fetch(endpointUrl, {
     headers: {
       "Content-Type": "application/json",
       ...options.headers,

@@ -3,13 +3,14 @@
  * Objetivo: renderiza página de configurações com tema e segurança de sessões.
  * Entradas esperadas: estado do tema e callback para alternância.
  */
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   SecuritySessionsCard,
   ThemeSettingsCard,
   type ActiveSession,
 } from "@/components/SettingsPage";
 import PageLayout from "@/layout/PageLayout";
+import { sessionService } from "@/services/api/sessionService";
 
 type ThemeMode = "light" | "dark";
 
@@ -18,24 +19,16 @@ type SettingsPageProps = {
   onToggleTheme: () => void;
 };
 
-const SESSIONS_MOCK: ActiveSession[] = [
-  {
-    id: "sess-1",
-    device: "Mac - Firefox",
-    location: "Localização indisponível",
-    ip: "104.23.254.196",
-    lastActive: "Agora mesmo",
-    current: true,
-    platform: "desktop",
-  },
-];
-
 export default function SettingsPage({
   themeMode,
   onToggleTheme,
 }: SettingsPageProps) {
-  const [sessions, setSessions] = useState<ActiveSession[]>(SESSIONS_MOCK);
+  const [sessions, setSessions] = useState<ActiveSession[]>([]);
   const [isLoading] = useState(false);
+
+  useEffect(() => {
+    sessionService.list().then(setSessions).catch(() => setSessions([]));
+  }, []);
 
   const hasOtherSessions = useMemo(
     () => sessions.some((session) => !session.current),

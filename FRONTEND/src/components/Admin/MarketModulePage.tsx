@@ -1,6 +1,6 @@
 /**
  * Arquivo: src/components/Admin/MarketModulePage.tsx
- * Objetivo: renderizar módulos operacionais mockados para lacunas competitivas do PDV.
+ * Objetivo: renderizar módulos operacionais conectados à API para lacunas competitivas do PDV.
  * Entradas esperadas: configuração visual do módulo com KPIs, registros, fluxos e alertas.
  */
 import { CheckCircle2, CircleAlert, Clock3, Plus, RefreshCw } from "lucide-react";
@@ -84,7 +84,7 @@ export default function MarketModulePage({ config }: { config: MarketModuleConfi
               </p>
               <p className="mt-1 text-lg font-bold text-text-primary">{config.statusValue}</p>
               <p className="mt-1 text-xs text-text-secondary">
-                Dados simulados para validar fluxo e layout antes da API.
+                Dados temporários mantidos na API enquanto o banco definitivo não está pronto.
               </p>
             </div>
           </div>
@@ -97,7 +97,7 @@ export default function MarketModulePage({ config }: { config: MarketModuleConfi
             <div>
               <h2 className="text-base font-semibold text-text-primary">{config.recordsTitle}</h2>
               <p className="mt-1 text-sm text-text-secondary">
-                Registros mockados para simular operação do módulo.
+                Registros retornados pela API para simular operação do módulo.
               </p>
             </div>
             <button
@@ -147,7 +147,7 @@ export default function MarketModulePage({ config }: { config: MarketModuleConfi
           </section>
 
           <section className="card rounded-2xl p-4">
-            <h2 className="text-base font-semibold text-text-primary">Alertas mockados</h2>
+            <h2 className="text-base font-semibold text-text-primary">Alertas operacionais</h2>
             <div className="mt-4 space-y-3">
               {config.alerts.map((alert) => (
                 <div

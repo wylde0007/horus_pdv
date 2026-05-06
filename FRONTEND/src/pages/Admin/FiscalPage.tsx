@@ -1,6 +1,5 @@
-import MarketModulePage from "@/components/Admin/MarketModulePage";
-import { fiscalModuleConfig } from "./marketModuleConfigs";
+import MarketModuleRoutePage from "@/components/Admin/MarketModuleRoutePage";
 
 export default function FiscalPage() {
-  return <MarketModulePage config={fiscalModuleConfig} />;
+  return <MarketModuleRoutePage moduleId="fiscal" />;
 }

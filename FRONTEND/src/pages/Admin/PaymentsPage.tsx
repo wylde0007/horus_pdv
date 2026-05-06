@@ -1,6 +1,5 @@
-import MarketModulePage from "@/components/Admin/MarketModulePage";
-import { paymentsModuleConfig } from "./marketModuleConfigs";
+import MarketModuleRoutePage from "@/components/Admin/MarketModuleRoutePage";
 
 export default function PaymentsPage() {
-  return <MarketModulePage config={paymentsModuleConfig} />;
+  return <MarketModuleRoutePage moduleId="pagamentos" />;
 }

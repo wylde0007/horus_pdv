@@ -61,27 +61,6 @@ const EMPTY_FORM: CustomerFormData = {
   email: "",
 };
 
-const INITIAL_CUSTOMERS: Customer[] = [
-  {
-    id: "cl-001",
-    customerName: "Ana Martins",
-    document: "123.456.789-09",
-    birthDate: "16/10/1991",
-    age: "34",
-    cep: "06010-000",
-    city: "Osasco",
-    state: "SP",
-    address: "Rua Primitiva Vianco",
-    neighborhood: "Centro",
-    streetComplement: "",
-    number: "100",
-    referencePoint: "",
-    telephone: "(11) 3681-1000",
-    cellphone: "(11) 99888-1122",
-    email: "ana.martins@email.com",
-  },
-];
-
 function CustomerFormDrawer({
   open,
   isEditMode,
@@ -219,7 +198,7 @@ function CustomerFormDrawer({
 
 export default function CustomerRegisterPage() {
   const statusDialog = useStatusDialog();
-  const [customers, setCustomers] = useState<Customer[]>(INITIAL_CUSTOMERS);
+  const [customers, setCustomers] = useState<Customer[]>([]);
   const [search, setSearch] = useState("");
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -229,11 +208,9 @@ export default function CustomerRegisterPage() {
   useEffect(() => {
     customerService
       .list()
-      .then((items) => {
-        if (items.length > 0) setCustomers(items);
-      })
+      .then(setCustomers)
       .catch(() => {
-        Toast.info("API indisponível. Usando clientes mockados locais.");
+        Toast.error("Não foi possível carregar clientes da API.");
       });
   }, []);
 

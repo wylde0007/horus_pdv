@@ -12,6 +12,7 @@ import { Toast, useStatusDialog } from "@/hooks/Dialog";
 import useInputMasks from "@/hooks/InputMasks/useInputMasks";
 import PageLayout from "@/layout/PageLayout";
 import { productService } from "@/services/api/productService";
+import { supplierService } from "@/services/api/supplierService";
 
 type Product = {
   id: string;
@@ -29,12 +30,6 @@ type Product = {
 
 type ProductFormData = Omit<Product, "id">;
 
-const SUPPLIER_OPTIONS = [
-  "Distribuidora Alfa",
-  "Atacado Vitória",
-  "Mundo Embalagens",
-];
-
 const EMPTY_FORM: ProductFormData = {
   productImageUrl: "",
   productImageName: "",
@@ -48,22 +43,6 @@ const EMPTY_FORM: ProductFormData = {
   totalPriceOnProduct: "",
 };
 
-const INITIAL_PRODUCTS: Product[] = [
-  {
-    id: "pr-001",
-    productImageUrl: "",
-    productImageName: "",
-    productName: "Café Tradicional 500g",
-    productCode: "CAF500",
-    productSupplier: "Distribuidora Alfa",
-    productDescription: "Café torrado e moído 500g",
-    productQnt: "120",
-    productUnitPrice: "14,90",
-    productSalePrice: "18,90",
-    totalPriceOnProduct: "1.788,00",
-  },
-];
-
 function ProductFormDrawer({
   open,
   isEditMode,
@@ -71,6 +50,7 @@ function ProductFormDrawer({
   onClose,
   onChange,
   onSave,
+  supplierOptions,
 }: {
   open: boolean;
   isEditMode: boolean;
@@ -78,6 +58,7 @@ function ProductFormDrawer({
   onClose: () => void;
   onChange: (next: ProductFormData) => void;
   onSave: () => void;
+  supplierOptions: string[];
 }) {
   const { maskMoneyBr, parseMoneyBr, formatMoneyBr } = useInputMasks();
   const fileInputRef = useRef<HTMLInputElement | null>(null);
@@ -222,7 +203,7 @@ function ProductFormDrawer({
                   className="select-field w-full"
                 >
                   <option value="">Selecionar Fornecedor</option>
-                  {SUPPLIER_OPTIONS.map((supplier) => (
+                  {supplierOptions.map((supplier) => (
                     <option key={supplier} value={supplier}>
                       {supplier}
                     </option>
@@ -317,7 +298,8 @@ function ProductFormDrawer({
 
 export default function ProductRegisterPage() {
   const statusDialog = useStatusDialog();
-  const [products, setProducts] = useState<Product[]>(INITIAL_PRODUCTS);
+  const [products, setProducts] = useState<Product[]>([]);
+  const [supplierOptions, setSupplierOptions] = useState<string[]>([]);
   const [search, setSearch] = useState("");
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -326,12 +308,14 @@ export default function ProductRegisterPage() {
   useEffect(() => {
     productService
       .list()
-      .then((items) => {
-        if (items.length > 0) setProducts(items);
-      })
+      .then(setProducts)
       .catch(() => {
-        Toast.info("API indisponível. Usando produtos mockados locais.");
+        Toast.error("Não foi possível carregar produtos da API.");
       });
+    supplierService
+      .list()
+      .then((items) => setSupplierOptions(items.map((item) => item.fantasyName)))
+      .catch(() => setSupplierOptions([]));
   }, []);
 
   const filteredProducts = useMemo(() => {
@@ -531,6 +515,7 @@ export default function ProductRegisterPage() {
         onClose={() => setDrawerOpen(false)}
         onChange={setForm}
         onSave={handleSave}
+        supplierOptions={supplierOptions}
       />
       {statusDialog.Dialog}
     </PageLayout>
