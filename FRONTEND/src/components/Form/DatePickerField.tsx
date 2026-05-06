@@ -6,6 +6,7 @@
 
 /* eslint-disable react-hooks/set-state-in-effect */
 import { useEffect, useMemo, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { CalendarDays, ChevronLeft, ChevronRight } from "lucide-react";
 import { DayPicker } from "react-day-picker";
 import { ptBR } from "date-fns/locale";
@@ -20,6 +21,17 @@ type DatePickerFieldProps = {
   disabled?: boolean;
   format?: DateOutputFormat;
 };
+
+type PopoverPosition = {
+  left: number;
+  top: number;
+  width: number;
+};
+
+const VIEWPORT_MARGIN = 12;
+const POPOVER_GAP = 8;
+const DESKTOP_POPOVER_WIDTH = 360;
+const MOBILE_POPOVER_WIDTH = 340;
 
 function parseIsoDate(value: string) {
   if (!value) return undefined;
@@ -61,7 +73,9 @@ export default function DatePickerField({
 }: DatePickerFieldProps) {
   // Controla abertura do popover de calendário.
   const [open, setOpen] = useState(false);
+  const [popoverPosition, setPopoverPosition] = useState<PopoverPosition | null>(null);
   const rootRef = useRef<HTMLDivElement | null>(null);
+  const popoverRef = useRef<HTMLDivElement | null>(null);
   // Data selecionada derivada do valor textual recebido por props.
   const selectedDate = useMemo(
     () => (format === "br" ? parseBrDate(value) : parseIsoDate(value)),
@@ -103,10 +117,64 @@ export default function DatePickerField({
   }, [selectedDate]);
 
   useEffect(() => {
+    if (!open || selectedDate) return;
+    setViewMonth(new Date());
+  }, [open, selectedDate]);
+
+  useEffect(() => {
+    if (!open) return;
+
+    function updatePopoverPosition() {
+      if (!rootRef.current) return;
+
+      const inputRect = rootRef.current.getBoundingClientRect();
+      const viewportWidth = window.innerWidth;
+      const viewportHeight = window.innerHeight;
+      const preferredWidth =
+        viewportWidth >= 640 ? DESKTOP_POPOVER_WIDTH : MOBILE_POPOVER_WIDTH;
+      const popoverWidth = Math.min(
+        preferredWidth,
+        viewportWidth - VIEWPORT_MARGIN * 2,
+      );
+      const measuredHeight = popoverRef.current?.offsetHeight ?? 390;
+      const maxLeft = viewportWidth - popoverWidth - VIEWPORT_MARGIN;
+      const left = Math.min(
+        Math.max(inputRect.left, VIEWPORT_MARGIN),
+        Math.max(maxLeft, VIEWPORT_MARGIN),
+      );
+
+      const belowTop = inputRect.bottom + POPOVER_GAP;
+      const aboveTop = inputRect.top - measuredHeight - POPOVER_GAP;
+      const hasRoomBelow =
+        belowTop + measuredHeight <= viewportHeight - VIEWPORT_MARGIN;
+      const hasRoomAbove = aboveTop >= VIEWPORT_MARGIN;
+      const top =
+        hasRoomBelow || !hasRoomAbove
+          ? Math.min(
+              belowTop,
+              Math.max(viewportHeight - measuredHeight - VIEWPORT_MARGIN, VIEWPORT_MARGIN),
+            )
+          : aboveTop;
+
+      setPopoverPosition({ left, top, width: popoverWidth });
+    }
+
+    updatePopoverPosition();
+    window.addEventListener("resize", updatePopoverPosition);
+    window.addEventListener("scroll", updatePopoverPosition, true);
+
+    return () => {
+      window.removeEventListener("resize", updatePopoverPosition);
+      window.removeEventListener("scroll", updatePopoverPosition, true);
+    };
+  }, [open]);
+
+  useEffect(() => {
     // Fecha calendário ao clicar fora ou pressionar ESC.
     function handleClickOutside(event: MouseEvent) {
-      if (!rootRef.current) return;
-      if (rootRef.current.contains(event.target as Node)) return;
+      const target = event.target as Node;
+      if (rootRef.current?.contains(target)) return;
+      if (popoverRef.current?.contains(target)) return;
       setOpen(false);
     }
 
@@ -138,8 +206,16 @@ export default function DatePickerField({
         <CalendarDays size={16} className="shrink-0 text-text-tertiary" />
       </button>
 
-      {open && !disabled && (
-        <div className="absolute left-0 top-[calc(100%+8px)] z-30 rounded-2xl border border-border-primary bg-bg-light p-3 shadow-xl">
+      {open && !disabled && typeof document !== "undefined" && createPortal(
+        <div
+          ref={popoverRef}
+          className="fixed z-layer-popover rounded-2xl border border-border-primary bg-bg-light p-3 shadow-xl"
+          style={{
+            left: popoverPosition?.left ?? VIEWPORT_MARGIN,
+            top: popoverPosition?.top ?? VIEWPORT_MARGIN,
+            width: popoverPosition?.width ?? MOBILE_POPOVER_WIDTH,
+          }}
+        >
           <div className="mb-3 flex items-center gap-2">
             <button
               type="button"
@@ -229,7 +305,8 @@ export default function DatePickerField({
               disabled: "text-text-tertiary/50 line-through",
             }}
           />
-        </div>
+        </div>,
+        document.body,
       )}
     </div>
   );

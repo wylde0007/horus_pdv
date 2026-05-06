@@ -3,17 +3,21 @@
  * Objetivo: renderiza placeholder visual para estados de carregamento de blocos da interface.
  * Entradas esperadas: recebe classes opcionais de estilo e flag para formato circular.
  */
+import type { HTMLAttributes } from "react";
 
-type SkeletonProps = {
-  className?: string;
+type SkeletonProps = HTMLAttributes<HTMLDivElement> & {
   circle?: boolean;
 };
 
-export default function Skeleton({ className = "", circle = false }: SkeletonProps) {
+export default function Skeleton({
+  className = "",
+  circle = false,
+  ...props
+}: SkeletonProps) {
   return (
     <div
-      className={`animate-pulse bg-bg-gray-theme ${circle ? "rounded-full" : "rounded-md"} ${className}`.trim()}
-      aria-hidden="true"
+      className={`animate-pulse bg-bg-gray-theme/80 ${circle ? "rounded-full" : "rounded-xl"} ${className}`.trim()}
+      {...props}
     />
   );
 }

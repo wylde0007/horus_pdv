@@ -365,7 +365,7 @@ export default function SalesStartPage({ standalone = false }: SalesStartPagePro
                   autoComplete="off"
                 />
                 {showProductOptions && (
-                  <ul className="absolute left-0 right-0 top-full z-[120] mt-1 max-h-44 overflow-y-auto rounded-xl border border-border-secondary bg-bg-light text-text-primary shadow-lg">
+                  <ul className="absolute left-0 right-0 top-full z-layer-popover mt-1 max-h-44 overflow-y-auto rounded-xl border border-border-secondary bg-bg-light text-text-primary shadow-lg">
                     {filteredProducts.length > 0 ? (
                       filteredProducts.map((item, index) => (
                         <li
@@ -607,7 +607,7 @@ export default function SalesStartPage({ standalone = false }: SalesStartPagePro
       </div>
 
       {checkoutOpen && (
-        <div className="fixed inset-0 z-50 flex items-end bg-black/45 md:items-center md:justify-center">
+        <div className="fixed inset-0 z-layer-modal flex items-end bg-black/45 md:items-center md:justify-center">
           <div className="w-full rounded-t-2xl border border-border-primary bg-bg-light p-4 md:max-w-xl md:rounded-2xl">
             <div className="mb-3 flex items-center justify-between">
               <h2 className="text-lg font-semibold text-text-primary">Pagamento</h2>

@@ -28,7 +28,7 @@ export default function DeactivateUserReasonDialog({
   const canConfirm = charCount >= requiredChars;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 px-3 backdrop-blur-sm">
+    <div className="fixed inset-0 z-layer-modal flex items-center justify-center bg-black/50 px-3 backdrop-blur-sm">
       <div className="card w-full max-w-2xl rounded-2xl p-4 md:p-5">
         <div className="flex items-start justify-between gap-3">
           <div>
@@ -85,4 +85,3 @@ export default function DeactivateUserReasonDialog({
     </div>
   );
 }
-

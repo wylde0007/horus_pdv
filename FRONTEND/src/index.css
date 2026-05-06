@@ -48,6 +48,17 @@
 }
 
 @layer base {
+  :root {
+    --z-layer-fab: 45;
+    --z-layer-mobile-header: 30;
+    --z-layer-sidebar: 40;
+    --z-layer-popover: 120;
+    --z-layer-modal: 180;
+    --z-layer-dialog: 220;
+    --z-layer-toast: 240;
+    --z-layer-loading: 260;
+  }
+
   html,
   body,
   #root {
@@ -116,6 +127,36 @@
     --color-chat-agent-text: #d5f2ff;
     --color-chat-user-bg: #1a2746;
     --color-chat-user-text: #e6ecfb;
+  }
+}
+
+@layer utilities {
+  .z-layer-mobile-header {
+    z-index: var(--z-layer-mobile-header);
+  }
+
+  .z-layer-sidebar {
+    z-index: var(--z-layer-sidebar);
+  }
+
+  .z-layer-popover {
+    z-index: var(--z-layer-popover);
+  }
+
+  .z-layer-modal {
+    z-index: var(--z-layer-modal);
+  }
+
+  .z-layer-dialog {
+    z-index: var(--z-layer-dialog);
+  }
+
+  .z-layer-toast {
+    z-index: var(--z-layer-toast);
+  }
+
+  .z-layer-loading {
+    z-index: var(--z-layer-loading);
   }
 }
 

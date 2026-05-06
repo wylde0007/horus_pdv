@@ -287,7 +287,7 @@ export default function App() {
 
   return (
     <div className="relative flex h-screen overflow-hidden bg-bg-primary text-text-primary font-sans">
-      <header className="lg:hidden fixed top-0 left-0 right-0 z-30 h-14 bg-bg-light border-b border-border-primary px-3 shadow-sm">
+      <header className="lg:hidden fixed top-0 left-0 right-0 z-layer-mobile-header h-14 bg-bg-light border-b border-border-primary px-3 shadow-sm">
         <div className="h-full flex items-center justify-between">
           <button
             type="button"
@@ -309,7 +309,7 @@ export default function App() {
         <button
           type="button"
           onClick={() => setMobileSidebarOpen(false)}
-          className="lg:hidden fixed inset-0 z-30 bg-black/30"
+          className="lg:hidden fixed inset-0 z-layer-mobile-header bg-black/30"
           aria-label="Fechar menu lateral"
         />
       )}

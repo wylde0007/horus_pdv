@@ -5,6 +5,7 @@
  */
 import { ChevronUp, LogOut, Settings, User } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 
 type UserMenuProps = {
   collapsed: boolean;
@@ -28,17 +29,57 @@ export default function UserMenu({
   // Controla abertura do dropdown de usuário.
   const [showUserMenu, setShowUserMenu] = useState(false);
   const userMenuRef = useRef<HTMLDivElement | null>(null);
+  const triggerRef = useRef<HTMLButtonElement | null>(null);
+  const panelRef = useRef<HTMLDivElement | null>(null);
+  const [panelTop, setPanelTop] = useState(0);
+  const [panelLeft, setPanelLeft] = useState(0);
+  const panelWidth = 220;
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
-      if (!userMenuRef.current?.contains(event.target as Node)) {
-        setShowUserMenu(false);
-      }
+      const target = event.target as Node;
+      if (userMenuRef.current?.contains(target)) return;
+      if (panelRef.current?.contains(target)) return;
+      setShowUserMenu(false);
     };
 
     document.addEventListener("mousedown", handleClickOutside);
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
+
+  useEffect(() => {
+    if (!showUserMenu) return;
+
+    const updatePosition = () => {
+      const rect = triggerRef.current?.getBoundingClientRect();
+      if (!rect) return;
+
+      const measuredHeight = panelRef.current?.getBoundingClientRect().height ?? 170;
+      const viewportWidth = window.innerWidth;
+      const viewportHeight = window.innerHeight;
+      const preferredTop = rect.top - measuredHeight - 8;
+      const fallbackTop = rect.bottom + 8;
+      const nextTop =
+        preferredTop >= 8
+          ? preferredTop
+          : Math.min(fallbackTop, viewportHeight - measuredHeight - 8);
+      const nextLeft = collapsed ? rect.right + 8 : rect.right - panelWidth;
+      const clampedLeft = Math.max(8, Math.min(nextLeft, viewportWidth - panelWidth - 8));
+
+      setPanelTop(Math.max(8, nextTop));
+      setPanelLeft(clampedLeft);
+    };
+
+    const rafId = window.requestAnimationFrame(updatePosition);
+    window.addEventListener("resize", updatePosition);
+    window.addEventListener("scroll", updatePosition, true);
+
+    return () => {
+      window.cancelAnimationFrame(rafId);
+      window.removeEventListener("resize", updatePosition);
+      window.removeEventListener("scroll", updatePosition, true);
+    };
+  }, [collapsed, showUserMenu]);
 
   const userInitials = currentUserName
     // Gera avatar textual com no máximo duas iniciais.
@@ -51,6 +92,7 @@ export default function UserMenu({
   return (
     <div className="relative" ref={userMenuRef}>
       <button
+        ref={triggerRef}
         type="button"
         onClick={() => setShowUserMenu((current) => !current)}
         className="w-full flex items-center gap-3 rounded-xl px-2 py-2 hover:bg-accent/10 focus-visible:outline-none focus-visible:shadow-[0_0_0_3px_rgba(46,191,244,0.22)]"
@@ -85,49 +127,52 @@ export default function UserMenu({
         )}
       </button>
 
-      {showUserMenu && (
-        <div
-          className={`absolute z-20 bottom-12 bg-bg-light border border-border-secondary rounded-xl shadow-lg p-1.5 min-w-52 ${
-            collapsed ? "left-0" : "right-0"
-          }`}
-        >
-          <button
-            type="button"
-            onClick={() => {
-              onOpenProfile();
-              setShowUserMenu(false);
-            }}
-            className="w-full flex items-center gap-2 px-3 py-2 text-sm rounded-lg hover:bg-accent/10"
-          >
-            <User size={16} />
-            Meu Perfil
-          </button>
+      {showUserMenu
+        ? createPortal(
+            <div
+              ref={panelRef}
+              style={{ top: panelTop, left: panelLeft, width: panelWidth }}
+              className="fixed z-layer-popover bg-bg-light border border-border-secondary rounded-xl shadow-lg p-1.5"
+            >
+              <button
+                type="button"
+                onClick={() => {
+                  onOpenProfile();
+                  setShowUserMenu(false);
+                }}
+                className="w-full flex items-center gap-2 px-3 py-2 text-sm rounded-lg hover:bg-accent/10"
+              >
+                <User size={16} />
+                Meu Perfil
+              </button>
 
-          <button
-            type="button"
-            onClick={() => {
-              onOpenSettings();
-              setShowUserMenu(false);
-            }}
-            className="w-full flex items-center gap-2 px-3 py-2 text-sm rounded-lg hover:bg-accent/10"
-          >
-            <Settings size={16} />
-            Configurações
-          </button>
+              <button
+                type="button"
+                onClick={() => {
+                  onOpenSettings();
+                  setShowUserMenu(false);
+                }}
+                className="w-full flex items-center gap-2 px-3 py-2 text-sm rounded-lg hover:bg-accent/10"
+              >
+                <Settings size={16} />
+                Configurações
+              </button>
 
-          <button
-            type="button"
-            onClick={() => {
-              onLogout();
-              setShowUserMenu(false);
-            }}
-            className="w-full flex items-center gap-2 px-3 py-2 text-sm rounded-lg hover:bg-accent/10 text-primary"
-          >
-            <LogOut size={16} />
-            Sair
-          </button>
-        </div>
-      )}
+              <button
+                type="button"
+                onClick={() => {
+                  onLogout();
+                  setShowUserMenu(false);
+                }}
+                className="w-full flex items-center gap-2 px-3 py-2 text-sm rounded-lg hover:bg-accent/10 text-primary"
+              >
+                <LogOut size={16} />
+                Sair
+              </button>
+            </div>,
+            document.body,
+          )
+        : null}
     </div>
   );
 }

@@ -6,6 +6,7 @@
 
 import { MoreVertical } from "lucide-react";
 import { useEffect, useRef, useState, type ReactNode } from "react";
+import { createPortal } from "react-dom";
 
 type RowActionItem = {
   key: string;
@@ -20,17 +21,23 @@ type RowActionsMenuProps = {
   items: RowActionItem[];
   triggerLabel?: string;
   forceUpwards?: boolean;
+  triggerDataTour?: string;
+  portalZIndex?: number;
 };
 
 export default function RowActionsMenu({
   items,
   triggerLabel = "Abrir ações",
   forceUpwards = false,
+  triggerDataTour,
+  portalZIndex,
 }: RowActionsMenuProps) {
   // Controle de visibilidade do dropdown de ações.
   const [open, setOpen] = useState(false);
   // Define se o painel deve abrir para cima para evitar corte no viewport.
   const [openUpwards, setOpenUpwards] = useState(false);
+  const [panelTop, setPanelTop] = useState(0);
+  const [panelLeft, setPanelLeft] = useState(0);
   const menuRef = useRef<HTMLDivElement | null>(null);
   const triggerRef = useRef<HTMLButtonElement | null>(null);
   const panelRef = useRef<HTMLDivElement | null>(null);
@@ -38,9 +45,10 @@ export default function RowActionsMenu({
   useEffect(() => {
     // Fecha menu ao clicar fora do componente.
     const handleClickOutside = (event: MouseEvent) => {
-      if (!menuRef.current?.contains(event.target as Node)) {
-        setOpen(false);
-      }
+      const target = event.target as Node;
+      if (menuRef.current?.contains(target)) return;
+      if (panelRef.current?.contains(target)) return;
+      setOpen(false);
     };
 
     document.addEventListener("mousedown", handleClickOutside);
@@ -53,14 +61,26 @@ export default function RowActionsMenu({
     // Mede espaço disponível para decidir a direção de abertura do painel.
     const measurePlacement = () => {
       const triggerRect = triggerRef.current?.getBoundingClientRect();
-      const panelRect = panelRef.current?.getBoundingClientRect();
-      if (!triggerRect || !panelRect) return;
+      if (!triggerRect) return;
 
       const viewportHeight = window.innerHeight;
+      const viewportWidth = window.innerWidth;
+      const panelRect = panelRef.current?.getBoundingClientRect();
+      const panelHeight = panelRect?.height ?? 220;
+      const panelWidth = panelRect?.width ?? 176;
       const spaceBelow = viewportHeight - triggerRect.bottom;
       const spaceAbove = triggerRect.top;
-      const required = panelRect.height + 12;
-      setOpenUpwards(forceUpwards || (spaceBelow < required && spaceAbove > spaceBelow));
+      const required = panelHeight + 12;
+      const shouldOpenUpwards =
+        forceUpwards || (spaceBelow < required && spaceAbove > spaceBelow);
+      const nextTop = shouldOpenUpwards
+        ? triggerRect.top - panelHeight - 8
+        : triggerRect.bottom + 8;
+      const nextLeft = triggerRect.right - panelWidth;
+
+      setOpenUpwards(shouldOpenUpwards);
+      setPanelTop(Math.max(8, Math.min(nextTop, viewportHeight - panelHeight - 8)));
+      setPanelLeft(Math.max(8, Math.min(nextLeft, viewportWidth - panelWidth - 8)));
     };
 
     const rafId = window.requestAnimationFrame(measurePlacement);
@@ -79,8 +99,8 @@ export default function RowActionsMenu({
       <button
         ref={triggerRef}
         type="button"
+        data-tour={triggerDataTour}
         onClick={() => {
-          setOpenUpwards(false);
           setOpen((current) => !current);
         }}
         aria-label={triggerLabel}
@@ -90,34 +110,41 @@ export default function RowActionsMenu({
         <MoreVertical size={16} />
       </button>
 
-      {open && (
-        <div
-          ref={panelRef}
-          className={`absolute right-0 z-30 min-w-40 rounded-xl border border-border-secondary bg-bg-light p-1.5 shadow-lg ${
-            openUpwards ? "bottom-full mb-2" : "top-full mt-2"
-          }`}
-        >
-          {items.map((action) => (
-            <button
-              key={action.key}
-              type="button"
-              disabled={action.disabled}
-              onClick={() => {
-                action.onClick();
-                setOpen(false);
+      {open
+        ? createPortal(
+            <div
+              ref={panelRef}
+              style={{
+                top: panelTop,
+                left: panelLeft,
+                ...(typeof portalZIndex === "number" ? { zIndex: portalZIndex } : {}),
               }}
-              className={`flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-xs font-semibold transition ${
-                action.danger
-                  ? "text-primary hover:bg-primary/10"
-                  : "text-text-primary hover:bg-accent/10"
-              } disabled:cursor-not-allowed disabled:opacity-50`}
+              className="fixed z-layer-popover min-w-44 rounded-xl border border-border-secondary bg-bg-light p-1.5 shadow-lg"
+              data-placement={openUpwards ? "top" : "bottom"}
             >
-              {action.icon}
-              {action.label}
-            </button>
-          ))}
-        </div>
-      )}
+              {items.map((action) => (
+                <button
+                  key={action.key}
+                  type="button"
+                  disabled={action.disabled}
+                  onClick={() => {
+                    action.onClick();
+                    setOpen(false);
+                  }}
+                  className={`flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-xs font-semibold transition ${
+                    action.danger
+                      ? "text-primary hover:bg-primary/10"
+                      : "text-text-primary hover:bg-accent/10"
+                  } disabled:cursor-not-allowed disabled:opacity-50`}
+                >
+                  {action.icon}
+                  {action.label}
+                </button>
+              ))}
+            </div>,
+            document.body,
+          )
+        : null}
     </div>
   );
 }

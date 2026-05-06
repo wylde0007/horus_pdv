@@ -44,7 +44,7 @@ export function usePromptDialog() {
   }, []);
 
   const PromptDialog = open ? (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm">
+    <div className="fixed inset-0 z-layer-dialog flex items-center justify-center bg-black/50 backdrop-blur-sm">
       <div className="bg-bg-light relative w-full max-w-md rounded-2xl p-6 shadow-xl">
         <button
           type="button"
