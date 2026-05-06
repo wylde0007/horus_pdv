@@ -4,6 +4,7 @@
  */
 export const AUTH_TOKEN_STORAGE_KEY = "horuspdv.auth.token";
 export const AUTH_USER_STORAGE_KEY = "horuspdv.auth.user";
+export const AUTH_REMEMBER_STORAGE_KEY = "horuspdv.auth.remember";
 
 export type AuthenticatedUser = {
   id: string;
@@ -19,33 +20,49 @@ export type AuthenticatedUser = {
 };
 
 export function getAuthToken() {
-  return window.localStorage.getItem(AUTH_TOKEN_STORAGE_KEY);
+  return (
+    window.sessionStorage.getItem(AUTH_TOKEN_STORAGE_KEY) ||
+    window.localStorage.getItem(AUTH_TOKEN_STORAGE_KEY)
+  );
 }
 
 export function getStoredAuthUser() {
-  const raw = window.localStorage.getItem(AUTH_USER_STORAGE_KEY);
+  const raw =
+    window.sessionStorage.getItem(AUTH_USER_STORAGE_KEY) ||
+    window.localStorage.getItem(AUTH_USER_STORAGE_KEY);
   if (!raw) return null;
 
   try {
     return JSON.parse(raw) as AuthenticatedUser;
   } catch {
     window.localStorage.removeItem(AUTH_USER_STORAGE_KEY);
+    window.sessionStorage.removeItem(AUTH_USER_STORAGE_KEY);
     return null;
   }
 }
 
 export function setAuthSession(token: string, user: AuthenticatedUser, remember = true) {
-  window.localStorage.setItem(AUTH_TOKEN_STORAGE_KEY, token);
-  window.localStorage.setItem(AUTH_USER_STORAGE_KEY, JSON.stringify(user));
-  window.localStorage.setItem("horuspdv.authenticated", remember ? "1" : "0");
+  const primaryStorage = remember ? window.localStorage : window.sessionStorage;
+  const secondaryStorage = remember ? window.sessionStorage : window.localStorage;
+  secondaryStorage.removeItem(AUTH_TOKEN_STORAGE_KEY);
+  secondaryStorage.removeItem(AUTH_USER_STORAGE_KEY);
+  primaryStorage.setItem(AUTH_TOKEN_STORAGE_KEY, token);
+  primaryStorage.setItem(AUTH_USER_STORAGE_KEY, JSON.stringify(user));
+  window.localStorage.setItem(AUTH_REMEMBER_STORAGE_KEY, remember ? "1" : "0");
   window.dispatchEvent(new CustomEvent("horuspdv-auth-change", { detail: { user } }));
 }
 
 export function clearAuthSession() {
+  const hadSession = Boolean(getAuthToken() || getStoredAuthUser());
   window.localStorage.removeItem(AUTH_TOKEN_STORAGE_KEY);
   window.localStorage.removeItem(AUTH_USER_STORAGE_KEY);
+  window.localStorage.removeItem(AUTH_REMEMBER_STORAGE_KEY);
+  window.sessionStorage.removeItem(AUTH_TOKEN_STORAGE_KEY);
+  window.sessionStorage.removeItem(AUTH_USER_STORAGE_KEY);
   window.localStorage.removeItem("horuspdv.authenticated");
-  window.dispatchEvent(new CustomEvent("horuspdv-auth-change"));
+  if (hadSession) {
+    window.dispatchEvent(new CustomEvent("horuspdv-auth-change"));
+  }
 }
 
 export function isTokenExpired(token: string | null) {

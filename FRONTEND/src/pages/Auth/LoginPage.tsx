@@ -20,7 +20,7 @@ type LoginPageProps = {
 export default function LoginPage({ defaultEmail, onLogin }: LoginPageProps) {
   // Estado do formulário de autenticação.
   const [email, setEmail] = useState(defaultEmail);
-  const [password, setPassword] = useState("Admin@1234");
+  const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [remember, setRemember] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);

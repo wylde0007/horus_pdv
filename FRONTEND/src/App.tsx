@@ -339,6 +339,32 @@ export default function App() {
   }, [isAuthenticated]);
 
   useEffect(() => {
+    const syncAuthState = () => {
+      const token = getAuthToken();
+      if (!token || isTokenExpired(token)) {
+        clearAuthSession();
+        setIsAuthenticated(false);
+        return;
+      }
+
+      const user = getStoredAuthUser();
+      if (user) {
+        setCurrentUser(toCurrentUser(user));
+        setIsAuthenticated(true);
+      }
+    };
+
+    window.addEventListener("storage", syncAuthState);
+    window.addEventListener("horuspdv-auth-change", syncAuthState);
+    window.addEventListener("focus", syncAuthState);
+    return () => {
+      window.removeEventListener("storage", syncAuthState);
+      window.removeEventListener("horuspdv-auth-change", syncAuthState);
+      window.removeEventListener("focus", syncAuthState);
+    };
+  }, []);
+
+  useEffect(() => {
     if (isStandalonePos) return;
     window.localStorage.setItem(ACTIVE_PAGE_STORAGE_KEY, activePage);
   }, [activePage, isStandalonePos]);

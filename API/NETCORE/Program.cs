@@ -7,17 +7,9 @@ using HORUSPDV_API.Services.Security;
 
 var builder = WebApplication.CreateBuilder(args);
 
-var corsOrigins = new[]
-{
-    "http://localhost:5173",
-    "https://localhost:5173",
-    "http://127.0.0.1:5173",
-    "https://127.0.0.1:5173",
-    "http://localhost:4173",
-    "https://localhost:4173",
-    "http://127.0.0.1:4173",
-    "https://127.0.0.1:4173"
-};
+var corsOrigins = (builder.Configuration["Security:CorsOrigins"] ??
+                   "http://localhost:5173,https://localhost:5173,http://127.0.0.1:5173,https://127.0.0.1:5173,http://localhost:4173,https://localhost:4173,http://127.0.0.1:4173,https://127.0.0.1:4173")
+    .Split(',', StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries);
 
 builder.Services.AddControllers();
 builder.Services.AddEndpointsApiExplorer();
@@ -36,12 +28,15 @@ builder.Services.AddCors(options =>
 
 builder.Services.AddSingleton<HorusMockDatabase>();
 builder.Services.AddSingleton<HorusSecurityStore>();
+builder.Services.AddSingleton<HorusSecurityOptions>();
 builder.Services.AddSingleton<HorusJwtService>();
 builder.Services.AddScoped<IProdutoService, ProdutoService>();
 builder.Services.AddScoped<IClienteService, ClienteService>();
 builder.Services.AddScoped<IFornecedorService, FornecedorService>();
 
 var app = builder.Build();
+
+app.Services.GetRequiredService<HorusSecurityOptions>().Validate();
 
 if (app.Environment.IsDevelopment())
 {
@@ -70,7 +65,11 @@ if (!app.Environment.IsDevelopment())
     app.UseHttpsRedirection();
 }
 app.UseRouting();
+app.UseMiddleware<HorusSecurityHeadersMiddleware>();
 app.UseCors("HorusPdvCorsPolicy");
+app.UseMiddleware<HorusRequestTelemetryMiddleware>();
+app.UseMiddleware<HorusRequestBodyLimitMiddleware>();
+app.UseMiddleware<HorusRateLimitMiddleware>();
 app.UseMiddleware<HorusAuthMiddleware>();
 app.UseAuthorization();
 

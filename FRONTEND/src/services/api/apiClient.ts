@@ -30,7 +30,14 @@ export async function apiRequest<T>(
     ...requestOptions,
   });
 
-  const payload = (await response.json()) as ApiResponse<T>;
+  const contentType = response.headers.get("content-type") || "";
+  const payload = contentType.includes("application/json")
+    ? ((await response.json()) as ApiResponse<T>)
+    : ({
+        success: response.ok,
+        message: response.ok ? "Operação concluída." : "Erro ao comunicar com a API.",
+      } as ApiResponse<T>);
+
   if (response.status === 401) {
     clearAuthSession();
   }

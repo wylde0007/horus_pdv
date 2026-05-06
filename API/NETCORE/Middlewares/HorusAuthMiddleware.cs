@@ -14,8 +14,9 @@ public class HorusAuthMiddleware(RequestDelegate next)
         }
 
         var authHeader = context.Request.Headers.Authorization.ToString();
-        var token = authHeader.StartsWith("Bearer ", StringComparison.OrdinalIgnoreCase)
-            ? authHeader["Bearer ".Length..].Trim()
+        var parts = authHeader.Split(' ', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+        var token = parts.Length == 2 && parts[0].Equals("Bearer", StringComparison.Ordinal)
+            ? parts[1]
             : "";
 
         var authenticatedUser = string.IsNullOrWhiteSpace(token) ? null : jwtService.ValidateToken(token);
