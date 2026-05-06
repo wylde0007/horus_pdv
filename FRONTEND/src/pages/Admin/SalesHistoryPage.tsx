@@ -96,10 +96,18 @@ export default function SalesHistoryPage() {
                           key: "print",
                           label: "Imprimir venda",
                           icon: <FileText size={13} />,
-                          onClick: () =>
-                            Toast.info(
-                              `Ação de impressão da venda ${sale.saleNumber} será integrada com a API.`,
-                            ),
+                          onClick: async () => {
+                            try {
+                              await salesHistoryService.print(sale.saleNumber);
+                              Toast.success(
+                                `Impressão da venda ${sale.saleNumber} enviada para processamento.`,
+                              );
+                            } catch (error) {
+                              Toast.error(
+                                error instanceof Error ? error.message : "Erro ao imprimir venda.",
+                              );
+                            }
+                          },
                         },
                       ]}
                     />

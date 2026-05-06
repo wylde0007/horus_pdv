@@ -9,4 +9,16 @@ export const sessionService = {
     const response = await apiRequest<ActiveSession[]>(SESSOES_API_URL);
     return response.data ?? [];
   },
+  async terminate(sessionId: string) {
+    const response = await apiRequest<ActiveSession[]>(`${SESSOES_API_URL}/${sessionId}`, {
+      method: "DELETE",
+    });
+    return response.data ?? [];
+  },
+  async terminateOthers() {
+    const response = await apiRequest<ActiveSession[]>(`${SESSOES_API_URL}/outras`, {
+      method: "DELETE",
+    });
+    return response.data ?? [];
+  },
 };

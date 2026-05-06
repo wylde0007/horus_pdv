@@ -9,6 +9,7 @@ import {
   ThemeSettingsCard,
   type ActiveSession,
 } from "@/components/SettingsPage";
+import { Toast } from "@/hooks/Dialog";
 import PageLayout from "@/layout/PageLayout";
 import { sessionService } from "@/services/api/sessionService";
 
@@ -35,13 +36,25 @@ export default function SettingsPage({
     [sessions],
   );
 
-  const handleTerminateSession = (sessionId: string) => {
-    setSessions((current) => current.filter((item) => item.id !== sessionId));
+  const handleTerminateSession = async (sessionId: string) => {
+    try {
+      const updated = await sessionService.terminate(sessionId);
+      setSessions(updated);
+      Toast.success("Sessão encerrada com sucesso.");
+    } catch (error) {
+      Toast.error(error instanceof Error ? error.message : "Erro ao encerrar sessão.");
+    }
   };
 
-  const handleTerminateOtherSessions = () => {
+  const handleTerminateOtherSessions = async () => {
     if (!hasOtherSessions) return;
-    setSessions((current) => current.filter((item) => item.current));
+    try {
+      const updated = await sessionService.terminateOthers();
+      setSessions(updated);
+      Toast.success("Outras sessões encerradas com sucesso.");
+    } catch (error) {
+      Toast.error(error instanceof Error ? error.message : "Erro ao encerrar sessões.");
+    }
   };
 
   return (

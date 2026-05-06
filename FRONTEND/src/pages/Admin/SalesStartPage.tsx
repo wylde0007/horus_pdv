@@ -5,10 +5,11 @@
  */
 
 import { Image as ImageIcon, Search, Trash2, X } from "lucide-react";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Toast, useStatusDialog } from "@/hooks/Dialog";
 import useInputMasks from "@/hooks/InputMasks/useInputMasks";
 import { productService } from "@/services/api/productService";
+import { salesHistoryService } from "@/services/api/salesHistoryService";
 
 type SalesStartPageProps = {
   onExit?: () => void;
@@ -150,6 +151,7 @@ export default function SalesStartPage({ standalone = false }: SalesStartPagePro
 
   useEffect(() => {
     if (filteredProducts.length === 0) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setHighlightedProductIndex(-1);
       return;
     }
@@ -168,7 +170,7 @@ export default function SalesStartPage({ standalone = false }: SalesStartPagePro
     qtyInputRef.current?.focus();
   };
 
-  const addItem = () => {
+  const addItem = useCallback(() => {
     const matchedFromSearch =
       selectedProduct ??
       filteredProducts.find(
@@ -216,13 +218,13 @@ export default function SalesStartPage({ standalone = false }: SalesStartPagePro
     setShowProductOptions(false);
     setQuantityInput("1");
     productInputRef.current?.focus();
-  };
+  }, [filteredProducts, productSearch, quantity, selectedProduct]);
 
   const removeItem = (id: string) => {
     setCart((current) => current.filter((item) => item.id !== id));
   };
 
-  const cancelSale = async () => {
+  const cancelSale = useCallback(async () => {
     if (cart.length === 0) return;
     const confirmed = await statusDialog.confirm("Cancelar venda atual?");
     if (!confirmed) return;
@@ -231,9 +233,9 @@ export default function SalesStartPage({ standalone = false }: SalesStartPagePro
     setCashGiven("");
     setCheckoutOpen(false);
     Toast.info("Venda cancelada.");
-  };
+  }, [cart.length, statusDialog]);
 
-  const openPayment = () => {
+  const openPayment = useCallback(() => {
     if (cart.length === 0) {
       Toast.error("Adicione ao menos um item.");
       return;
@@ -241,15 +243,37 @@ export default function SalesStartPage({ standalone = false }: SalesStartPagePro
     setPaymentType("dinheiro");
     setCashGiven(formatMoneyBr(subtotal));
     setCheckoutOpen(true);
-  };
+  }, [cart.length, formatMoneyBr, subtotal]);
 
   const confirmPayment = async () => {
     if (paymentType === "dinheiro" && cashGivenValue < subtotal) {
       Toast.error("Valor recebido menor que total.");
       return;
     }
-    setCheckoutOpen(false);
-    await statusDialog.success("Pagamento confirmado.");
+
+    try {
+      const result = await salesHistoryService.register({
+        customerName: "Consumidor",
+        customerCpf: cpfNota || "-",
+        paymentType,
+        totalAmount: formatMoneyBr(subtotal),
+        items: cart.map((item) => ({
+          productCode: item.code,
+          productName: item.name,
+          quantity: item.quantity,
+        })),
+      });
+      setCheckoutOpen(false);
+      await statusDialog.success(
+        result?.saleNumber
+          ? `Pagamento confirmado. Venda ${result.saleNumber} registrada.`
+          : "Pagamento confirmado.",
+      );
+    } catch (error) {
+      Toast.error(error instanceof Error ? error.message : "Erro ao registrar venda.");
+      return;
+    }
+
     setCart([]);
     setSelectedProductId("");
     setProductSearch("");
@@ -300,7 +324,7 @@ export default function SalesStartPage({ standalone = false }: SalesStartPagePro
 
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
-  }, [checkoutOpen, quantity, selectedProductId, cart.length, showProductOptions]);
+  }, [addItem, cancelSale, checkoutOpen, openPayment, quantity, selectedProductId, cart.length, showProductOptions]);
 
   const { dateLabel, timeLabel } = formatDateTime(now);
 

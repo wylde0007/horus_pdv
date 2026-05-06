@@ -3,8 +3,11 @@
  * Objetivo: renderizar módulos operacionais conectados à API para lacunas competitivas do PDV.
  * Entradas esperadas: configuração visual do módulo com KPIs, registros, fluxos e alertas.
  */
-import { CheckCircle2, CircleAlert, Clock3, Plus, RefreshCw } from "lucide-react";
+import { CheckCircle2, CircleAlert, Clock3, Pencil, Plus, RefreshCw, Trash2, X } from "lucide-react";
+import { type FormEvent, useMemo, useState } from "react";
 import PageHeader from "@/components/Admin/PageHeader";
+import RowActionsMenu from "@/components/Admin/RowActionsMenu";
+import { Toast, useStatusDialog } from "@/hooks/Dialog";
 import PageLayout from "@/layout/PageLayout";
 
 export type MarketModuleKpi = {
@@ -24,6 +27,7 @@ export type MarketModuleRecord = {
 };
 
 export type MarketModuleConfig = {
+  id: string;
   title: string;
   description: string;
   primaryAction: string;
@@ -37,6 +41,22 @@ export type MarketModuleConfig = {
   alerts: string[];
 };
 
+export type MarketModuleRecordPayload = {
+  title: string;
+  description: string;
+  status: string;
+  amount: string;
+  meta: string;
+};
+
+type MarketModulePageProps = {
+  config: MarketModuleConfig;
+  onRefresh: () => Promise<void>;
+  onCreate: (payload: MarketModuleRecordPayload) => Promise<void>;
+  onUpdate: (recordId: string, payload: MarketModuleRecordPayload) => Promise<void>;
+  onDelete: (recordId: string) => Promise<void>;
+};
+
 const toneClass: Record<MarketModuleKpi["tone"], string> = {
   secondary: "bg-secondary/10 text-secondary border-secondary/20",
   success: "bg-success/10 text-success border-success/20",
@@ -44,14 +64,131 @@ const toneClass: Record<MarketModuleKpi["tone"], string> = {
   primary: "bg-primary/10 text-primary border-primary/20",
 };
 
-export default function MarketModulePage({ config }: { config: MarketModuleConfig }) {
+const emptyForm: MarketModuleRecordPayload = {
+  title: "",
+  description: "",
+  status: "Ativo",
+  amount: "",
+  meta: "",
+};
+
+function toPayload(record: MarketModuleRecord): MarketModuleRecordPayload {
+  return {
+    title: record.title,
+    description: record.description,
+    status: record.status,
+    amount: record.amount ?? "",
+    meta: record.meta,
+  };
+}
+
+export default function MarketModulePage({
+  config,
+  onRefresh,
+  onCreate,
+  onUpdate,
+  onDelete,
+}: MarketModulePageProps) {
+  const statusDialog = useStatusDialog();
+  const [formOpen, setFormOpen] = useState(false);
+  const [editingRecord, setEditingRecord] = useState<MarketModuleRecord | null>(null);
+  const [form, setForm] = useState<MarketModuleRecordPayload>(emptyForm);
+  const [saving, setSaving] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
+
+  const formTitle = editingRecord ? "Editar registro" : config.primaryAction;
+  const statusOptions = useMemo(
+    () => ["Ativo", "Pendente", "Em análise", "Concluído", "Auditado", "Cancelado"],
+    [],
+  );
+
+  const openCreateForm = () => {
+    setEditingRecord(null);
+    setForm(emptyForm);
+    setFormOpen(true);
+  };
+
+  const openEditForm = (record: MarketModuleRecord) => {
+    setEditingRecord(record);
+    setForm(toPayload(record));
+    setFormOpen(true);
+  };
+
+  const closeForm = () => {
+    if (saving) return;
+    setFormOpen(false);
+    setEditingRecord(null);
+    setForm(emptyForm);
+  };
+
+  const updateField = (field: keyof MarketModuleRecordPayload, value: string) => {
+    setForm((current) => ({ ...current, [field]: value }));
+  };
+
+  const submitForm = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    if (form.title.trim().length < 3) {
+      Toast.error("Informe um título com pelo menos 3 caracteres.");
+      return;
+    }
+
+    setSaving(true);
+    try {
+      if (editingRecord) {
+        await onUpdate(editingRecord.id, form);
+        Toast.success("Registro atualizado com sucesso.");
+      } else {
+        await onCreate(form);
+        Toast.success("Registro criado com sucesso.");
+      }
+      closeForm();
+    } catch (error) {
+      Toast.error(error instanceof Error ? error.message : "Não foi possível salvar o registro.");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleDelete = async (record: MarketModuleRecord) => {
+    const confirmed = await statusDialog.confirm(`Excluir o registro "${record.title}"?`);
+    if (!confirmed) return;
+
+    try {
+      await onDelete(record.id);
+      Toast.success("Registro excluído com sucesso.");
+    } catch (error) {
+      Toast.error(error instanceof Error ? error.message : "Não foi possível excluir o registro.");
+    }
+  };
+
+  const handleStatusChange = async (record: MarketModuleRecord, nextStatus: string) => {
+    try {
+      await onUpdate(record.id, { ...toPayload(record), status: nextStatus });
+      Toast.success(`Status alterado para ${nextStatus}.`);
+    } catch (error) {
+      Toast.error(error instanceof Error ? error.message : "Não foi possível alterar o status.");
+    }
+  };
+
+  const handleRefresh = async () => {
+    setRefreshing(true);
+    try {
+      await onRefresh();
+      Toast.success("Dados atualizados.");
+    } catch (error) {
+      Toast.error(error instanceof Error ? error.message : "Não foi possível atualizar os dados.");
+    } finally {
+      setRefreshing(false);
+    }
+  };
+
   return (
     <PageLayout size="wide" className="space-y-4 py-4 md:space-y-6 md:py-6 lg:py-8">
       <PageHeader
         title={config.title}
         description={config.description}
         action={
-          <button type="button" className="btn-primary inline-flex items-center gap-2">
+          <button type="button" onClick={openCreateForm} className="btn-primary inline-flex items-center gap-2">
             <Plus size={16} />
             {config.primaryAction}
           </button>
@@ -84,7 +221,7 @@ export default function MarketModulePage({ config }: { config: MarketModuleConfi
               </p>
               <p className="mt-1 text-lg font-bold text-text-primary">{config.statusValue}</p>
               <p className="mt-1 text-xs text-text-secondary">
-                Dados temporários mantidos na API enquanto o banco definitivo não está pronto.
+                Dados operacionais atualizados para acompanhamento do módulo.
               </p>
             </div>
           </div>
@@ -97,37 +234,73 @@ export default function MarketModulePage({ config }: { config: MarketModuleConfi
             <div>
               <h2 className="text-base font-semibold text-text-primary">{config.recordsTitle}</h2>
               <p className="mt-1 text-sm text-text-secondary">
-                Registros retornados pela API para simular operação do módulo.
+                Registros operacionais disponíveis para consulta e ação.
               </p>
             </div>
             <button
               type="button"
+              onClick={handleRefresh}
+              disabled={refreshing}
               className="inline-flex items-center gap-2 rounded-xl border border-border-secondary px-3 py-2 text-sm font-semibold text-text-secondary transition hover:bg-hover-light"
             >
-              <RefreshCw size={15} />
-              Atualizar
+              <RefreshCw size={15} className={refreshing ? "animate-spin" : ""} />
+              {refreshing ? "Atualizando" : "Atualizar"}
             </button>
           </div>
 
           <div className="divide-y divide-border-primary">
-            {config.records.map((record) => (
-              <article
-                key={record.id}
-                className="grid gap-3 p-4 md:grid-cols-[minmax(0,1fr)_140px_120px]"
-              >
-                <div className="min-w-0">
-                  <p className="font-semibold text-text-primary">{record.title}</p>
-                  <p className="mt-1 text-sm text-text-secondary">{record.description}</p>
-                  <p className="mt-2 text-xs font-medium text-text-tertiary">{record.meta}</p>
-                </div>
-                <span className="inline-flex h-8 w-fit items-center rounded-full bg-accent/10 px-3 text-xs font-semibold text-accent">
-                  {record.status}
-                </span>
-                <p className="text-sm font-bold text-text-primary md:text-right">
-                  {record.amount ?? "-"}
-                </p>
-              </article>
-            ))}
+            {config.records.length === 0 ? (
+              <div className="p-6 text-center text-sm text-text-secondary">
+                Nenhum registro encontrado para este módulo.
+              </div>
+            ) : (
+              config.records.map((record) => (
+                <article
+                  key={record.id}
+                  className="grid gap-3 p-4 md:grid-cols-[minmax(0,1fr)_150px_120px_42px]"
+                >
+                  <div className="min-w-0">
+                    <p className="font-semibold text-text-primary">{record.title}</p>
+                    <p className="mt-1 text-sm text-text-secondary">{record.description}</p>
+                    <p className="mt-2 text-xs font-medium text-text-tertiary">{record.meta}</p>
+                  </div>
+                  <select
+                    value={record.status}
+                    onChange={(event) => void handleStatusChange(record, event.target.value)}
+                    className="input-field h-9 w-fit min-w-[140px] rounded-full px-3 text-xs font-semibold text-accent"
+                    aria-label={`Alterar status de ${record.title}`}
+                  >
+                    {statusOptions.map((status) => (
+                      <option key={status} value={status}>
+                        {status}
+                      </option>
+                    ))}
+                  </select>
+                  <p className="text-sm font-bold text-text-primary md:text-right">
+                    {record.amount || "-"}
+                  </p>
+                  <div className="md:justify-self-end">
+                    <RowActionsMenu
+                      items={[
+                        {
+                          key: "edit",
+                          label: "Editar",
+                          icon: <Pencil size={13} />,
+                          onClick: () => openEditForm(record),
+                        },
+                        {
+                          key: "delete",
+                          label: "Excluir",
+                          icon: <Trash2 size={13} />,
+                          danger: true,
+                          onClick: () => void handleDelete(record),
+                        },
+                      ]}
+                    />
+                  </div>
+                </article>
+              ))
+            )}
           </div>
         </div>
 
@@ -164,14 +337,108 @@ export default function MarketModulePage({ config }: { config: MarketModuleConfi
           <section className="rounded-2xl border border-dashed border-border-secondary bg-bg-light/70 p-4">
             <div className="flex items-center gap-2 text-sm font-semibold text-text-primary">
               <Clock3 size={16} className="text-secondary" />
-              Próximo passo técnico
+              Rotina operacional
             </div>
             <p className="mt-2 text-sm text-text-secondary">
-              Conectar este fluxo a serviços reais mantendo os contratos visuais já validados.
+              Fluxo ativo para acompanhamento e execução das atividades do módulo.
             </p>
           </section>
         </div>
       </section>
+      {formOpen && (
+        <div className="fixed inset-0 z-layer-modal flex items-center justify-center bg-black/50 px-3 backdrop-blur-sm">
+          <form
+            onSubmit={submitForm}
+            className="w-full max-w-2xl rounded-2xl border border-border-primary bg-bg-light shadow-2xl"
+          >
+            <div className="flex items-center justify-between border-b border-border-primary px-4 py-3">
+              <div>
+                <h2 className="text-base font-semibold text-text-primary">{formTitle}</h2>
+                <p className="text-sm text-text-secondary">{config.title}</p>
+              </div>
+              <button
+                type="button"
+                onClick={closeForm}
+                className="inline-flex h-9 w-9 items-center justify-center rounded-lg hover:bg-hover-light"
+                aria-label="Fechar formulário"
+              >
+                <X size={18} />
+              </button>
+            </div>
+
+            <div className="grid gap-4 p-4 sm:grid-cols-2">
+              <label className="sm:col-span-2">
+                <span className="mb-1 block text-sm font-semibold text-text-primary">Título</span>
+                <input
+                  value={form.title}
+                  onChange={(event) => updateField("title", event.target.value)}
+                  className="input-field w-full"
+                  placeholder="Informe o título do registro"
+                />
+              </label>
+
+              <label className="sm:col-span-2">
+                <span className="mb-1 block text-sm font-semibold text-text-primary">Descrição</span>
+                <textarea
+                  value={form.description}
+                  onChange={(event) => updateField("description", event.target.value)}
+                  className="input-field min-h-24 w-full resize-y"
+                  placeholder="Detalhe a operação"
+                />
+              </label>
+
+              <label>
+                <span className="mb-1 block text-sm font-semibold text-text-primary">Status</span>
+                <select
+                  value={form.status}
+                  onChange={(event) => updateField("status", event.target.value)}
+                  className="input-field w-full"
+                >
+                  {statusOptions.map((status) => (
+                    <option key={status} value={status}>
+                      {status}
+                    </option>
+                  ))}
+                </select>
+              </label>
+
+              <label>
+                <span className="mb-1 block text-sm font-semibold text-text-primary">Valor</span>
+                <input
+                  value={form.amount}
+                  onChange={(event) => updateField("amount", event.target.value)}
+                  className="input-field w-full"
+                  placeholder="R$ 0,00"
+                />
+              </label>
+
+              <label className="sm:col-span-2">
+                <span className="mb-1 block text-sm font-semibold text-text-primary">Informação adicional</span>
+                <input
+                  value={form.meta}
+                  onChange={(event) => updateField("meta", event.target.value)}
+                  className="input-field w-full"
+                  placeholder="Responsável, prioridade, canal ou observação"
+                />
+              </label>
+            </div>
+
+            <div className="flex flex-col-reverse gap-2 border-t border-border-primary px-4 py-3 sm:flex-row sm:justify-end">
+              <button
+                type="button"
+                onClick={closeForm}
+                className="rounded-xl border border-border-secondary px-4 py-2 text-sm font-semibold text-text-secondary hover:bg-hover-light"
+              >
+                Cancelar
+              </button>
+              <button type="submit" disabled={saving} className="btn-primary px-4 py-2">
+                {saving ? "Salvando..." : "Salvar"}
+              </button>
+            </div>
+          </form>
+        </div>
+      )}
+      {statusDialog.Dialog}
     </PageLayout>
   );
 }

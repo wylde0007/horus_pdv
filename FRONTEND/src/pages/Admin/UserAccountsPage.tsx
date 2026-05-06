@@ -14,7 +14,7 @@ import {
   type UserStatus,
   type UserStatusFilter,
 } from "@/components/Admin/UsersPage";
-import { buildUserId, normalizeText } from "@/components/Admin/UsersPage/utils";
+import { normalizeText } from "@/components/Admin/UsersPage/utils";
 import TablePagination from "@/components/Pagination/TablePagination";
 import { useStatusDialog } from "@/hooks/Dialog";
 import LoadingBar from "@/components/Loading/LoadingBar";
@@ -141,19 +141,18 @@ export default function UserAccountsPage() {
 
   const resetPassword = async (user: AdminUser) => {
     const confirmed = await statusDialog.confirm(
-      `Resetar senha de ${user.name} para uma senha temporária?`,
+      `Resetar senha de ${user.name} para uma senha provisória?`,
     );
     if (!confirmed) return;
 
-    const temporaryPassword = `Tmp@${Math.random().toString(36).slice(-6)}9`;
-    setUsers((current) =>
-      current.map((item) =>
-        item.id === user.id ? { ...item, mustChangePassword: true } : item,
-      ),
-    );
-    statusDialog.success(
-      `Senha de ${user.name} resetada. Senha temporária: ${temporaryPassword}`,
-    );
+    try {
+      const result = await userService.resetPassword(user.id);
+      if (!result) return;
+      setUsers((current) => current.map((item) => (item.id === user.id ? result.user : item)));
+      statusDialog.success(`Senha de ${user.name} resetada. Senha provisória: ${result.password}`);
+    } catch (error) {
+      statusDialog.error(error instanceof Error ? error.message : "Erro ao resetar senha.");
+    }
   };
 
   const toggleStatus = async (user: AdminUser) => {
@@ -169,27 +168,35 @@ export default function UserAccountsPage() {
     });
     if (!confirmed) return;
 
-    setUsers((current) =>
-      current.map((item) =>
-        item.id === user.id ? { ...item, status: nextStatus } : item,
-      ),
-    );
-    statusDialog.success(`Usuário ${user.name} ativado.`);
+    try {
+      const updated = await userService.updateStatus(user.id, nextStatus);
+      if (updated) {
+        setUsers((current) => current.map((item) => (item.id === user.id ? updated : item)));
+      }
+      statusDialog.success(`Usuário ${user.name} ativado.`);
+    } catch (error) {
+      statusDialog.error(error instanceof Error ? error.message : "Erro ao ativar usuário.");
+    }
   };
 
-  const handleConfirmDeactivateUser = () => {
+  const handleConfirmDeactivateUser = async () => {
     if (!pendingDeactivateUser) return;
     const reasonLength = deactivationReason.trim().length;
     if (reasonLength < 10) return;
 
-    setUsers((current) =>
-      current.map((item) =>
-        item.id === pendingDeactivateUser.id ? { ...item, status: "inativo" } : item,
-      ),
-    );
-    statusDialog.success(
-      `Usuário ${pendingDeactivateUser.name} inativado com justificativa registrada.`,
-    );
+    try {
+      const updated = await userService.updateStatus(pendingDeactivateUser.id, "inativo");
+      if (updated) {
+        setUsers((current) =>
+          current.map((item) => (item.id === pendingDeactivateUser.id ? updated : item)),
+        );
+      }
+      statusDialog.success(
+        `Usuário ${pendingDeactivateUser.name} inativado com justificativa registrada.`,
+      );
+    } catch (error) {
+      statusDialog.error(error instanceof Error ? error.message : "Erro ao inativar usuário.");
+    }
     setPendingDeactivateUser(null);
     setDeactivationReason("");
   };
@@ -220,47 +227,28 @@ export default function UserAccountsPage() {
     return null;
   };
 
-  const saveUser = () => {
+  const saveUser = async () => {
     const validationError = validateForm();
     if (validationError) {
       statusDialog.error(validationError);
       return;
     }
 
-    if (isEditMode && editingUserId) {
-      setUsers((current) =>
-        current.map((item) =>
-          item.id === editingUserId
-            ? {
-                ...item,
-                cpf: form.cpf.trim(),
-                name: form.name.trim(),
-                email: form.email.trim(),
-                phone: form.phone.trim(),
-                role: form.role,
-                status: form.status,
-                mustChangePassword: form.password.length > 0 ? true : item.mustChangePassword,
-              }
-            : item,
-        ),
-      );
-      statusDialog.success("Usuário atualizado com sucesso.");
-    } else {
-      const today = new Date().toISOString().slice(0, 10);
-      const nextUser: AdminUser = {
-        id: buildUserId(),
-        cpf: form.cpf.trim(),
-        name: form.name.trim(),
-        email: form.email.trim(),
-        phone: form.phone.trim(),
-        role: form.role,
-        status: form.status,
-        createdAt: today,
-        lastLoginAt: "-",
-        mustChangePassword: true,
-      };
-      setUsers((current) => [nextUser, ...current]);
-      statusDialog.success("Usuário criado com sucesso.");
+    try {
+      if (isEditMode && editingUserId) {
+        const updated = await userService.update(editingUserId, form);
+        if (!updated) return;
+        setUsers((current) => current.map((item) => (item.id === editingUserId ? updated : item)));
+        statusDialog.success("Usuário atualizado com sucesso.");
+      } else {
+        const created = await userService.create(form);
+        if (!created) return;
+        setUsers((current) => [created, ...current]);
+        statusDialog.success("Usuário criado com sucesso.");
+      }
+    } catch (error) {
+      statusDialog.error(error instanceof Error ? error.message : "Erro ao salvar usuário.");
+      return;
     }
 
     setDrawerOpen(false);

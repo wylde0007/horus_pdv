@@ -1,3 +1,4 @@
+using HORUSPDV_API.Models.Requests;
 using HORUSPDV_API.Models.Response;
 using Microsoft.AspNetCore.Mvc;
 
@@ -7,17 +8,102 @@ namespace HORUSPDV_API.Controllers.HistoricoVendas;
 [Route("api/[controller]")]
 public class HistoricoVendasController : ControllerBase
 {
+    private static readonly object SyncRoot = new();
+    private static int SaleSequence = 15040;
+    private static readonly List<VendaHistoricoModel> Vendas =
+    [
+        new() { SaleNumber = "15039", CustomerName = "Ana Martins", CustomerCpf = "123.456.789-09", ProductCode = "CAF500", ProductName = "Café Tradicional 500g", Quantity = 3, SaleDate = "21/03/2026 14:12:08" },
+        new() { SaleNumber = "15038", CustomerName = "Lucas Souza", CustomerCpf = "427.632.180-01", ProductCode = "ACH400", ProductName = "Achocolatado 400g", Quantity = 1, SaleDate = "21/03/2026 13:42:11" },
+        new() { SaleNumber = "15037", CustomerName = "Beatriz Lima", CustomerCpf = "064.822.390-16", ProductCode = "ARR5KG", ProductName = "Arroz Tipo 1 5kg", Quantity = 2, SaleDate = "21/03/2026 12:55:46" }
+    ];
+
     [HttpGet]
     public IActionResult Listar()
-        => Ok(new ApiResponse<object>
+    {
+        lock (SyncRoot)
         {
-            Success = true,
-            Message = "Historico de vendas obtido com sucesso.",
-            Data = new[]
+            return Ok(new ApiResponse<object>
             {
-                new { saleNumber = "15039", customerName = "Ana Martins", customerCpf = "123.456.789-09", productCode = "CAF500", productName = "Café Tradicional 500g", quantity = 3, saleDate = "21/03/2026 14:12:08" },
-                new { saleNumber = "15038", customerName = "Lucas Souza", customerCpf = "427.632.180-01", productCode = "ACH400", productName = "Achocolatado 400g", quantity = 1, saleDate = "21/03/2026 13:42:11" },
-                new { saleNumber = "15037", customerName = "Beatriz Lima", customerCpf = "064.822.390-16", productCode = "ARR5KG", productName = "Arroz Tipo 1 5kg", quantity = 2, saleDate = "21/03/2026 12:55:46" }
+                Success = true,
+                Message = "Historico de vendas obtido com sucesso.",
+                Data = Vendas.Select(CloneSale).ToList()
+            });
+        }
+    }
+
+    [HttpPost]
+    public IActionResult Registrar([FromBody] VendaRequest request)
+    {
+        if (request.Items.Count == 0)
+        {
+            return BadRequest(new ApiResponse<object> { Success = false, Message = "Venda sem itens." });
+        }
+
+        lock (SyncRoot)
+        {
+            var saleNumber = SaleSequence.ToString();
+            SaleSequence += 1;
+            var saleDate = DateTime.Now.ToString("dd/MM/yyyy HH:mm:ss");
+            var rows = request.Items.Select(item => new VendaHistoricoModel
+            {
+                SaleNumber = saleNumber,
+                CustomerName = string.IsNullOrWhiteSpace(request.CustomerName) ? "Consumidor" : request.CustomerName.Trim(),
+                CustomerCpf = string.IsNullOrWhiteSpace(request.CustomerCpf) ? "-" : request.CustomerCpf.Trim(),
+                ProductCode = item.ProductCode.Trim(),
+                ProductName = item.ProductName.Trim(),
+                Quantity = item.Quantity,
+                SaleDate = saleDate
+            }).ToList();
+
+            Vendas.InsertRange(0, rows);
+            return StatusCode(StatusCodes.Status201Created, new ApiResponse<object>
+            {
+                Success = true,
+                Message = "Venda registrada com sucesso.",
+                Data = new { saleNumber, rows }
+            });
+        }
+    }
+
+    [HttpPost("{saleNumber}/imprimir")]
+    public IActionResult Imprimir(string saleNumber)
+    {
+        lock (SyncRoot)
+        {
+            var saleRows = Vendas.Where(item => item.SaleNumber == saleNumber).Select(CloneSale).ToList();
+            if (saleRows.Count == 0)
+            {
+                return NotFound(new ApiResponse<object> { Success = false, Message = "Venda nao encontrada." });
             }
-        });
+
+            return Ok(new ApiResponse<object>
+            {
+                Success = true,
+                Message = "Impressao enviada para processamento.",
+                Data = new { saleNumber, printedAt = DateTime.Now.ToString("dd/MM/yyyy HH:mm:ss"), items = saleRows.Count }
+            });
+        }
+    }
+
+    private static VendaHistoricoModel CloneSale(VendaHistoricoModel source) => new()
+    {
+        SaleNumber = source.SaleNumber,
+        CustomerName = source.CustomerName,
+        CustomerCpf = source.CustomerCpf,
+        ProductCode = source.ProductCode,
+        ProductName = source.ProductName,
+        Quantity = source.Quantity,
+        SaleDate = source.SaleDate
+    };
+
+    private class VendaHistoricoModel
+    {
+        public string SaleNumber { get; set; } = string.Empty;
+        public string CustomerName { get; set; } = string.Empty;
+        public string CustomerCpf { get; set; } = string.Empty;
+        public string ProductCode { get; set; } = string.Empty;
+        public string ProductName { get; set; } = string.Empty;
+        public int Quantity { get; set; }
+        public string SaleDate { get; set; } = string.Empty;
+    }
 }

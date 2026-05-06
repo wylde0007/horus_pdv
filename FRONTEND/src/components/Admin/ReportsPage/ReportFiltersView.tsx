@@ -79,7 +79,7 @@ function escapeHtml(value: unknown) {
     .replace(/&/g, "&amp;")
     .replace(/</g, "&lt;")
     .replace(/>/g, "&gt;")
-    .replace(/\"/g, "&quot;")
+    .replace(/"/g, "&quot;")
     .replace(/'/g, "&#039;");
 }
 
@@ -233,12 +233,14 @@ export default function ReportFiltersView({ report, onBack }: ReportFiltersViewP
   const [rowsPerPage, setRowsPerPage] = useState(10);
 
   useEffect(() => {
+    /* eslint-disable react-hooks/set-state-in-effect */
     setValues(initialValues);
     setSubmittedValues(initialValues);
     setResultColumns([]);
     setResultRows([]);
     setHasGenerated(false);
     setCurrentPage(1);
+    /* eslint-enable react-hooks/set-state-in-effect */
   }, [initialValues]);
 
   const handleChange = (filterId: string, nextValue: FilterValue) => {
