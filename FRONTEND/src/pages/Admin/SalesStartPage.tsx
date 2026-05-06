@@ -8,6 +8,7 @@ import { Image as ImageIcon, Search, Trash2, X } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Toast, useStatusDialog } from "@/hooks/Dialog";
 import useInputMasks from "@/hooks/InputMasks/useInputMasks";
+import { productService } from "@/services/api/productService";
 
 type SalesStartPageProps = {
   onExit?: () => void;
@@ -33,7 +34,7 @@ type CartItem = {
 
 type PaymentType = "dinheiro" | "pix" | "debito" | "credito";
 
-const PRODUCTS: Product[] = [
+const INITIAL_PRODUCTS: Product[] = [
   { id: "pr-001", name: "BOLA DE CAMPO - ADIDAS++", code: "BOL110", stock: 25, salePrice: 110 },
   { id: "pr-002", name: "Óleo de Soja", code: "OLE900", stock: 56, salePrice: 3.29 },
   { id: "pr-003", name: "Erva Chimarrão", code: "ERV500", stock: 24, salePrice: 15 },
@@ -63,6 +64,7 @@ export default function SalesStartPage({ standalone = false }: SalesStartPagePro
 
   const [now, setNow] = useState(new Date());
   const [productSearch, setProductSearch] = useState("");
+  const [products, setProducts] = useState<Product[]>(INITIAL_PRODUCTS);
   const [selectedProductId, setSelectedProductId] = useState("");
   const [showProductOptions, setShowProductOptions] = useState(false);
   const [highlightedProductIndex, setHighlightedProductIndex] = useState(0);
@@ -75,8 +77,8 @@ export default function SalesStartPage({ standalone = false }: SalesStartPagePro
   const [cashGiven, setCashGiven] = useState("");
 
   const selectedProduct = useMemo(
-    () => PRODUCTS.find((item) => item.id === selectedProductId) ?? null,
-    [selectedProductId],
+    () => products.find((item) => item.id === selectedProductId) ?? null,
+    [products, selectedProductId],
   );
 
   const quantity = useMemo(() => {
@@ -87,13 +89,13 @@ export default function SalesStartPage({ standalone = false }: SalesStartPagePro
 
   const filteredProducts = useMemo(() => {
     const normalized = productSearch.trim().toLowerCase();
-    if (!normalized) return PRODUCTS;
-    return PRODUCTS.filter(
+    if (!normalized) return products;
+    return products.filter(
       (item) =>
         item.name.toLowerCase().includes(normalized) ||
         item.code.toLowerCase().includes(normalized),
     );
-  }, [productSearch]);
+  }, [products, productSearch]);
 
   const subtotal = useMemo(
     () => cart.reduce((sum, item) => sum + item.unitPrice * item.quantity, 0),
@@ -114,8 +116,29 @@ export default function SalesStartPage({ standalone = false }: SalesStartPagePro
     if (selectedProduct) return selectedProduct;
     const lastItem = cart[cart.length - 1];
     if (!lastItem) return null;
-    return PRODUCTS.find((item) => item.id === lastItem.id) ?? null;
-  }, [selectedProduct, cart]);
+    return products.find((item) => item.id === lastItem.id) ?? null;
+  }, [selectedProduct, products, cart]);
+
+  useEffect(() => {
+    productService
+      .list()
+      .then((items) => {
+        if (items.length === 0) return;
+        setProducts(
+          items.map((item) => ({
+            id: item.id,
+            name: item.productName,
+            code: item.productCode,
+            stock: Number(item.productQnt || 0),
+            salePrice: parseMoneyBr(item.productSalePrice || "0"),
+            imageUrl: item.productImageUrl,
+          })),
+        );
+      })
+      .catch(() => {
+        Toast.info("API indisponível. Usando produtos mockados locais no PDV.");
+      });
+  }, [parseMoneyBr]);
 
   useEffect(() => {
     const timer = window.setInterval(() => setNow(new Date()), 1000);

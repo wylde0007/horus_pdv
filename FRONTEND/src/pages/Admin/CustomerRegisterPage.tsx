@@ -5,7 +5,7 @@
  */
 
 import { Pencil, Plus, Search, Trash2, X } from "lucide-react";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import PageHeader from "@/components/Admin/PageHeader";
 import RowActionsMenu from "@/components/Admin/RowActionsMenu";
 import { DatePickerField } from "@/components/Form";
@@ -13,6 +13,7 @@ import AddressContactFields from "@/components/Register/AddressContactFields";
 import { Toast, useStatusDialog } from "@/hooks/Dialog";
 import useInputMasks from "@/hooks/InputMasks/useInputMasks";
 import PageLayout from "@/layout/PageLayout";
+import { customerService } from "@/services/api/customerService";
 import { lookupAddressByCep } from "@/utils/cepLookup";
 import {
   getAgeFromBirthDate,
@@ -225,6 +226,17 @@ export default function CustomerRegisterPage() {
   const [loadingCep, setLoadingCep] = useState(false);
   const [form, setForm] = useState<CustomerFormData>(EMPTY_FORM);
 
+  useEffect(() => {
+    customerService
+      .list()
+      .then((items) => {
+        if (items.length > 0) setCustomers(items);
+      })
+      .catch(() => {
+        Toast.info("API indisponível. Usando clientes mockados locais.");
+      });
+  }, []);
+
   const filteredCustomers = useMemo(() => {
     const normalized = search.trim().toLowerCase();
     if (!normalized) return customers;
@@ -252,8 +264,13 @@ export default function CustomerRegisterPage() {
       `Deseja excluir o cliente "${customer.customerName}"?`,
     );
     if (!confirmed) return;
-    setCustomers((current) => current.filter((item) => item.id !== customer.id));
-    statusDialog.success("Cliente excluído com sucesso.");
+    try {
+      await customerService.remove(customer.id);
+      setCustomers((current) => current.filter((item) => item.id !== customer.id));
+      statusDialog.success("Cliente excluído com sucesso.");
+    } catch (error) {
+      Toast.error(error instanceof Error ? error.message : "Erro ao excluir cliente.");
+    }
   };
 
   const fillAddressFromCep = async () => {
@@ -329,23 +346,26 @@ export default function CustomerRegisterPage() {
     return true;
   };
 
-  const handleSave = () => {
+  const handleSave = async () => {
     if (!validateForm()) return;
 
-    if (editingId) {
-      setCustomers((current) =>
-        current.map((customer) =>
-          customer.id === editingId ? { ...customer, ...form } : customer,
-        ),
-      );
-      Toast.success("Cliente atualizado com sucesso.");
-    } else {
-      const created: Customer = {
-        id: `cl-${Date.now()}`,
-        ...form,
-      };
-      setCustomers((current) => [created, ...current]);
-      Toast.success("Cliente cadastrado com sucesso.");
+    try {
+      if (editingId) {
+        const updated = await customerService.update(editingId, form);
+        if (!updated) return;
+        setCustomers((current) =>
+          current.map((customer) => (customer.id === editingId ? updated : customer)),
+        );
+        Toast.success("Cliente atualizado com sucesso.");
+      } else {
+        const created = await customerService.create(form);
+        if (!created) return;
+        setCustomers((current) => [created, ...current]);
+        Toast.success("Cliente cadastrado com sucesso.");
+      }
+    } catch (error) {
+      Toast.error(error instanceof Error ? error.message : "Erro ao salvar cliente.");
+      return;
     }
 
     setDrawerOpen(false);

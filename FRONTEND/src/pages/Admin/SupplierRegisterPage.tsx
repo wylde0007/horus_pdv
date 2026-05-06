@@ -5,13 +5,14 @@
  */
 
 import { Pencil, Plus, Search, Trash2, X } from "lucide-react";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import PageHeader from "@/components/Admin/PageHeader";
 import RowActionsMenu from "@/components/Admin/RowActionsMenu";
 import AddressContactFields from "@/components/Register/AddressContactFields";
 import { Toast, useStatusDialog } from "@/hooks/Dialog";
 import useInputMasks from "@/hooks/InputMasks/useInputMasks";
 import PageLayout from "@/layout/PageLayout";
+import { supplierService } from "@/services/api/supplierService";
 import { lookupAddressByCep } from "@/utils/cepLookup";
 import { isValidCnpj, isValidEmail } from "@/utils/validators";
 
@@ -201,6 +202,17 @@ export default function SupplierRegisterPage() {
   const [loadingCep, setLoadingCep] = useState(false);
   const [form, setForm] = useState<SupplierFormData>(EMPTY_FORM);
 
+  useEffect(() => {
+    supplierService
+      .list()
+      .then((items) => {
+        if (items.length > 0) setSuppliers(items);
+      })
+      .catch(() => {
+        Toast.info("API indisponível. Usando fornecedores mockados locais.");
+      });
+  }, []);
+
   const filteredSuppliers = useMemo(() => {
     const normalized = search.trim().toLowerCase();
     if (!normalized) return suppliers;
@@ -229,8 +241,13 @@ export default function SupplierRegisterPage() {
       `Deseja excluir o fornecedor "${supplier.fantasyName}"?`,
     );
     if (!confirmed) return;
-    setSuppliers((current) => current.filter((item) => item.id !== supplier.id));
-    statusDialog.success("Fornecedor excluído com sucesso.");
+    try {
+      await supplierService.remove(supplier.id);
+      setSuppliers((current) => current.filter((item) => item.id !== supplier.id));
+      statusDialog.success("Fornecedor excluído com sucesso.");
+    } catch (error) {
+      Toast.error(error instanceof Error ? error.message : "Erro ao excluir fornecedor.");
+    }
   };
 
   const fillAddressFromCep = async () => {
@@ -300,23 +317,26 @@ export default function SupplierRegisterPage() {
     return true;
   };
 
-  const handleSave = () => {
+  const handleSave = async () => {
     if (!validateForm()) return;
 
-    if (editingId) {
-      setSuppliers((current) =>
-        current.map((supplier) =>
-          supplier.id === editingId ? { ...supplier, ...form } : supplier,
-        ),
-      );
-      Toast.success("Fornecedor atualizado com sucesso.");
-    } else {
-      const created: Supplier = {
-        id: `fr-${Date.now()}`,
-        ...form,
-      };
-      setSuppliers((current) => [created, ...current]);
-      Toast.success("Fornecedor cadastrado com sucesso.");
+    try {
+      if (editingId) {
+        const updated = await supplierService.update(editingId, form);
+        if (!updated) return;
+        setSuppliers((current) =>
+          current.map((supplier) => (supplier.id === editingId ? updated : supplier)),
+        );
+        Toast.success("Fornecedor atualizado com sucesso.");
+      } else {
+        const created = await supplierService.create(form);
+        if (!created) return;
+        setSuppliers((current) => [created, ...current]);
+        Toast.success("Fornecedor cadastrado com sucesso.");
+      }
+    } catch (error) {
+      Toast.error(error instanceof Error ? error.message : "Erro ao salvar fornecedor.");
+      return;
     }
 
     setDrawerOpen(false);

@@ -5,12 +5,13 @@
  */
 
 import { Pencil, Plus, Search, Trash2, X } from "lucide-react";
-import { useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import PageHeader from "@/components/Admin/PageHeader";
 import RowActionsMenu from "@/components/Admin/RowActionsMenu";
 import { Toast, useStatusDialog } from "@/hooks/Dialog";
 import useInputMasks from "@/hooks/InputMasks/useInputMasks";
 import PageLayout from "@/layout/PageLayout";
+import { productService } from "@/services/api/productService";
 
 type Product = {
   id: string;
@@ -322,6 +323,17 @@ export default function ProductRegisterPage() {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [form, setForm] = useState<ProductFormData>(EMPTY_FORM);
 
+  useEffect(() => {
+    productService
+      .list()
+      .then((items) => {
+        if (items.length > 0) setProducts(items);
+      })
+      .catch(() => {
+        Toast.info("API indisponível. Usando produtos mockados locais.");
+      });
+  }, []);
+
   const filteredProducts = useMemo(() => {
     const normalized = search.trim().toLowerCase();
     if (!normalized) return products;
@@ -349,8 +361,13 @@ export default function ProductRegisterPage() {
       `Deseja excluir o produto "${product.productName}"?`,
     );
     if (!confirmed) return;
-    setProducts((current) => current.filter((item) => item.id !== product.id));
-    statusDialog.success("Produto excluído com sucesso.");
+    try {
+      await productService.remove(product.id);
+      setProducts((current) => current.filter((item) => item.id !== product.id));
+      statusDialog.success("Produto excluído com sucesso.");
+    } catch (error) {
+      Toast.error(error instanceof Error ? error.message : "Erro ao excluir produto.");
+    }
   };
 
   const validateForm = () => {
@@ -389,23 +406,26 @@ export default function ProductRegisterPage() {
     return true;
   };
 
-  const handleSave = () => {
+  const handleSave = async () => {
     if (!validateForm()) return;
 
-    if (editingId) {
-      setProducts((current) =>
-        current.map((product) =>
-          product.id === editingId ? { ...product, ...form } : product,
-        ),
-      );
-      Toast.success("Produto atualizado com sucesso.");
-    } else {
-      const created: Product = {
-        id: `pr-${Date.now()}`,
-        ...form,
-      };
-      setProducts((current) => [created, ...current]);
-      Toast.success("Produto cadastrado com sucesso.");
+    try {
+      if (editingId) {
+        const updated = await productService.update(editingId, form);
+        if (!updated) return;
+        setProducts((current) =>
+          current.map((product) => (product.id === editingId ? updated : product)),
+        );
+        Toast.success("Produto atualizado com sucesso.");
+      } else {
+        const created = await productService.create(form);
+        if (!created) return;
+        setProducts((current) => [created, ...current]);
+        Toast.success("Produto cadastrado com sucesso.");
+      }
+    } catch (error) {
+      Toast.error(error instanceof Error ? error.message : "Erro ao salvar produto.");
+      return;
     }
 
     setDrawerOpen(false);
