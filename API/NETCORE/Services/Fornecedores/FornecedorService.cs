@@ -12,6 +12,7 @@ public class FornecedorService(HorusMockDatabase database) : IFornecedorService
     public async Task<FornecedorModel> CriarAsync(FornecedorRequest request)
     {
         Validate(request);
+        await ValidateDuplicatesAsync(request, null);
         var supplier = MapRequest($"fr-{DateTimeOffset.UtcNow.ToUnixTimeMilliseconds()}", request);
         return await database.SalvarFornecedorAsync(supplier);
     }
@@ -25,11 +26,25 @@ public class FornecedorService(HorusMockDatabase database) : IFornecedorService
             return null;
         }
 
+        await ValidateDuplicatesAsync(request, id);
         return await database.SalvarFornecedorAsync(MapRequest(id, request));
     }
 
-    public Task<bool> ExcluirAsync(string id)
-        => database.ExcluirFornecedorAsync(id);
+    public async Task<bool> ExcluirAsync(string id)
+    {
+        var supplier = await database.ObterFornecedorAsync(id);
+        if (supplier is null) return false;
+
+        var products = await database.ListarProdutosAsync();
+        if (products.Any(item =>
+                item.ProductSupplier.Equals(supplier.FantasyName, StringComparison.OrdinalIgnoreCase) ||
+                item.ProductSupplier.Equals(supplier.CompanyName, StringComparison.OrdinalIgnoreCase)))
+        {
+            throw new InvalidOperationException("Fornecedor possui produtos vinculados e nao pode ser excluido.");
+        }
+
+        return await database.ExcluirFornecedorAsync(id);
+    }
 
     private static void Validate(FornecedorRequest request)
     {
@@ -46,6 +61,31 @@ public class FornecedorService(HorusMockDatabase database) : IFornecedorService
         if (string.IsNullOrWhiteSpace(request.Cnpj))
         {
             throw new InvalidOperationException("CNPJ do fornecedor e obrigatorio.");
+        }
+
+        if (OnlyDigits(request.Cnpj).Length != 14)
+        {
+            throw new InvalidOperationException("CNPJ do fornecedor invalido.");
+        }
+
+        if (string.IsNullOrWhiteSpace(request.Cellphone))
+        {
+            throw new InvalidOperationException("Celular do fornecedor e obrigatorio.");
+        }
+
+        if (!string.IsNullOrWhiteSpace(request.Email) && !request.Email.Contains('@'))
+        {
+            throw new InvalidOperationException("E-mail do fornecedor invalido.");
+        }
+    }
+
+    private async Task ValidateDuplicatesAsync(FornecedorRequest request, string? currentId)
+    {
+        var suppliers = await database.ListarFornecedoresAsync();
+        var cnpj = OnlyDigits(request.Cnpj);
+        if (suppliers.Any(item => item.Id != currentId && OnlyDigits(item.Cnpj) == cnpj))
+        {
+            throw new InvalidOperationException("Ja existe fornecedor com este CNPJ.");
         }
     }
 
@@ -67,4 +107,6 @@ public class FornecedorService(HorusMockDatabase database) : IFornecedorService
         Cellphone = request.Cellphone,
         Email = request.Email
     };
+
+    private static string OnlyDigits(string value) => new(value.Where(char.IsDigit).ToArray());
 }

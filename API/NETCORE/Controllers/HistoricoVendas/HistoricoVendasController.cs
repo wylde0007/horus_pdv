@@ -1,13 +1,14 @@
 using HORUSPDV_API.Models.Requests;
 using HORUSPDV_API.Models.Response;
 using HORUSPDV_API.Repositories.AcessoBanco;
+using HORUSPDV_API.Services.Caixa;
 using Microsoft.AspNetCore.Mvc;
 
 namespace HORUSPDV_API.Controllers.HistoricoVendas;
 
 [ApiController]
 [Route("api/[controller]")]
-public class HistoricoVendasController(HorusMockDatabase database) : ControllerBase
+public class HistoricoVendasController(HorusMockDatabase database, HorusCaixaService caixaService) : ControllerBase
 {
     private static readonly object SyncRoot = new();
     private static int SaleSequence = 15040;
@@ -42,6 +43,7 @@ public class HistoricoVendasController(HorusMockDatabase database) : ControllerB
 
         try
         {
+            caixaService.EnsureVendaPermitida();
             await database.BaixarEstoqueAsync(
                 request.Items.Select(item => (item.ProductCode, item.Quantity)));
         }

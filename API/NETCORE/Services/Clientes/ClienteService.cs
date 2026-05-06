@@ -12,6 +12,7 @@ public class ClienteService(HorusMockDatabase database) : IClienteService
     public async Task<ClienteModel> CriarAsync(ClienteRequest request)
     {
         Validate(request);
+        await ValidateDuplicatesAsync(request, null);
         var customer = MapRequest($"cl-{DateTimeOffset.UtcNow.ToUnixTimeMilliseconds()}", request);
         return await database.SalvarClienteAsync(customer);
     }
@@ -25,6 +26,7 @@ public class ClienteService(HorusMockDatabase database) : IClienteService
             return null;
         }
 
+        await ValidateDuplicatesAsync(request, id);
         return await database.SalvarClienteAsync(MapRequest(id, request));
     }
 
@@ -41,6 +43,32 @@ public class ClienteService(HorusMockDatabase database) : IClienteService
         if (string.IsNullOrWhiteSpace(request.Document))
         {
             throw new InvalidOperationException("Documento do cliente e obrigatorio.");
+        }
+
+        var documentDigits = OnlyDigits(request.Document);
+        if (documentDigits.Length != 11 && documentDigits.Length != 14)
+        {
+            throw new InvalidOperationException("Documento do cliente invalido.");
+        }
+
+        if (string.IsNullOrWhiteSpace(request.Cellphone))
+        {
+            throw new InvalidOperationException("Celular do cliente e obrigatorio.");
+        }
+
+        if (!string.IsNullOrWhiteSpace(request.Email) && !request.Email.Contains('@'))
+        {
+            throw new InvalidOperationException("E-mail do cliente invalido.");
+        }
+    }
+
+    private async Task ValidateDuplicatesAsync(ClienteRequest request, string? currentId)
+    {
+        var customers = await database.ListarClientesAsync();
+        var document = OnlyDigits(request.Document);
+        if (customers.Any(item => item.Id != currentId && OnlyDigits(item.Document) == document))
+        {
+            throw new InvalidOperationException("Ja existe cliente com este documento.");
         }
     }
 
@@ -63,4 +91,6 @@ public class ClienteService(HorusMockDatabase database) : IClienteService
         Cellphone = request.Cellphone,
         Email = request.Email
     };
+
+    private static string OnlyDigits(string value) => new(value.Where(char.IsDigit).ToArray());
 }

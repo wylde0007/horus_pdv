@@ -8,6 +8,7 @@ import { Pencil, Plus, Search, Trash2, X } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import PageHeader from "@/components/Admin/PageHeader";
 import RowActionsMenu from "@/components/Admin/RowActionsMenu";
+import TablePagination from "@/components/Pagination/TablePagination";
 import AddressContactFields from "@/components/Register/AddressContactFields";
 import { Toast, useStatusDialog } from "@/hooks/Dialog";
 import useInputMasks from "@/hooks/InputMasks/useInputMasks";
@@ -178,6 +179,8 @@ export default function SupplierRegisterPage() {
   const statusDialog = useStatusDialog();
   const [suppliers, setSuppliers] = useState<Supplier[]>([]);
   const [search, setSearch] = useState("");
+  const [currentPage, setCurrentPage] = useState(1);
+  const [itemsPerPage, setItemsPerPage] = useState(10);
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [loadingCep, setLoadingCep] = useState(false);
@@ -202,6 +205,13 @@ export default function SupplierRegisterPage() {
         supplier.cnpj.includes(normalized),
     );
   }, [suppliers, search]);
+
+  const totalPages = Math.max(1, Math.ceil(filteredSuppliers.length / itemsPerPage));
+  const safeCurrentPage = Math.min(currentPage, totalPages);
+  const paginatedSuppliers = useMemo(() => {
+    const start = (safeCurrentPage - 1) * itemsPerPage;
+    return filteredSuppliers.slice(start, start + itemsPerPage);
+  }, [filteredSuppliers, itemsPerPage, safeCurrentPage]);
 
   const openCreateDrawer = () => {
     setEditingId(null);
@@ -344,7 +354,10 @@ export default function SupplierRegisterPage() {
           />
           <input
             value={search}
-            onChange={(event) => setSearch(event.target.value)}
+            onChange={(event) => {
+              setSearch(event.target.value);
+              setCurrentPage(1);
+            }}
             className="input-field w-full pl-9"
             placeholder="Pesquise por nome ou CNPJ"
           />
@@ -365,7 +378,7 @@ export default function SupplierRegisterPage() {
               </tr>
             </thead>
             <tbody>
-              {filteredSuppliers.map((supplier) => (
+              {paginatedSuppliers.map((supplier) => (
                 <tr key={supplier.id} className="border-t border-border-primary">
                   <td className="px-4 py-3">{supplier.companyName}</td>
                   <td className="px-4 py-3">{supplier.fantasyName}</td>
@@ -395,6 +408,18 @@ export default function SupplierRegisterPage() {
               ))}
             </tbody>
           </table>
+        </div>
+        <div className="px-4 py-4">
+          <TablePagination
+            totalItems={filteredSuppliers.length}
+            currentPage={safeCurrentPage}
+            itemsPerPage={itemsPerPage}
+            onPageChange={setCurrentPage}
+            onItemsPerPageChange={(value) => {
+              setItemsPerPage(value);
+              setCurrentPage(1);
+            }}
+          />
         </div>
       </section>
 

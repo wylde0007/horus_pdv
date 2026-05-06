@@ -9,6 +9,7 @@ import { type ClipboardEvent, type FormEvent, useEffect, useMemo, useRef, useSta
 import PageHeader from "@/components/Admin/PageHeader";
 import RowActionsMenu from "@/components/Admin/RowActionsMenu";
 import { SearchableSelectField } from "@/components/Form";
+import TablePagination from "@/components/Pagination/TablePagination";
 import AddressContactFields from "@/components/Register/AddressContactFields";
 import { Toast, useStatusDialog } from "@/hooks/Dialog";
 import useInputMasks from "@/hooks/InputMasks/useInputMasks";
@@ -563,6 +564,8 @@ export default function ProductRegisterPage() {
   const [products, setProducts] = useState<Product[]>([]);
   const [supplierOptions, setSupplierOptions] = useState<string[]>([]);
   const [search, setSearch] = useState("");
+  const [currentPage, setCurrentPage] = useState(1);
+  const [itemsPerPage, setItemsPerPage] = useState(10);
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [form, setForm] = useState<ProductFormData>(EMPTY_FORM);
@@ -595,6 +598,13 @@ export default function ProductRegisterPage() {
         product.productCode.toLowerCase().includes(normalized),
     );
   }, [products, search]);
+
+  const totalPages = Math.max(1, Math.ceil(filteredProducts.length / itemsPerPage));
+  const safeCurrentPage = Math.min(currentPage, totalPages);
+  const paginatedProducts = useMemo(() => {
+    const start = (safeCurrentPage - 1) * itemsPerPage;
+    return filteredProducts.slice(start, start + itemsPerPage);
+  }, [filteredProducts, itemsPerPage, safeCurrentPage]);
 
   const openCreateDrawer = () => {
     setEditingId(null);
@@ -740,7 +750,10 @@ export default function ProductRegisterPage() {
           />
           <input
             value={search}
-            onChange={(event) => setSearch(event.target.value)}
+            onChange={(event) => {
+              setSearch(event.target.value);
+              setCurrentPage(1);
+            }}
             className="input-field w-full pl-9"
             placeholder="Pesquise por nome ou código do produto"
           />
@@ -762,7 +775,7 @@ export default function ProductRegisterPage() {
               </tr>
             </thead>
             <tbody>
-              {filteredProducts.map((product) => (
+              {paginatedProducts.map((product) => (
                 <tr key={product.id} className="border-t border-border-primary">
                   <td className="px-4 py-3">
                     <div className="h-12 w-12 overflow-hidden rounded-lg border border-border-primary bg-bg-light">
@@ -807,6 +820,18 @@ export default function ProductRegisterPage() {
               ))}
             </tbody>
           </table>
+        </div>
+        <div className="px-4 py-4">
+          <TablePagination
+            totalItems={filteredProducts.length}
+            currentPage={safeCurrentPage}
+            itemsPerPage={itemsPerPage}
+            onPageChange={setCurrentPage}
+            onItemsPerPageChange={(value) => {
+              setItemsPerPage(value);
+              setCurrentPage(1);
+            }}
+          />
         </div>
       </section>
 

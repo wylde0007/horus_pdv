@@ -17,6 +17,10 @@ import {
 import { SearchableSelectField } from "@/components/Form";
 import { Toast, useStatusDialog } from "@/hooks/Dialog";
 import useInputMasks from "@/hooks/InputMasks/useInputMasks";
+import {
+  cashRegisterService,
+  type CashRegisterStatusDto,
+} from "@/services/api/cashRegisterService";
 import { companyService, type CompanyDto } from "@/services/api/companyService";
 import { productService } from "@/services/api/productService";
 import { salesHistoryService } from "@/services/api/salesHistoryService";
@@ -123,6 +127,14 @@ function formatReceiptDate(value: string) {
     minute: "2-digit",
     second: "2-digit",
   });
+}
+
+function formatCashElapsed(minutes?: number) {
+  if (!minutes || minutes < 1) return "menos de 1 min";
+  const hours = Math.floor(minutes / 60);
+  const remainingMinutes = minutes % 60;
+  if (hours === 0) return `${remainingMinutes} min`;
+  return `${hours}h ${String(remainingMinutes).padStart(2, "0")}min`;
 }
 
 function ReceiptPreviewModal({
@@ -266,6 +278,7 @@ export default function SalesStartPage({
   const [productSearch, setProductSearch] = useState("");
   const [products, setProducts] = useState<Product[]>([]);
   const [company, setCompany] = useState<CompanyDto | null>(null);
+  const [cashStatus, setCashStatus] = useState<CashRegisterStatusDto | null>(null);
   const [selectedProductId, setSelectedProductId] = useState("");
   const [showProductOptions, setShowProductOptions] = useState(false);
   const [highlightedProductIndex, setHighlightedProductIndex] = useState(0);
@@ -344,12 +357,26 @@ export default function SalesStartPage({
     );
   }, [parseMoneyBr]);
 
+  const loadCashStatus = useCallback(async () => {
+    const status = await cashRegisterService.status();
+    setCashStatus(status ?? null);
+    return status ?? null;
+  }, []);
+
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect
     loadProducts().catch(() => {
       Toast.error("Não foi possível carregar produtos da API no PDV.");
     });
   }, [loadProducts]);
+
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    loadCashStatus().catch(() => {
+      setCashStatus(null);
+      Toast.error("Não foi possível validar a abertura de caixa.");
+    });
+  }, [loadCashStatus]);
 
   useEffect(() => {
     companyService
@@ -509,15 +536,29 @@ export default function SalesStartPage({
     Toast.info("Venda cancelada.");
   }, [cart.length, statusDialog]);
 
-  const openPayment = useCallback(() => {
+  const openPayment = useCallback(async () => {
     if (cart.length === 0) {
       Toast.error("Adicione ao menos um item.");
       return;
     }
+
+    try {
+      const latestCashStatus = await loadCashStatus();
+      if (!latestCashStatus?.canSell) {
+        Toast.error(
+          latestCashStatus?.blockReason || "Abra o caixa antes de iniciar uma venda.",
+        );
+        return;
+      }
+    } catch {
+      Toast.error("Não foi possível validar a abertura de caixa.");
+      return;
+    }
+
     setPaymentType("dinheiro");
     setCashGiven(formatMoneyBr(subtotal));
     setCheckoutOpen(true);
-  }, [cart.length, formatMoneyBr, subtotal]);
+  }, [cart.length, formatMoneyBr, loadCashStatus, subtotal]);
 
   const confirmPayment = async () => {
     if (paymentType === "dinheiro" && cashGivenValue < subtotal) {
@@ -526,6 +567,14 @@ export default function SalesStartPage({
     }
 
     try {
+      const latestCashStatus = await loadCashStatus();
+      if (!latestCashStatus?.canSell) {
+        Toast.error(
+          latestCashStatus?.blockReason || "Abra o caixa antes de confirmar a venda.",
+        );
+        return;
+      }
+
       const result = await salesHistoryService.register({
         customerName: "Consumidor",
         customerCpf: cpfNota || "-",
@@ -632,6 +681,12 @@ export default function SalesStartPage({
   }, [addItem, cancelSale, checkoutOpen, openPayment, quantity, selectedProductId, cart.length, showProductOptions]);
 
   const { dateLabel, timeLabel } = formatDateTime(now);
+  const cashCanSell = cashStatus?.canSell === true;
+  const cashLabel = cashStatus
+    ? cashCanSell
+      ? `Caixa aberto por ${formatCashElapsed(cashStatus.currentSession?.elapsedMinutes)}`
+      : cashStatus.blockReason || "Caixa fechado"
+    : "Validando caixa...";
 
   return (
     <div className="h-[100dvh] overflow-y-auto bg-bg-primary p-1.5 md:overflow-hidden md:p-2">
@@ -812,6 +867,16 @@ export default function SalesStartPage({
               </p>
             </div>
 
+            <div
+              className={`border-b px-3 py-2 text-xs font-semibold ${
+                cashCanSell
+                  ? "border-success/20 bg-success/10 text-success"
+                  : "border-primary/20 bg-primary/10 text-primary"
+              }`}
+            >
+              {cashLabel}
+            </div>
+
             <div className="border-b border-border-primary px-3 py-3">
               <p className="text-xs font-semibold">Nome produto:</p>
               <h2 className="text-center font-display text-xl font-semibold leading-none tracking-tight text-text-primary md:text-3xl">
@@ -950,7 +1015,8 @@ export default function SalesStartPage({
                 <button
                   type="button"
                   onClick={openPayment}
-                  className="btn-success h-11 w-full rounded-xl"
+                  className="btn-success h-11 w-full rounded-xl disabled:cursor-not-allowed disabled:opacity-60"
+                  disabled={!cashCanSell}
                 >
                   PAGAMENTO (F12)
                 </button>
@@ -962,7 +1028,8 @@ export default function SalesStartPage({
                   Estabelecimento: {company?.fantasyName || "Hórus PDV"}
                 </p>
                 <p className="sm:text-right">
-                  Prévia impressão: {printPreviewEnabled ? "Sim" : "Não"} • Caixa: PDV01
+                  Prévia impressão: {printPreviewEnabled ? "Sim" : "Não"} • Caixa:{" "}
+                  {cashCanSell ? "PDV01 aberto" : "bloqueado"}
                 </p>
               </footer>
             </div>

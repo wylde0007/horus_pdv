@@ -14,7 +14,11 @@ type LoginResult = {
 
 type LoginPageProps = {
   defaultEmail: string;
-  onLogin: (email: string, password: string, remember: boolean) => Promise<LoginResult>;
+  onLogin: (
+    email: string,
+    password: string,
+    remember: boolean,
+  ) => Promise<LoginResult>;
 };
 
 export default function LoginPage({ defaultEmail, onLogin }: LoginPageProps) {
@@ -77,7 +81,7 @@ export default function LoginPage({ defaultEmail, onLogin }: LoginPageProps) {
           <div className="auth-login-reveal-1 bg-bg-light/92 p-6 sm:p-8">
             <div className="mx-auto w-full max-w-md">
               <h2 className="auth-login-reveal-2 text-2xl font-bold text-text-primary">
-                Fazer login
+                Bem-vindo de volta!
               </h2>
               <p className="auth-login-reveal-3 mt-1 text-sm text-text-secondary">
                 Use seu e-mail e senha para acessar o painel.

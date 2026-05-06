@@ -72,12 +72,19 @@ public class FornecedorController(IFornecedorService fornecedorService) : Contro
     [ProducesResponseType(typeof(ApiResponse<object>), StatusCodes.Status200OK)]
     public async Task<IActionResult> Excluir(string id)
     {
-        var removed = await fornecedorService.ExcluirAsync(id);
-        if (!removed)
+        try
         {
-            return NotFound(new ApiResponse<object> { Success = false, Message = "Fornecedor nao encontrado." });
-        }
+            var removed = await fornecedorService.ExcluirAsync(id);
+            if (!removed)
+            {
+                return NotFound(new ApiResponse<object> { Success = false, Message = "Fornecedor nao encontrado." });
+            }
 
-        return Ok(new ApiResponse<object> { Success = true, Message = "Fornecedor removido com sucesso." });
+            return Ok(new ApiResponse<object> { Success = true, Message = "Fornecedor removido com sucesso." });
+        }
+        catch (InvalidOperationException ex)
+        {
+            return BadRequest(new ApiResponse<object> { Success = false, Message = ex.Message });
+        }
     }
 }

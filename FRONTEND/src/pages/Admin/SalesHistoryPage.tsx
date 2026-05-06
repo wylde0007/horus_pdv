@@ -8,6 +8,7 @@ import { FileText, Search } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import PageHeader from "@/components/Admin/PageHeader";
 import RowActionsMenu from "@/components/Admin/RowActionsMenu";
+import TablePagination from "@/components/Pagination/TablePagination";
 import { Toast } from "@/hooks/Dialog";
 import PageLayout from "@/layout/PageLayout";
 import { salesHistoryService } from "@/services/api/salesHistoryService";
@@ -25,6 +26,8 @@ type SaleHistoryRow = {
 export default function SalesHistoryPage() {
   const [search, setSearch] = useState("");
   const [salesHistory, setSalesHistory] = useState<SaleHistoryRow[]>([]);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [itemsPerPage, setItemsPerPage] = useState(10);
 
   useEffect(() => {
     salesHistoryService.list().then(setSalesHistory).catch(() => setSalesHistory([]));
@@ -42,6 +45,13 @@ export default function SalesHistoryPage() {
     );
   }, [salesHistory, search]);
 
+  const totalPages = Math.max(1, Math.ceil(filteredSales.length / itemsPerPage));
+  const safeCurrentPage = Math.min(currentPage, totalPages);
+  const paginatedSales = useMemo(() => {
+    const start = (safeCurrentPage - 1) * itemsPerPage;
+    return filteredSales.slice(start, start + itemsPerPage);
+  }, [filteredSales, itemsPerPage, safeCurrentPage]);
+
   return (
     <PageLayout className="space-y-4 py-4 md:space-y-6 md:py-6 lg:py-8">
       <PageHeader
@@ -57,7 +67,10 @@ export default function SalesHistoryPage() {
           />
           <input
             value={search}
-            onChange={(event) => setSearch(event.target.value)}
+            onChange={(event) => {
+              setSearch(event.target.value);
+              setCurrentPage(1);
+            }}
             className="input-field w-full pl-9"
             placeholder="Pesquise pelo número da venda ou cliente"
           />
@@ -80,7 +93,7 @@ export default function SalesHistoryPage() {
               </tr>
             </thead>
             <tbody>
-              {filteredSales.map((sale) => (
+              {paginatedSales.map((sale) => (
                 <tr key={`${sale.saleNumber}-${sale.productCode}`} className="border-t border-border-primary">
                   <td className="px-4 py-3 font-semibold text-text-primary">{sale.saleNumber}</td>
                   <td className="px-4 py-3">{sale.customerName}</td>
@@ -116,6 +129,18 @@ export default function SalesHistoryPage() {
               ))}
             </tbody>
           </table>
+        </div>
+        <div className="px-4 py-4">
+          <TablePagination
+            totalItems={filteredSales.length}
+            currentPage={safeCurrentPage}
+            itemsPerPage={itemsPerPage}
+            onPageChange={setCurrentPage}
+            onItemsPerPageChange={(value) => {
+              setItemsPerPage(value);
+              setCurrentPage(1);
+            }}
+          />
         </div>
       </section>
     </PageLayout>

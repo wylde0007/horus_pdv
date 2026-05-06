@@ -9,6 +9,7 @@ import { useEffect, useMemo, useState } from "react";
 import PageHeader from "@/components/Admin/PageHeader";
 import RowActionsMenu from "@/components/Admin/RowActionsMenu";
 import { DatePickerField } from "@/components/Form";
+import TablePagination from "@/components/Pagination/TablePagination";
 import AddressContactFields from "@/components/Register/AddressContactFields";
 import { Toast, useStatusDialog } from "@/hooks/Dialog";
 import useInputMasks from "@/hooks/InputMasks/useInputMasks";
@@ -201,6 +202,8 @@ export default function CustomerRegisterPage() {
   const statusDialog = useStatusDialog();
   const [customers, setCustomers] = useState<Customer[]>([]);
   const [search, setSearch] = useState("");
+  const [currentPage, setCurrentPage] = useState(1);
+  const [itemsPerPage, setItemsPerPage] = useState(10);
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [loadingCep, setLoadingCep] = useState(false);
@@ -224,6 +227,13 @@ export default function CustomerRegisterPage() {
         customer.document.includes(normalized),
     );
   }, [customers, search]);
+
+  const totalPages = Math.max(1, Math.ceil(filteredCustomers.length / itemsPerPage));
+  const safeCurrentPage = Math.min(currentPage, totalPages);
+  const paginatedCustomers = useMemo(() => {
+    const start = (safeCurrentPage - 1) * itemsPerPage;
+    return filteredCustomers.slice(start, start + itemsPerPage);
+  }, [filteredCustomers, itemsPerPage, safeCurrentPage]);
 
   const openCreateDrawer = () => {
     setEditingId(null);
@@ -372,7 +382,10 @@ export default function CustomerRegisterPage() {
           />
           <input
             value={search}
-            onChange={(event) => setSearch(event.target.value)}
+            onChange={(event) => {
+              setSearch(event.target.value);
+              setCurrentPage(1);
+            }}
             className="input-field w-full pl-9"
             placeholder="Pesquise por nome ou CPF"
           />
@@ -393,7 +406,7 @@ export default function CustomerRegisterPage() {
               </tr>
             </thead>
             <tbody>
-              {filteredCustomers.map((customer) => (
+              {paginatedCustomers.map((customer) => (
                 <tr key={customer.id} className="border-t border-border-primary">
                   <td className="px-4 py-3">{customer.customerName}</td>
                   <td className="px-4 py-3">{customer.document}</td>
@@ -423,6 +436,18 @@ export default function CustomerRegisterPage() {
               ))}
             </tbody>
           </table>
+        </div>
+        <div className="px-4 py-4">
+          <TablePagination
+            totalItems={filteredCustomers.length}
+            currentPage={safeCurrentPage}
+            itemsPerPage={itemsPerPage}
+            onPageChange={setCurrentPage}
+            onItemsPerPageChange={(value) => {
+              setItemsPerPage(value);
+              setCurrentPage(1);
+            }}
+          />
         </div>
       </section>
 

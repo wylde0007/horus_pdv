@@ -10,6 +10,7 @@ import LoadingBar from "@/components/Loading/LoadingBar";
 import { Toast, useStatusDialog } from "@/hooks/Dialog";
 import LoginPage from "@/pages/Auth/LoginPage";
 import { authService } from "@/services/api/authService";
+import { cashRegisterService } from "@/services/api/cashRegisterService";
 import {
   clearAuthSession,
   getAuthToken,
@@ -266,6 +267,36 @@ export default function App() {
   };
 
   const handleOpenSalesInNewTab = async () => {
+    try {
+      const cashStatus = await cashRegisterService.status();
+      if (!cashStatus?.canSell) {
+        const shouldOpenCashRegister = await statusDialog.confirm(
+          cashStatus?.blockReason ||
+            "Para iniciar vendas, abra o caixa do dia primeiro.",
+          {
+            confirmIntent: "success",
+            cancelLabel: "Agora não",
+            confirmLabel: "Abrir caixa",
+          },
+        );
+
+        if (shouldOpenCashRegister) {
+          setActivePage("caixa");
+        }
+
+        setMobileSidebarOpen(false);
+        return;
+      }
+    } catch (error) {
+      Toast.error(
+        error instanceof Error
+          ? error.message
+          : "Não foi possível validar o status do caixa.",
+      );
+      setMobileSidebarOpen(false);
+      return;
+    }
+
     const url = new URL(window.location.href);
     url.searchParams.set("pdv", "1");
 

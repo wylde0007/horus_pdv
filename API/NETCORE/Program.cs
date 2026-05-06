@@ -1,5 +1,6 @@
 using HORUSPDV_API.Middlewares;
 using HORUSPDV_API.Repositories.AcessoBanco;
+using HORUSPDV_API.Services.Caixa;
 using HORUSPDV_API.Services.Clientes;
 using HORUSPDV_API.Services.Fornecedores;
 using HORUSPDV_API.Services.Produtos;
@@ -27,6 +28,7 @@ builder.Services.AddCors(options =>
 });
 
 builder.Services.AddSingleton<HorusMockDatabase>();
+builder.Services.AddSingleton<HorusCaixaService>();
 builder.Services.AddSingleton<HorusSecurityStore>();
 builder.Services.AddSingleton<HorusSecurityOptions>();
 builder.Services.AddSingleton<HorusJwtService>();
