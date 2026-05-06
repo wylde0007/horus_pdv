@@ -1,37 +1,38 @@
 using HORUSPDV_API.Models.Clientes;
 using HORUSPDV_API.Models.Requests;
-using HORUSPDV_API.Repositories.AcessoBanco;
+using HORUSPDV_API.Repositories.DataAccess;
+using HORUSPDV_API.Repositories.DatabaseAccess;
 
 namespace HORUSPDV_API.Services.Clientes;
 
-public class ClienteService(HorusMockDatabase database) : IClienteService
+public class ClienteService(ClienteAB clientesAB) : IClienteService
 {
-    public Task<List<ClienteModel>> ListarAsync()
-        => database.ListarClientesAsync();
+    public async Task<List<ClienteModel>> ListarAsync()
+        => (await clientesAB.ListarAsync()).Select(ToModel).ToList();
 
     public async Task<ClienteModel> CriarAsync(ClienteRequest request)
     {
         Validate(request);
         await ValidateDuplicatesAsync(request, null);
         var customer = MapRequest($"cl-{DateTimeOffset.UtcNow.ToUnixTimeMilliseconds()}", request);
-        return await database.SalvarClienteAsync(customer);
+        return ToModel(await clientesAB.SalvarAsync(customer));
     }
 
     public async Task<ClienteModel?> AtualizarAsync(string id, ClienteRequest request)
     {
         Validate(request);
-        var current = await database.ObterClienteAsync(id);
+        var current = await clientesAB.ObterAsync(id);
         if (current is null)
         {
             return null;
         }
 
         await ValidateDuplicatesAsync(request, id);
-        return await database.SalvarClienteAsync(MapRequest(id, request));
+        return ToModel(await clientesAB.SalvarAsync(MapRequest(id, request)));
     }
 
     public Task<bool> ExcluirAsync(string id)
-        => database.ExcluirClienteAsync(id);
+        => clientesAB.ExcluirAsync(id);
 
     private static void Validate(ClienteRequest request)
     {
@@ -64,7 +65,7 @@ public class ClienteService(HorusMockDatabase database) : IClienteService
 
     private async Task ValidateDuplicatesAsync(ClienteRequest request, string? currentId)
     {
-        var customers = await database.ListarClientesAsync();
+        var customers = await clientesAB.ListarAsync();
         var document = OnlyDigits(request.Document);
         if (customers.Any(item => item.Id != currentId && OnlyDigits(item.Document) == document))
         {
@@ -72,7 +73,7 @@ public class ClienteService(HorusMockDatabase database) : IClienteService
         }
     }
 
-    private static ClienteModel MapRequest(string id, ClienteRequest request) => new()
+    private static ClienteAD MapRequest(string id, ClienteRequest request) => new()
     {
         Id = id,
         CustomerName = request.CustomerName.Trim(),
@@ -90,6 +91,26 @@ public class ClienteService(HorusMockDatabase database) : IClienteService
         Telephone = request.Telephone,
         Cellphone = request.Cellphone,
         Email = request.Email
+    };
+
+    private static ClienteModel ToModel(ClienteAD source) => new()
+    {
+        Id = source.Id,
+        CustomerName = source.CustomerName,
+        Document = source.Document,
+        BirthDate = source.BirthDate,
+        Age = source.Age,
+        Cep = source.Cep,
+        City = source.City,
+        State = source.State,
+        Address = source.Address,
+        Neighborhood = source.Neighborhood,
+        StreetComplement = source.StreetComplement,
+        Number = source.Number,
+        ReferencePoint = source.ReferencePoint,
+        Telephone = source.Telephone,
+        Cellphone = source.Cellphone,
+        Email = source.Email
     };
 
     private static string OnlyDigits(string value) => new(value.Where(char.IsDigit).ToArray());

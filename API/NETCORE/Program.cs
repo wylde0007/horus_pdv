@@ -1,5 +1,6 @@
 using HORUSPDV_API.Middlewares;
-using HORUSPDV_API.Repositories.AcessoBanco;
+using HORUSPDV_API.Repositories;
+using HORUSPDV_API.Repositories.DatabaseAccess;
 using HORUSPDV_API.Services.Caixa;
 using HORUSPDV_API.Services.Clientes;
 using HORUSPDV_API.Services.Fornecedores;
@@ -27,9 +28,16 @@ builder.Services.AddCors(options =>
     });
 });
 
-builder.Services.AddSingleton<HorusMockDatabase>();
-builder.Services.AddSingleton<HorusCaixaService>();
-builder.Services.AddSingleton<HorusSecurityStore>();
+builder.Services.AddSingleton<Connection>();
+builder.Services.AddScoped<ProdutoAB>();
+builder.Services.AddScoped<ClienteAB>();
+builder.Services.AddScoped<FornecedorAB>();
+builder.Services.AddScoped<EmpresaAB>();
+builder.Services.AddScoped<HistoricoVendasAB>();
+builder.Services.AddScoped<ModuloMercadoAB>();
+builder.Services.AddScoped<CaixaAB>();
+builder.Services.AddScoped<HorusCaixaService>();
+builder.Services.AddScoped<HorusSecurityStore>();
 builder.Services.AddSingleton<HorusSecurityOptions>();
 builder.Services.AddSingleton<HorusJwtService>();
 builder.Services.AddHttpClient<HorusRecaptchaService>();
@@ -40,6 +48,7 @@ builder.Services.AddScoped<IFornecedorService, FornecedorService>();
 var app = builder.Build();
 
 app.Services.GetRequiredService<HorusSecurityOptions>().Validate();
+await HorusDatabaseInitializer.InitializeAsync(app.Services);
 
 if (app.Environment.IsDevelopment())
 {
