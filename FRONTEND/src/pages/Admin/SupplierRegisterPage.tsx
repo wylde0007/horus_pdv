@@ -181,6 +181,7 @@ export default function SupplierRegisterPage() {
   const [search, setSearch] = useState("");
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(10);
+  const [selectedSupplierIds, setSelectedSupplierIds] = useState<Set<string>>(() => new Set());
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [loadingCep, setLoadingCep] = useState(false);
@@ -212,6 +213,35 @@ export default function SupplierRegisterPage() {
     const start = (safeCurrentPage - 1) * itemsPerPage;
     return filteredSuppliers.slice(start, start + itemsPerPage);
   }, [filteredSuppliers, itemsPerPage, safeCurrentPage]);
+  const selectedSuppliersOnPage = paginatedSuppliers.filter((supplier) =>
+    selectedSupplierIds.has(supplier.id),
+  );
+  const allSuppliersOnPageSelected =
+    paginatedSuppliers.length > 0 && selectedSuppliersOnPage.length === paginatedSuppliers.length;
+
+  const toggleSupplierSelection = (supplierId: string) => {
+    setSelectedSupplierIds((current) => {
+      const next = new Set(current);
+      if (next.has(supplierId)) {
+        next.delete(supplierId);
+      } else {
+        next.add(supplierId);
+      }
+      return next;
+    });
+  };
+
+  const toggleCurrentPageSelection = () => {
+    setSelectedSupplierIds((current) => {
+      const next = new Set(current);
+      if (allSuppliersOnPageSelected) {
+        paginatedSuppliers.forEach((supplier) => next.delete(supplier.id));
+      } else {
+        paginatedSuppliers.forEach((supplier) => next.add(supplier.id));
+      }
+      return next;
+    });
+  };
 
   const openCreateDrawer = () => {
     setEditingId(null);
@@ -233,10 +263,53 @@ export default function SupplierRegisterPage() {
     try {
       await supplierService.remove(supplier.id);
       setSuppliers((current) => current.filter((item) => item.id !== supplier.id));
+      setSelectedSupplierIds((current) => {
+        const next = new Set(current);
+        next.delete(supplier.id);
+        return next;
+      });
       statusDialog.success("Fornecedor excluído com sucesso.");
     } catch (error) {
       Toast.error(error instanceof Error ? error.message : "Erro ao excluir fornecedor.");
     }
+  };
+
+  const handleBulkDelete = async () => {
+    const selectedIds = Array.from(selectedSupplierIds);
+    if (selectedIds.length === 0) return;
+
+    const confirmed = await statusDialog.confirm(
+      `Excluir ${selectedIds.length} fornecedor(es) selecionado(s)?`,
+    );
+    if (!confirmed) return;
+
+    const results = await Promise.allSettled(
+      selectedIds.map(async (supplierId) => {
+        await supplierService.remove(supplierId);
+        return supplierId;
+      }),
+    );
+    const removedIds = results
+      .filter((result): result is PromiseFulfilledResult<string> => result.status === "fulfilled")
+      .map((result) => result.value);
+
+    if (removedIds.length > 0) {
+      const removedIdSet = new Set(removedIds);
+      setSuppliers((current) => current.filter((supplier) => !removedIdSet.has(supplier.id)));
+      setSelectedSupplierIds((current) => {
+        const next = new Set(current);
+        removedIds.forEach((supplierId) => next.delete(supplierId));
+        return next;
+      });
+    }
+
+    const failedCount = selectedIds.length - removedIds.length;
+    if (failedCount > 0) {
+      Toast.error(`${failedCount} fornecedor(es) não puderam ser excluído(s).`);
+      return;
+    }
+
+    Toast.success("Fornecedores selecionados excluídos com sucesso.");
   };
 
   const fillAddressFromCep = async () => {
@@ -357,6 +430,7 @@ export default function SupplierRegisterPage() {
             onChange={(event) => {
               setSearch(event.target.value);
               setCurrentPage(1);
+              setSelectedSupplierIds(new Set());
             }}
             className="input-field w-full pl-9"
             placeholder="Pesquise por nome ou CNPJ"
@@ -365,10 +439,34 @@ export default function SupplierRegisterPage() {
       </section>
 
       <section className="card overflow-hidden">
+        {selectedSupplierIds.size > 0 ? (
+          <div className="flex flex-col gap-2 border-b border-border-primary bg-primary/8 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
+            <p className="text-sm font-semibold text-text-primary">
+              {selectedSupplierIds.size} fornecedor(es) selecionado(s)
+            </p>
+            <button
+              type="button"
+              onClick={handleBulkDelete}
+              className="btn-cancel inline-flex items-center justify-center gap-2"
+            >
+              <Trash2 size={15} />
+              Excluir selecionados
+            </button>
+          </div>
+        ) : null}
         <div className="overflow-x-auto">
           <table className="w-full min-w-[900px] text-sm">
             <thead className="bg-bg-primary text-left text-text-secondary">
               <tr>
+                <th className="w-12 px-4 py-3">
+                  <input
+                    type="checkbox"
+                    checked={allSuppliersOnPageSelected}
+                    onChange={toggleCurrentPageSelection}
+                    aria-label="Selecionar fornecedores desta página"
+                    className="h-4 w-4 rounded border-border-secondary accent-accent"
+                  />
+                </th>
                 <th className="px-4 py-3">Razão Social</th>
                 <th className="px-4 py-3">Nome Fantasia</th>
                 <th className="px-4 py-3">CNPJ</th>
@@ -380,6 +478,15 @@ export default function SupplierRegisterPage() {
             <tbody>
               {paginatedSuppliers.map((supplier) => (
                 <tr key={supplier.id} className="border-t border-border-primary">
+                  <td className="px-4 py-3">
+                    <input
+                      type="checkbox"
+                      checked={selectedSupplierIds.has(supplier.id)}
+                      onChange={() => toggleSupplierSelection(supplier.id)}
+                      aria-label={`Selecionar ${supplier.fantasyName}`}
+                      className="h-4 w-4 rounded border-border-secondary accent-accent"
+                    />
+                  </td>
                   <td className="px-4 py-3">{supplier.companyName}</td>
                   <td className="px-4 py-3">{supplier.fantasyName}</td>
                   <td className="px-4 py-3">{supplier.cnpj}</td>
@@ -418,6 +525,7 @@ export default function SupplierRegisterPage() {
             onItemsPerPageChange={(value) => {
               setItemsPerPage(value);
               setCurrentPage(1);
+              setSelectedSupplierIds(new Set());
             }}
           />
         </div>

@@ -204,6 +204,7 @@ export default function CustomerRegisterPage() {
   const [search, setSearch] = useState("");
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(10);
+  const [selectedCustomerIds, setSelectedCustomerIds] = useState<Set<string>>(() => new Set());
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [loadingCep, setLoadingCep] = useState(false);
@@ -234,6 +235,35 @@ export default function CustomerRegisterPage() {
     const start = (safeCurrentPage - 1) * itemsPerPage;
     return filteredCustomers.slice(start, start + itemsPerPage);
   }, [filteredCustomers, itemsPerPage, safeCurrentPage]);
+  const selectedCustomersOnPage = paginatedCustomers.filter((customer) =>
+    selectedCustomerIds.has(customer.id),
+  );
+  const allCustomersOnPageSelected =
+    paginatedCustomers.length > 0 && selectedCustomersOnPage.length === paginatedCustomers.length;
+
+  const toggleCustomerSelection = (customerId: string) => {
+    setSelectedCustomerIds((current) => {
+      const next = new Set(current);
+      if (next.has(customerId)) {
+        next.delete(customerId);
+      } else {
+        next.add(customerId);
+      }
+      return next;
+    });
+  };
+
+  const toggleCurrentPageSelection = () => {
+    setSelectedCustomerIds((current) => {
+      const next = new Set(current);
+      if (allCustomersOnPageSelected) {
+        paginatedCustomers.forEach((customer) => next.delete(customer.id));
+      } else {
+        paginatedCustomers.forEach((customer) => next.add(customer.id));
+      }
+      return next;
+    });
+  };
 
   const openCreateDrawer = () => {
     setEditingId(null);
@@ -255,10 +285,53 @@ export default function CustomerRegisterPage() {
     try {
       await customerService.remove(customer.id);
       setCustomers((current) => current.filter((item) => item.id !== customer.id));
+      setSelectedCustomerIds((current) => {
+        const next = new Set(current);
+        next.delete(customer.id);
+        return next;
+      });
       statusDialog.success("Cliente excluído com sucesso.");
     } catch (error) {
       Toast.error(error instanceof Error ? error.message : "Erro ao excluir cliente.");
     }
+  };
+
+  const handleBulkDelete = async () => {
+    const selectedIds = Array.from(selectedCustomerIds);
+    if (selectedIds.length === 0) return;
+
+    const confirmed = await statusDialog.confirm(
+      `Excluir ${selectedIds.length} cliente(s) selecionado(s)?`,
+    );
+    if (!confirmed) return;
+
+    const results = await Promise.allSettled(
+      selectedIds.map(async (customerId) => {
+        await customerService.remove(customerId);
+        return customerId;
+      }),
+    );
+    const removedIds = results
+      .filter((result): result is PromiseFulfilledResult<string> => result.status === "fulfilled")
+      .map((result) => result.value);
+
+    if (removedIds.length > 0) {
+      const removedIdSet = new Set(removedIds);
+      setCustomers((current) => current.filter((customer) => !removedIdSet.has(customer.id)));
+      setSelectedCustomerIds((current) => {
+        const next = new Set(current);
+        removedIds.forEach((customerId) => next.delete(customerId));
+        return next;
+      });
+    }
+
+    const failedCount = selectedIds.length - removedIds.length;
+    if (failedCount > 0) {
+      Toast.error(`${failedCount} cliente(s) não puderam ser excluído(s).`);
+      return;
+    }
+
+    Toast.success("Clientes selecionados excluídos com sucesso.");
   };
 
   const fillAddressFromCep = async () => {
@@ -385,6 +458,7 @@ export default function CustomerRegisterPage() {
             onChange={(event) => {
               setSearch(event.target.value);
               setCurrentPage(1);
+              setSelectedCustomerIds(new Set());
             }}
             className="input-field w-full pl-9"
             placeholder="Pesquise por nome ou CPF"
@@ -393,10 +467,34 @@ export default function CustomerRegisterPage() {
       </section>
 
       <section className="card overflow-hidden">
+        {selectedCustomerIds.size > 0 ? (
+          <div className="flex flex-col gap-2 border-b border-border-primary bg-primary/8 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
+            <p className="text-sm font-semibold text-text-primary">
+              {selectedCustomerIds.size} cliente(s) selecionado(s)
+            </p>
+            <button
+              type="button"
+              onClick={handleBulkDelete}
+              className="btn-cancel inline-flex items-center justify-center gap-2"
+            >
+              <Trash2 size={15} />
+              Excluir selecionados
+            </button>
+          </div>
+        ) : null}
         <div className="overflow-x-auto">
           <table className="w-full min-w-[880px] text-sm">
             <thead className="bg-bg-primary text-left text-text-secondary">
               <tr>
+                <th className="w-12 px-4 py-3">
+                  <input
+                    type="checkbox"
+                    checked={allCustomersOnPageSelected}
+                    onChange={toggleCurrentPageSelection}
+                    aria-label="Selecionar clientes desta página"
+                    className="h-4 w-4 rounded border-border-secondary accent-accent"
+                  />
+                </th>
                 <th className="px-4 py-3">Nome</th>
                 <th className="px-4 py-3">Documento</th>
                 <th className="px-4 py-3">Cidade</th>
@@ -408,6 +506,15 @@ export default function CustomerRegisterPage() {
             <tbody>
               {paginatedCustomers.map((customer) => (
                 <tr key={customer.id} className="border-t border-border-primary">
+                  <td className="px-4 py-3">
+                    <input
+                      type="checkbox"
+                      checked={selectedCustomerIds.has(customer.id)}
+                      onChange={() => toggleCustomerSelection(customer.id)}
+                      aria-label={`Selecionar ${customer.customerName}`}
+                      className="h-4 w-4 rounded border-border-secondary accent-accent"
+                    />
+                  </td>
                   <td className="px-4 py-3">{customer.customerName}</td>
                   <td className="px-4 py-3">{customer.document}</td>
                   <td className="px-4 py-3">{customer.city}</td>
@@ -446,6 +553,7 @@ export default function CustomerRegisterPage() {
             onItemsPerPageChange={(value) => {
               setItemsPerPage(value);
               setCurrentPage(1);
+              setSelectedCustomerIds(new Set());
             }}
           />
         </div>

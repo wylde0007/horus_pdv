@@ -186,9 +186,9 @@ export default function HomePage({ onNavigate, onOpenSalesInNewTab }: HomePagePr
       </section>
 
       <section className="card p-4 md:p-5">
-        <h2 className="text-base font-semibold text-text-primary">Módulos competitivos</h2>
+        <h2 className="text-base font-semibold text-text-primary">Gestão avançada</h2>
         <p className="mt-1 text-sm text-text-secondary">
-          Áreas que aproximam o Hórus PDV de sistemas comerciais completos.
+          Acesse os módulos operacionais para acompanhar rotinas do PDV.
         </p>
 
         <div className="mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">

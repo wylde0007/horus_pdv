@@ -566,6 +566,7 @@ export default function ProductRegisterPage() {
   const [search, setSearch] = useState("");
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(10);
+  const [selectedProductIds, setSelectedProductIds] = useState<Set<string>>(() => new Set());
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [form, setForm] = useState<ProductFormData>(EMPTY_FORM);
@@ -605,6 +606,35 @@ export default function ProductRegisterPage() {
     const start = (safeCurrentPage - 1) * itemsPerPage;
     return filteredProducts.slice(start, start + itemsPerPage);
   }, [filteredProducts, itemsPerPage, safeCurrentPage]);
+  const selectedProductsOnPage = paginatedProducts.filter((product) =>
+    selectedProductIds.has(product.id),
+  );
+  const allProductsOnPageSelected =
+    paginatedProducts.length > 0 && selectedProductsOnPage.length === paginatedProducts.length;
+
+  const toggleProductSelection = (productId: string) => {
+    setSelectedProductIds((current) => {
+      const next = new Set(current);
+      if (next.has(productId)) {
+        next.delete(productId);
+      } else {
+        next.add(productId);
+      }
+      return next;
+    });
+  };
+
+  const toggleCurrentPageSelection = () => {
+    setSelectedProductIds((current) => {
+      const next = new Set(current);
+      if (allProductsOnPageSelected) {
+        paginatedProducts.forEach((product) => next.delete(product.id));
+      } else {
+        paginatedProducts.forEach((product) => next.add(product.id));
+      }
+      return next;
+    });
+  };
 
   const openCreateDrawer = () => {
     setEditingId(null);
@@ -626,10 +656,53 @@ export default function ProductRegisterPage() {
     try {
       await productService.remove(product.id);
       setProducts((current) => current.filter((item) => item.id !== product.id));
+      setSelectedProductIds((current) => {
+        const next = new Set(current);
+        next.delete(product.id);
+        return next;
+      });
       statusDialog.success("Produto excluído com sucesso.");
     } catch (error) {
       Toast.error(error instanceof Error ? error.message : "Erro ao excluir produto.");
     }
+  };
+
+  const handleBulkDelete = async () => {
+    const selectedIds = Array.from(selectedProductIds);
+    if (selectedIds.length === 0) return;
+
+    const confirmed = await statusDialog.confirm(
+      `Excluir ${selectedIds.length} produto(s) selecionado(s)?`,
+    );
+    if (!confirmed) return;
+
+    const results = await Promise.allSettled(
+      selectedIds.map(async (productId) => {
+        await productService.remove(productId);
+        return productId;
+      }),
+    );
+    const removedIds = results
+      .filter((result): result is PromiseFulfilledResult<string> => result.status === "fulfilled")
+      .map((result) => result.value);
+
+    if (removedIds.length > 0) {
+      const removedIdSet = new Set(removedIds);
+      setProducts((current) => current.filter((product) => !removedIdSet.has(product.id)));
+      setSelectedProductIds((current) => {
+        const next = new Set(current);
+        removedIds.forEach((productId) => next.delete(productId));
+        return next;
+      });
+    }
+
+    const failedCount = selectedIds.length - removedIds.length;
+    if (failedCount > 0) {
+      Toast.error(`${failedCount} produto(s) não puderam ser excluído(s).`);
+      return;
+    }
+
+    Toast.success("Produtos selecionados excluídos com sucesso.");
   };
 
   const handleCreateSupplier = async (draft: QuickSupplierDraft) => {
@@ -753,6 +826,7 @@ export default function ProductRegisterPage() {
             onChange={(event) => {
               setSearch(event.target.value);
               setCurrentPage(1);
+              setSelectedProductIds(new Set());
             }}
             className="input-field w-full pl-9"
             placeholder="Pesquise por nome ou código do produto"
@@ -761,10 +835,34 @@ export default function ProductRegisterPage() {
       </section>
 
       <section className="card overflow-hidden">
+        {selectedProductIds.size > 0 ? (
+          <div className="flex flex-col gap-2 border-b border-border-primary bg-primary/8 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
+            <p className="text-sm font-semibold text-text-primary">
+              {selectedProductIds.size} produto(s) selecionado(s)
+            </p>
+            <button
+              type="button"
+              onClick={handleBulkDelete}
+              className="btn-cancel inline-flex items-center justify-center gap-2"
+            >
+              <Trash2 size={15} />
+              Excluir selecionados
+            </button>
+          </div>
+        ) : null}
         <div className="overflow-x-auto">
           <table className="w-full min-w-[920px] text-sm">
             <thead className="bg-bg-primary text-left text-text-secondary">
               <tr>
+                <th className="w-12 px-4 py-3">
+                  <input
+                    type="checkbox"
+                    checked={allProductsOnPageSelected}
+                    onChange={toggleCurrentPageSelection}
+                    aria-label="Selecionar produtos desta página"
+                    className="h-4 w-4 rounded border-border-secondary accent-accent"
+                  />
+                </th>
                 <th className="px-4 py-3">Imagem</th>
                 <th className="px-4 py-3">Produto</th>
                 <th className="px-4 py-3">Código</th>
@@ -777,6 +875,15 @@ export default function ProductRegisterPage() {
             <tbody>
               {paginatedProducts.map((product) => (
                 <tr key={product.id} className="border-t border-border-primary">
+                  <td className="px-4 py-3">
+                    <input
+                      type="checkbox"
+                      checked={selectedProductIds.has(product.id)}
+                      onChange={() => toggleProductSelection(product.id)}
+                      aria-label={`Selecionar ${product.productName}`}
+                      className="h-4 w-4 rounded border-border-secondary accent-accent"
+                    />
+                  </td>
                   <td className="px-4 py-3">
                     <div className="h-12 w-12 overflow-hidden rounded-lg border border-border-primary bg-bg-light">
                       {product.productImageUrl ? (
@@ -830,6 +937,7 @@ export default function ProductRegisterPage() {
             onItemsPerPageChange={(value) => {
               setItemsPerPage(value);
               setCurrentPage(1);
+              setSelectedProductIds(new Set());
             }}
           />
         </div>

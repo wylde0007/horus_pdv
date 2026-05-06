@@ -1,6 +1,6 @@
 /**
  * Arquivo: src/components/Admin/MarketModulePage.tsx
- * Objetivo: renderizar módulos operacionais conectados à API para lacunas competitivas do PDV.
+ * Objetivo: renderizar módulos operacionais conectados à API para gestão avançada do PDV.
  * Entradas esperadas: configuração visual do módulo com KPIs, registros, fluxos e alertas.
  */
 import { CheckCircle2, CircleAlert, Clock3, Pencil, Plus, RefreshCw, Trash2, X } from "lucide-react";
@@ -130,8 +130,12 @@ export default function MarketModulePage({
   const [form, setForm] = useState<MarketModuleRecordPayload>(emptyForm);
   const [saving, setSaving] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
+  const [selectedRecordIds, setSelectedRecordIds] = useState<Set<string>>(() => new Set());
 
   const formTitle = editingRecord ? "Editar registro" : config.primaryAction;
+  const selectedRecords = config.records.filter((record) => selectedRecordIds.has(record.id));
+  const allRecordsSelected =
+    config.records.length > 0 && selectedRecords.length === config.records.length;
   const statusOptions = useMemo(
     () =>
       ["Ativo", "Pendente", "Em análise", "Concluído", "Auditado", "Cancelado"].map(
@@ -202,10 +206,75 @@ export default function MarketModulePage({
 
     try {
       await onDelete(record.id);
+      setSelectedRecordIds((current) => {
+        const next = new Set(current);
+        next.delete(record.id);
+        return next;
+      });
       Toast.success("Registro excluído com sucesso.");
     } catch (error) {
       Toast.error(error instanceof Error ? error.message : "Não foi possível excluir o registro.");
     }
+  };
+
+  const toggleRecordSelection = (recordId: string) => {
+    setSelectedRecordIds((current) => {
+      const next = new Set(current);
+      if (next.has(recordId)) {
+        next.delete(recordId);
+      } else {
+        next.add(recordId);
+      }
+      return next;
+    });
+  };
+
+  const toggleAllRecordsSelection = () => {
+    setSelectedRecordIds((current) => {
+      const next = new Set(current);
+      if (allRecordsSelected) {
+        config.records.forEach((record) => next.delete(record.id));
+      } else {
+        config.records.forEach((record) => next.add(record.id));
+      }
+      return next;
+    });
+  };
+
+  const handleBulkDelete = async () => {
+    const selectedIds = Array.from(selectedRecordIds);
+    if (selectedIds.length === 0) return;
+
+    const confirmed = await statusDialog.confirm(
+      `Excluir ${selectedIds.length} registro(s) selecionado(s)?`,
+    );
+    if (!confirmed) return;
+
+    const removedIds: string[] = [];
+    for (const recordId of selectedIds) {
+      try {
+        await onDelete(recordId);
+        removedIds.push(recordId);
+      } catch {
+        // A mensagem final consolida falhas sem interromper os demais registros.
+      }
+    }
+
+    if (removedIds.length > 0) {
+      setSelectedRecordIds((current) => {
+        const next = new Set(current);
+        removedIds.forEach((recordId) => next.delete(recordId));
+        return next;
+      });
+    }
+
+    const failedCount = selectedIds.length - removedIds.length;
+    if (failedCount > 0) {
+      Toast.error(`${failedCount} registro(s) não puderam ser excluído(s).`);
+      return;
+    }
+
+    Toast.success("Registros selecionados excluídos com sucesso.");
   };
 
   const handleStatusChange = async (record: MarketModuleRecord, nextStatus: string) => {
@@ -284,16 +353,43 @@ export default function MarketModulePage({
                 Registros operacionais disponíveis para consulta e ação.
               </p>
             </div>
-            <button
-              type="button"
-              onClick={handleRefresh}
-              disabled={refreshing}
-              className="inline-flex items-center gap-2 rounded-xl border border-border-secondary px-3 py-2 text-sm font-semibold text-text-secondary transition hover:bg-hover-light"
-            >
-              <RefreshCw size={15} className={refreshing ? "animate-spin" : ""} />
-              {refreshing ? "Atualizando" : "Atualizar"}
-            </button>
+            <div className="flex flex-wrap items-center gap-2">
+              <label className="inline-flex items-center gap-2 rounded-xl border border-border-secondary px-3 py-2 text-sm font-semibold text-text-secondary">
+                <input
+                  type="checkbox"
+                  checked={allRecordsSelected}
+                  onChange={toggleAllRecordsSelection}
+                  className="h-4 w-4 rounded border-border-secondary accent-accent"
+                />
+                Selecionar todos
+              </label>
+              <button
+                type="button"
+                onClick={handleRefresh}
+                disabled={refreshing}
+                className="inline-flex items-center gap-2 rounded-xl border border-border-secondary px-3 py-2 text-sm font-semibold text-text-secondary transition hover:bg-hover-light"
+              >
+                <RefreshCw size={15} className={refreshing ? "animate-spin" : ""} />
+                {refreshing ? "Atualizando" : "Atualizar"}
+              </button>
+            </div>
           </div>
+
+          {selectedRecordIds.size > 0 ? (
+            <div className="flex flex-col gap-2 border-b border-border-primary bg-primary/8 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
+              <p className="text-sm font-semibold text-text-primary">
+                {selectedRecordIds.size} registro(s) selecionado(s)
+              </p>
+              <button
+                type="button"
+                onClick={handleBulkDelete}
+                className="btn-cancel inline-flex items-center justify-center gap-2"
+              >
+                <Trash2 size={15} />
+                Excluir selecionados
+              </button>
+            </div>
+          ) : null}
 
           <div className="divide-y divide-border-primary">
             {config.records.length === 0 ? (
@@ -304,8 +400,17 @@ export default function MarketModulePage({
               config.records.map((record) => (
                 <article
                   key={record.id}
-                  className="grid gap-3 p-4 md:grid-cols-[minmax(0,1fr)_150px_120px_42px]"
+                  className="grid gap-3 p-4 md:grid-cols-[36px_minmax(0,1fr)_150px_120px_42px]"
                 >
+                  <div className="pt-1">
+                    <input
+                      type="checkbox"
+                      checked={selectedRecordIds.has(record.id)}
+                      onChange={() => toggleRecordSelection(record.id)}
+                      aria-label={`Selecionar ${record.title}`}
+                      className="h-4 w-4 rounded border-border-secondary accent-accent"
+                    />
+                  </div>
                   <div className="min-w-0">
                     <p className="font-semibold text-text-primary">{record.title}</p>
                     <p className="mt-1 text-sm text-text-secondary">{record.description}</p>
