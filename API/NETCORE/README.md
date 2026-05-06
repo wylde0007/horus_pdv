@@ -36,6 +36,30 @@ Script principal:
 <pre><code class="language-text">DataBase/Resumo.sql
 </code></pre>
 
+## E-mail SMTP
+
+O envio de e-mail usa Outlook/Office 365 via SMTP. O remetente configurado é:
+
+<pre><code class="language-text">naoresponderhoruspdv@outlook.com
+</code></pre>
+
+Não coloque a senha de app em arquivo versionado. Configure localmente com User Secrets:
+
+<pre><code class="language-bash">cd API/NETCORE
+dotnet user-secrets set "Email:Enabled" "true"
+dotnet user-secrets set "Email:Password" "SUA_SENHA_DE_APP_AQUI"
+</code></pre>
+
+Configurações padrão em `appsettings.json`:
+
+<pre><code class="language-json">"Email": {
+  "Host": "smtp.office365.com",
+  "Port": 587,
+  "User": "naoresponderhoruspdv@outlook.com",
+  "FromEmail": "naoresponderhoruspdv@outlook.com",
+  "FrontendBaseUrl": "http://localhost:5173"
+}</code></pre>
+
 ## Rodando
 
 <pre><code class="language-bash">dotnet restore

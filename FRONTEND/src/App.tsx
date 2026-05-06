@@ -156,9 +156,19 @@ export default function App() {
           : null,
     };
   });
-  const [publicAuthPage, setPublicAuthPage] = useState<PublicAuthPage>("login");
+  const [publicAuthPage, setPublicAuthPage] = useState<PublicAuthPage>(() => {
+    if (typeof window === "undefined") return "login";
+    const params = new URLSearchParams(window.location.search);
+    return params.get("resetToken") || params.get("token")
+      ? "reset-password"
+      : "login";
+  });
   const [authLoginEmail, setAuthLoginEmail] = useState(currentUser.email);
-  const [passwordResetToken, setPasswordResetToken] = useState("");
+  const [passwordResetToken, setPasswordResetToken] = useState(() => {
+    if (typeof window === "undefined") return "";
+    const params = new URLSearchParams(window.location.search);
+    return params.get("resetToken") || params.get("token") || "";
+  });
 
   const pageTitleByKey: Record<PageKey, string> = {
     home: "Home",
@@ -398,6 +408,10 @@ export default function App() {
   ) => {
     try {
       await authService.resetPassword(token.trim(), nextPassword, confirmPassword, recaptchaToken);
+      const url = new URL(window.location.href);
+      url.searchParams.delete("resetToken");
+      url.searchParams.delete("token");
+      window.history.replaceState({}, "", url.toString());
       return { success: true, message: "Senha redefinida com sucesso. Faça login novamente." };
     } catch (error) {
       return {

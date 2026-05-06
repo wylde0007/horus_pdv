@@ -227,7 +227,7 @@ END;
 IF EXISTS (SELECT 1 FROM Usuarios WHERE Id = N'usr-001')
 BEGIN
     UPDATE Usuarios
-       SET Cpf = N'123.456.789-01',
+       SET Cpf = N'06.332.765/0001-05',
            Name = N'Flávio Oliveira',
            Email = N'flavio@hpdv.com.br',
            Phone = N'(11) 98888-1111',
@@ -242,7 +242,7 @@ END
 ELSE
 BEGIN
     INSERT INTO Usuarios (Id, Cpf, Name, Email, Phone, Role, Status, CreatedAt, LastLoginAt, PasswordHash, MustChangePassword)
-    VALUES (N'usr-001', N'123.456.789-01', N'Flávio Oliveira', N'flavio@hpdv.com.br', N'(11) 98888-1111', N'administrador', N'ativo', N'2026-02-10', N'-', N'100000.kop8te8YGY/xSBBtEPR1yA==.iff4Jd546alYO+CLav8GVyX+p0cquoJK6fEpl6upHZc=', 0);
+    VALUES (N'usr-001', N'06.332.765/0001-05', N'Flávio Oliveira', N'flavio@hpdv.com.br', N'(11) 98888-1111', N'administrador', N'ativo', N'2026-02-10', N'-', N'100000.kop8te8YGY/xSBBtEPR1yA==.iff4Jd546alYO+CLav8GVyX+p0cquoJK6fEpl6upHZc=', 0);
 END;
 
 IF EXISTS (SELECT 1 FROM Empresas WHERE Id = N'empresa-principal')

@@ -1,6 +1,7 @@
 using HORUSPDV_API.Models.Requests;
 using HORUSPDV_API.Models.Response;
 using HORUSPDV_API.Repositories.DatabaseAccess;
+using HORUSPDV_API.Services.Email;
 using HORUSPDV_API.Services.Security;
 using Microsoft.AspNetCore.Mvc;
 
@@ -11,7 +12,9 @@ namespace HORUSPDV_API.Controllers.Auth;
 public class AuthController(
     HorusSecurityStore securityStore,
     HorusJwtService jwtService,
-    HorusRecaptchaService recaptchaService) : ControllerBase
+    HorusRecaptchaService recaptchaService,
+    HorusEmailService emailService,
+    ILogger<AuthController> logger) : ControllerBase
 {
     [HttpPost("login")]
     public async Task<IActionResult> Login([FromBody] LoginRequest request)
@@ -106,11 +109,29 @@ public class AuthController(
         }
 
         var resetRequest = securityStore.CreatePasswordResetToken(request.Cnpj, request.Email);
+        if (!string.IsNullOrWhiteSpace(resetRequest.ResetToken) && resetRequest.ExpiresAt is not null)
+        {
+            var resetUrl = emailService.BuildPasswordResetUrl(resetRequest.ResetToken);
+            await emailService.SendPasswordResetEmailAsync(
+                request.Email,
+                "Hórus PDV",
+                resetUrl,
+                resetRequest.ExpiresAt.Value,
+                HttpContext.RequestAborted);
+        }
+
         return Ok(new ApiResponse<object>
         {
             Success = true,
             Message = "Se o e-mail estiver cadastrado, enviaremos as instruções de recuperação.",
-            Data = resetRequest
+            Data = emailService.IsEnabled
+                ? new
+                {
+                    resetRequest.Accepted,
+                    resetRequest.MaskedEmail,
+                    resetRequest.ExpiresAt
+                }
+                : resetRequest
         });
     }
 
@@ -169,6 +190,18 @@ public class AuthController(
         try
         {
             var user = securityStore.RegisterPublicUser(request);
+            try
+            {
+                await emailService.SendSignupWelcomeEmailAsync(
+                    request.Email,
+                    request.Name,
+                    HttpContext.RequestAborted);
+            }
+            catch (Exception ex)
+            {
+                logger.LogWarning(ex, "Nao foi possivel enviar e-mail de cadastro para {Email}.", request.Email);
+            }
+
             return StatusCode(StatusCodes.Status201Created, new ApiResponse<object>
             {
                 Success = true,
