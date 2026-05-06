@@ -1,37 +1,38 @@
 using HORUSPDV_API.Models.Produtos;
 using HORUSPDV_API.Models.Requests;
-using HORUSPDV_API.Repositories.AcessoBanco;
+using HORUSPDV_API.Repositories.DataAccess;
+using HORUSPDV_API.Repositories.DatabaseAccess;
 
 namespace HORUSPDV_API.Services.Produtos;
 
-public class ProdutoService(HorusMockDatabase database) : IProdutoService
+public class ProdutoService(ProdutoAB produtosAB, FornecedorAB fornecedoresAB) : IProdutoService
 {
-    public Task<List<ProdutoModel>> ListarAsync()
-        => database.ListarProdutosAsync();
+    public async Task<List<ProdutoModel>> ListarAsync()
+        => (await produtosAB.ListarAsync()).Select(ToModel).ToList();
 
     public async Task<ProdutoModel> CriarAsync(ProdutoRequest request)
     {
         Validate(request);
         await ValidateBusinessRulesAsync(request, null);
         var product = MapRequest($"pr-{DateTimeOffset.UtcNow.ToUnixTimeMilliseconds()}", request);
-        return await database.SalvarProdutoAsync(product);
+        return ToModel(await produtosAB.SalvarAsync(product));
     }
 
     public async Task<ProdutoModel?> AtualizarAsync(string id, ProdutoRequest request)
     {
         Validate(request);
-        var current = await database.ObterProdutoAsync(id);
+        var current = await produtosAB.ObterAsync(id);
         if (current is null)
         {
             return null;
         }
 
         await ValidateBusinessRulesAsync(request, id);
-        return await database.SalvarProdutoAsync(MapRequest(id, request));
+        return ToModel(await produtosAB.SalvarAsync(MapRequest(id, request)));
     }
 
     public Task<bool> ExcluirAsync(string id)
-        => database.ExcluirProdutoAsync(id);
+        => produtosAB.ExcluirAsync(id);
 
     private static void Validate(ProdutoRequest request)
     {
@@ -68,7 +69,7 @@ public class ProdutoService(HorusMockDatabase database) : IProdutoService
 
     private async Task ValidateBusinessRulesAsync(ProdutoRequest request, string? currentId)
     {
-        var products = await database.ListarProdutosAsync();
+        var products = await produtosAB.ListarAsync();
         var productCode = request.ProductCode.Trim();
         if (products.Any(item =>
                 item.Id != currentId &&
@@ -77,7 +78,7 @@ public class ProdutoService(HorusMockDatabase database) : IProdutoService
             throw new InvalidOperationException("Ja existe produto com este codigo.");
         }
 
-        var suppliers = await database.ListarFornecedoresAsync();
+        var suppliers = await fornecedoresAB.ListarAsync();
         var supplierName = request.ProductSupplier.Trim();
         if (!suppliers.Any(item =>
                 item.FantasyName.Equals(supplierName, StringComparison.OrdinalIgnoreCase) ||
@@ -87,7 +88,7 @@ public class ProdutoService(HorusMockDatabase database) : IProdutoService
         }
     }
 
-    private static ProdutoModel MapRequest(string id, ProdutoRequest request) => new()
+    private static ProdutoAD MapRequest(string id, ProdutoRequest request) => new()
     {
         Id = id,
         ProductImageUrl = request.ProductImageUrl,
@@ -100,6 +101,21 @@ public class ProdutoService(HorusMockDatabase database) : IProdutoService
         ProductUnitPrice = request.ProductUnitPrice,
         ProductSalePrice = request.ProductSalePrice,
         TotalPriceOnProduct = request.TotalPriceOnProduct
+    };
+
+    private static ProdutoModel ToModel(ProdutoAD source) => new()
+    {
+        Id = source.Id,
+        ProductImageUrl = source.ProductImageUrl,
+        ProductImageName = source.ProductImageName,
+        ProductName = source.ProductName,
+        ProductCode = source.ProductCode,
+        ProductSupplier = source.ProductSupplier,
+        ProductDescription = source.ProductDescription,
+        ProductQnt = source.ProductQnt,
+        ProductUnitPrice = source.ProductUnitPrice,
+        ProductSalePrice = source.ProductSalePrice,
+        TotalPriceOnProduct = source.TotalPriceOnProduct
     };
 
     private static decimal ParseMoney(string value)

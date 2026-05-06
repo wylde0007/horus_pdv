@@ -1,12 +1,11 @@
-using HORUSPDV_API.Data;
-using HORUSPDV_API.Data.Entities;
 using HORUSPDV_API.Models.Requests;
+using HORUSPDV_API.Repositories.DataAccess;
+using HORUSPDV_API.Repositories.DatabaseAccess;
 using HORUSPDV_API.Services.Security;
-using Microsoft.EntityFrameworkCore;
 
 namespace HORUSPDV_API.Services.Caixa;
 
-public class HorusCaixaService(HorusDbContext db)
+public class HorusCaixaService(CaixaAB caixaAB)
 {
     private static readonly TimeSpan MaxOpenPeriod = TimeSpan.FromHours(24);
 
@@ -16,7 +15,7 @@ public class HorusCaixaService(HorusDbContext db)
     public CaixaStatusDto Abrir(AbrirCaixaRequest request, AuthenticatedUser currentUser)
     {
         var now = DateTimeOffset.Now;
-        var openSession = GetOpenSession();
+        var openSession = caixaAB.ObterSessaoAbertaAsync().GetAwaiter().GetResult();
         if (openSession is not null)
         {
             var status = BuildStatus(now);
@@ -29,34 +28,35 @@ public class HorusCaixaService(HorusDbContext db)
                 "Existe um caixa aberto fora do periodo permitido. Feche o caixa atual antes de abrir um novo.");
         }
 
-        db.CaixaSessoes.Add(new CaixaSessionEntity
-        {
-            Id = $"cx-{DateTimeOffset.UtcNow.ToUnixTimeMilliseconds()}",
-            OpenedAt = now,
-            OpeningAmount = NormalizeMoney(request.OpeningAmount),
-            OperatorId = currentUser.Id,
-            OperatorName = currentUser.Name,
-            Note = ""
-        });
-        db.SaveChanges();
+        caixaAB.AbrirAsync(
+                $"cx-{DateTimeOffset.UtcNow.ToUnixTimeMilliseconds()}",
+                now,
+                NormalizeMoney(request.OpeningAmount),
+                currentUser.Id,
+                currentUser.Name)
+            .GetAwaiter()
+            .GetResult();
         return BuildStatus(now);
     }
 
     public CaixaStatusDto Fechar(FecharCaixaRequest request, AuthenticatedUser currentUser)
     {
         var now = DateTimeOffset.Now;
-        var openSession = db.CaixaSessoes.FirstOrDefault(item => item.ClosedAt == null);
+        var openSession = caixaAB.ObterSessaoAbertaAsync().GetAwaiter().GetResult();
         if (openSession is null)
         {
             throw new InvalidOperationException("Nao existe caixa aberto para fechamento.");
         }
 
-        openSession.ClosedAt = now;
-        openSession.ClosingAmount = NormalizeMoney(request.ClosingAmount);
-        openSession.ClosedById = currentUser.Id;
-        openSession.ClosedByName = currentUser.Name;
-        openSession.Note = request.Note.Trim();
-        db.SaveChanges();
+        caixaAB.FecharAsync(
+                openSession.Id,
+                now,
+                NormalizeMoney(request.ClosingAmount),
+                currentUser.Id,
+                currentUser.Name,
+                request.Note.Trim())
+            .GetAwaiter()
+            .GetResult();
         return BuildStatus(now);
     }
 
@@ -68,12 +68,9 @@ public class HorusCaixaService(HorusDbContext db)
         throw new InvalidOperationException(status.BlockReason);
     }
 
-    private CaixaSessionEntity? GetOpenSession()
-        => db.CaixaSessoes.AsNoTracking().FirstOrDefault(item => item.ClosedAt == null);
-
     private CaixaStatusDto BuildStatus(DateTimeOffset now)
     {
-        var sessions = db.CaixaSessoes.AsNoTracking().OrderByDescending(item => item.OpenedAt).ToList();
+        var sessions = caixaAB.ListarSessoesAsync().GetAwaiter().GetResult();
         var openSession = sessions.FirstOrDefault(item => item.ClosedAt is null);
         var lastSession = openSession ?? sessions.FirstOrDefault();
         var canSell = false;
@@ -112,7 +109,7 @@ public class HorusCaixaService(HorusDbContext db)
         };
     }
 
-    private static CaixaSessionDto ToDto(CaixaSessionEntity source, DateTimeOffset now)
+    private static CaixaSessionDto ToDto(CaixaSessionAD source, DateTimeOffset now)
     {
         var closedAt = source.ClosedAt;
         var elapsed = (closedAt ?? now) - source.OpenedAt;

@@ -1,41 +1,42 @@
 using HORUSPDV_API.Models.Fornecedores;
 using HORUSPDV_API.Models.Requests;
-using HORUSPDV_API.Repositories.AcessoBanco;
+using HORUSPDV_API.Repositories.DataAccess;
+using HORUSPDV_API.Repositories.DatabaseAccess;
 
 namespace HORUSPDV_API.Services.Fornecedores;
 
-public class FornecedorService(HorusMockDatabase database) : IFornecedorService
+public class FornecedorService(FornecedorAB fornecedoresAB, ProdutoAB produtosAB) : IFornecedorService
 {
-    public Task<List<FornecedorModel>> ListarAsync()
-        => database.ListarFornecedoresAsync();
+    public async Task<List<FornecedorModel>> ListarAsync()
+        => (await fornecedoresAB.ListarAsync()).Select(ToModel).ToList();
 
     public async Task<FornecedorModel> CriarAsync(FornecedorRequest request)
     {
         Validate(request);
         await ValidateDuplicatesAsync(request, null);
         var supplier = MapRequest($"fr-{DateTimeOffset.UtcNow.ToUnixTimeMilliseconds()}", request);
-        return await database.SalvarFornecedorAsync(supplier);
+        return ToModel(await fornecedoresAB.SalvarAsync(supplier));
     }
 
     public async Task<FornecedorModel?> AtualizarAsync(string id, FornecedorRequest request)
     {
         Validate(request);
-        var current = await database.ObterFornecedorAsync(id);
+        var current = await fornecedoresAB.ObterAsync(id);
         if (current is null)
         {
             return null;
         }
 
         await ValidateDuplicatesAsync(request, id);
-        return await database.SalvarFornecedorAsync(MapRequest(id, request));
+        return ToModel(await fornecedoresAB.SalvarAsync(MapRequest(id, request)));
     }
 
     public async Task<bool> ExcluirAsync(string id)
     {
-        var supplier = await database.ObterFornecedorAsync(id);
+        var supplier = await fornecedoresAB.ObterAsync(id);
         if (supplier is null) return false;
 
-        var products = await database.ListarProdutosAsync();
+        var products = await produtosAB.ListarAsync();
         if (products.Any(item =>
                 item.ProductSupplier.Equals(supplier.FantasyName, StringComparison.OrdinalIgnoreCase) ||
                 item.ProductSupplier.Equals(supplier.CompanyName, StringComparison.OrdinalIgnoreCase)))
@@ -43,7 +44,7 @@ public class FornecedorService(HorusMockDatabase database) : IFornecedorService
             throw new InvalidOperationException("Fornecedor possui produtos vinculados e nao pode ser excluido.");
         }
 
-        return await database.ExcluirFornecedorAsync(id);
+        return await fornecedoresAB.ExcluirAsync(id);
     }
 
     private static void Validate(FornecedorRequest request)
@@ -81,7 +82,7 @@ public class FornecedorService(HorusMockDatabase database) : IFornecedorService
 
     private async Task ValidateDuplicatesAsync(FornecedorRequest request, string? currentId)
     {
-        var suppliers = await database.ListarFornecedoresAsync();
+        var suppliers = await fornecedoresAB.ListarAsync();
         var cnpj = OnlyDigits(request.Cnpj);
         if (suppliers.Any(item => item.Id != currentId && OnlyDigits(item.Cnpj) == cnpj))
         {
@@ -89,7 +90,7 @@ public class FornecedorService(HorusMockDatabase database) : IFornecedorService
         }
     }
 
-    private static FornecedorModel MapRequest(string id, FornecedorRequest request) => new()
+    private static FornecedorAD MapRequest(string id, FornecedorRequest request) => new()
     {
         Id = id,
         CompanyName = request.CompanyName.Trim(),
@@ -106,6 +107,25 @@ public class FornecedorService(HorusMockDatabase database) : IFornecedorService
         Telephone = request.Telephone,
         Cellphone = request.Cellphone,
         Email = request.Email
+    };
+
+    private static FornecedorModel ToModel(FornecedorAD source) => new()
+    {
+        Id = source.Id,
+        CompanyName = source.CompanyName,
+        FantasyName = source.FantasyName,
+        Cnpj = source.Cnpj,
+        Cep = source.Cep,
+        City = source.City,
+        State = source.State,
+        Address = source.Address,
+        Neighborhood = source.Neighborhood,
+        StreetComplement = source.StreetComplement,
+        Number = source.Number,
+        ReferencePoint = source.ReferencePoint,
+        Telephone = source.Telephone,
+        Cellphone = source.Cellphone,
+        Email = source.Email
     };
 
     private static string OnlyDigits(string value) => new(value.Where(char.IsDigit).ToArray());

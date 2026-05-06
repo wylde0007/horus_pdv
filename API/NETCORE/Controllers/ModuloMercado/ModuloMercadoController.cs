@@ -1,16 +1,15 @@
-using HORUSPDV_API.Data;
-using HORUSPDV_API.Data.Entities;
 using HORUSPDV_API.Models.ModuloMercado;
 using HORUSPDV_API.Models.Requests;
 using HORUSPDV_API.Models.Response;
+using HORUSPDV_API.Repositories.DataAccess;
+using HORUSPDV_API.Repositories.DatabaseAccess;
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.EntityFrameworkCore;
 
 namespace HORUSPDV_API.Controllers.ModuloMercado;
 
 [ApiController]
 [Route("api/[controller]")]
-public class ModuloMercadoController(HorusDbContext db) : ControllerBase
+public class ModuloMercadoController(ModuloMercadoAB moduloMercadoAB) : ControllerBase
 {
     [HttpGet("{id}")]
     public async Task<IActionResult> Obter(string id)
@@ -41,10 +40,7 @@ public class ModuloMercadoController(HorusDbContext db) : ControllerBase
 
         try
         {
-            var registro = MapRequest(id, $"mm-{DateTimeOffset.UtcNow.ToUnixTimeMilliseconds()}", request);
-            db.ModuloMercadoRegistros.Add(registro);
-            await db.SaveChangesAsync();
-
+            await moduloMercadoAB.CriarRegistroAsync(MapRequest(id, $"mm-{DateTimeOffset.UtcNow.ToUnixTimeMilliseconds()}", request));
             return StatusCode(StatusCodes.Status201Created, new ApiResponse<object>
             {
                 Success = true,
@@ -70,19 +66,11 @@ public class ModuloMercadoController(HorusDbContext db) : ControllerBase
 
         try
         {
-            var registro = await db.ModuloMercadoRegistros.FirstOrDefaultAsync(item => item.ModuleId == id && item.Id == recordId);
-            if (registro is null)
+            var updated = await moduloMercadoAB.AtualizarRegistroAsync(MapRequest(id, recordId, request));
+            if (!updated)
             {
                 return NotFound(new ApiResponse<object> { Success = false, Message = "Registro nao encontrado." });
             }
-
-            var updated = MapRequest(id, recordId, request);
-            registro.Title = updated.Title;
-            registro.Description = updated.Description;
-            registro.Status = updated.Status;
-            registro.Amount = updated.Amount;
-            registro.Meta = updated.Meta;
-            await db.SaveChangesAsync();
 
             return Ok(new ApiResponse<object>
             {
@@ -107,14 +95,11 @@ public class ModuloMercadoController(HorusDbContext db) : ControllerBase
             return NotFound(new ApiResponse<object> { Success = false, Message = "Modulo nao encontrado." });
         }
 
-        var registro = await db.ModuloMercadoRegistros.FirstOrDefaultAsync(item => item.ModuleId == id && item.Id == recordId);
-        if (registro is null)
+        if (!await moduloMercadoAB.ExcluirRegistroAsync(id, recordId))
         {
             return NotFound(new ApiResponse<object> { Success = false, Message = "Registro nao encontrado." });
         }
 
-        db.ModuloMercadoRegistros.Remove(registro);
-        await db.SaveChangesAsync();
         return Ok(new ApiResponse<object>
         {
             Success = true,
@@ -126,14 +111,9 @@ public class ModuloMercadoController(HorusDbContext db) : ControllerBase
     private async Task<object?> BuildConfigAsync(string id)
     {
         var title = BuildModuleTitle(id);
-        if (title is null) return null;
+        if (title is null || !await ModuleExistsAsync(id, false)) return null;
 
-        var records = await db.ModuloMercadoRegistros
-            .AsNoTracking()
-            .Where(item => item.ModuleId == id)
-            .OrderBy(item => item.Id)
-            .Select(item => ToModel(item))
-            .ToListAsync();
+        var records = (await moduloMercadoAB.ListarRegistrosAsync(id)).Select(ToModel).ToList();
         var pendingCount = records.Count(item => IsPending(item.Status));
         var completedCount = records.Count(item => IsCompleted(item.Status));
         var completionRate = records.Count == 0
@@ -187,8 +167,11 @@ public class ModuloMercadoController(HorusDbContext db) : ControllerBase
         };
     }
 
-    private async Task<bool> ModuleExistsAsync(string id)
-        => BuildModuleTitle(id) is not null && await db.ModulosMercado.AnyAsync(item => item.Id == id);
+    private async Task<bool> ModuleExistsAsync(string id, bool validateKnownModule = true)
+    {
+        if (validateKnownModule && BuildModuleTitle(id) is null) return false;
+        return await moduloMercadoAB.ExisteAsync(id);
+    }
 
     private static string? BuildModuleTitle(string id) => id switch
     {
@@ -203,7 +186,7 @@ public class ModuloMercadoController(HorusDbContext db) : ControllerBase
         _ => null
     };
 
-    private static ModuloMercadoRegistroEntity MapRequest(
+    private static ModuloMercadoRegistroAD MapRequest(
         string moduleId,
         string recordId,
         ModuloMercadoRegistroRequest request)
@@ -218,7 +201,7 @@ public class ModuloMercadoController(HorusDbContext db) : ControllerBase
             throw new InvalidOperationException("Status e obrigatorio.");
         }
 
-        return new ModuloMercadoRegistroEntity
+        return new ModuloMercadoRegistroAD
         {
             Id = recordId,
             ModuleId = moduleId,
@@ -230,17 +213,7 @@ public class ModuloMercadoController(HorusDbContext db) : ControllerBase
         };
     }
 
-    private static bool IsPending(string status)
-        => status.Contains("pend", StringComparison.OrdinalIgnoreCase)
-           || status.Contains("aguard", StringComparison.OrdinalIgnoreCase);
-
-    private static bool IsCompleted(string status)
-        => status.Contains("conclu", StringComparison.OrdinalIgnoreCase)
-           || status.Contains("audit", StringComparison.OrdinalIgnoreCase)
-           || status.Contains("fech", StringComparison.OrdinalIgnoreCase)
-           || status.Contains("ativo", StringComparison.OrdinalIgnoreCase);
-
-    private static ModuloMercadoRegistroModel ToModel(ModuloMercadoRegistroEntity source) => new()
+    private static ModuloMercadoRegistroModel ToModel(ModuloMercadoRegistroAD source) => new()
     {
         Id = source.Id,
         ModuleId = source.ModuleId,
@@ -250,4 +223,14 @@ public class ModuloMercadoController(HorusDbContext db) : ControllerBase
         Amount = source.Amount,
         Meta = source.Meta
     };
+
+    private static bool IsPending(string status)
+        => status.Contains("pend", StringComparison.OrdinalIgnoreCase)
+           || status.Contains("aguard", StringComparison.OrdinalIgnoreCase);
+
+    private static bool IsCompleted(string status)
+        => status.Contains("conclu", StringComparison.OrdinalIgnoreCase)
+           || status.Contains("audit", StringComparison.OrdinalIgnoreCase)
+           || status.Contains("fech", StringComparison.OrdinalIgnoreCase)
+           || status.Contains("ativo", StringComparison.OrdinalIgnoreCase);
 }

@@ -1,19 +1,19 @@
-using HORUSPDV_API.Data;
-using HORUSPDV_API.Data.Entities;
 using HORUSPDV_API.Models.Requests;
 using HORUSPDV_API.Models.Response;
+using HORUSPDV_API.Repositories.DataAccess;
+using HORUSPDV_API.Repositories.DatabaseAccess;
 using Microsoft.AspNetCore.Mvc;
 
 namespace HORUSPDV_API.Controllers.Empresa;
 
 [ApiController]
 [Route("api/[controller]")]
-public class EmpresaController(HorusDbContext db) : ControllerBase
+public class EmpresaController(EmpresaAB empresaAB) : ControllerBase
 {
     [HttpGet]
-    public IActionResult Obter()
+    public async Task<IActionResult> Obter()
     {
-        var empresa = db.Empresas.FirstOrDefault(item => item.Id == "empresa-principal");
+        var empresa = await empresaAB.ObterPrincipalAsync();
         if (empresa is null)
         {
             return NotFound(new ApiResponse<EmpresaRequest> { Success = false, Message = "Empresa nao encontrada." });
@@ -28,7 +28,7 @@ public class EmpresaController(HorusDbContext db) : ControllerBase
     }
 
     [HttpPut]
-    public IActionResult Atualizar([FromBody] EmpresaRequest request)
+    public async Task<IActionResult> Atualizar([FromBody] EmpresaRequest request)
     {
         if (string.IsNullOrWhiteSpace(request.FantasyName) || request.FantasyName.Trim().Length < 3)
         {
@@ -40,44 +40,36 @@ public class EmpresaController(HorusDbContext db) : ControllerBase
             return BadRequest(new ApiResponse<EmpresaRequest> { Success = false, Message = "CNPJ invalido." });
         }
 
-        var empresa = db.Empresas.FirstOrDefault(item => item.Id == "empresa-principal");
-        if (empresa is null)
-        {
-            empresa = new EmpresaEntity { Id = "empresa-principal" };
-            db.Empresas.Add(empresa);
-        }
-
-        Apply(empresa, request);
-        db.SaveChanges();
+        var saved = await empresaAB.SalvarPrincipalAsync(ToDataAccess(request));
         return Ok(new ApiResponse<EmpresaRequest>
         {
             Success = true,
             Message = "Dados da empresa atualizados com sucesso.",
-            Data = ToRequest(empresa)
+            Data = ToRequest(saved)
         });
     }
 
-    private static void Apply(EmpresaEntity target, EmpresaRequest source)
+    private static EmpresaAD ToDataAccess(EmpresaRequest source) => new()
     {
-        target.FantasyName = source.FantasyName.Trim();
-        target.CorporateName = source.CorporateName.Trim();
-        target.Cnpj = source.Cnpj.Trim();
-        target.StateRegistration = source.StateRegistration.Trim();
-        target.Website = source.Website.Trim();
-        target.Email = source.Email.Trim();
-        target.SacPhone = source.SacPhone.Trim();
-        target.Phone = source.Phone.Trim();
-        target.Mobile = source.Mobile.Trim();
-        target.Cep = source.Cep.Trim();
-        target.Address = source.Address.Trim();
-        target.Number = source.Number.Trim();
-        target.Neighborhood = source.Neighborhood.Trim();
-        target.City = source.City.Trim();
-        target.Uf = source.Uf.Trim();
-        target.Complement = source.Complement.Trim();
-    }
+        FantasyName = source.FantasyName,
+        CorporateName = source.CorporateName,
+        Cnpj = source.Cnpj,
+        StateRegistration = source.StateRegistration,
+        Website = source.Website,
+        Email = source.Email,
+        SacPhone = source.SacPhone,
+        Phone = source.Phone,
+        Mobile = source.Mobile,
+        Cep = source.Cep,
+        Address = source.Address,
+        Number = source.Number,
+        Neighborhood = source.Neighborhood,
+        City = source.City,
+        Uf = source.Uf,
+        Complement = source.Complement
+    };
 
-    private static EmpresaRequest ToRequest(EmpresaEntity source) => new()
+    private static EmpresaRequest ToRequest(EmpresaAD source) => new()
     {
         FantasyName = source.FantasyName,
         CorporateName = source.CorporateName,

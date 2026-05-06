@@ -58,7 +58,7 @@ Este repositório está em fase de desenvolvimento. O frontend já conversa com 
 - Swagger
 - JWT
 - Rate limit local
-- Entity Framework Core
+- Acesso manual ao SQL Server com `Microsoft.Data.SqlClient`
 - SQL Server
 
 ## Funcionalidades
@@ -212,7 +212,7 @@ Essas páginas mostram estado visual de "Em desenvolvimento" até as integraçõ
 
 ## Dados e Persistência
 
-A API usa SQL Server via Entity Framework Core. No start, a aplicação executa `EnsureCreated` para criar o banco e as tabelas quando ainda não existirem, além de inserir os dados iniciais do sistema.
+A API usa SQL Server com scripts manuais, seguindo o padrão de `DataBase/Resumo.sql`. No start, a aplicação executa esse script para criar o banco, tabelas, relacionamentos e dados iniciais quando ainda não existirem.
 
 Banco padrão:
 
@@ -228,12 +228,15 @@ Tabelas principais:
 - `Vendas`, `VendaItens`
 - `ModulosMercado`, `ModuloMercadoRegistros`
 
-Observação: `EnsureCreated` atende o ambiente local atual. Para produção, a próxima etapa recomendada é trocar para migrations versionadas.
+Script principal:
+
+<pre><code class="language-text">API/NETCORE/DataBase/Resumo.sql
+</code></pre>
 
 ## Roadmap
 
-- Evoluir `EnsureCreated` para migrations versionadas.
-- Criar migrations e seeds.
+- Versionar evoluções de banco em scripts SQL incrementais.
+- Expandir seeds e rotinas de migração manual.
 - Expandir testes automatizados.
 - Consolidar regras fiscais.
 - Integrar TEF/provedores de pagamento.

@@ -1,12 +1,11 @@
-using HORUSPDV_API.Data;
 using HORUSPDV_API.Middlewares;
-using HORUSPDV_API.Repositories.AcessoBanco;
+using HORUSPDV_API.Repositories;
+using HORUSPDV_API.Repositories.DatabaseAccess;
 using HORUSPDV_API.Services.Caixa;
 using HORUSPDV_API.Services.Clientes;
 using HORUSPDV_API.Services.Fornecedores;
 using HORUSPDV_API.Services.Produtos;
 using HORUSPDV_API.Services.Security;
-using Microsoft.EntityFrameworkCore;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -17,12 +16,6 @@ var corsOrigins = (builder.Configuration["Security:CorsOrigins"] ??
 builder.Services.AddControllers();
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
-builder.Services.AddDbContext<HorusDbContext>(options =>
-{
-    var connectionString = builder.Configuration.GetConnectionString("HorusPdv") ??
-                           "Server=localhost,1433;Database=HorusPdv;User Id=sa;Password=Senha@12345;TrustServerCertificate=True;Encrypt=True;MultipleActiveResultSets=True";
-    options.UseSqlServer(connectionString, sqlOptions => sqlOptions.EnableRetryOnFailure());
-});
 
 builder.Services.AddCors(options =>
 {
@@ -35,7 +28,14 @@ builder.Services.AddCors(options =>
     });
 });
 
-builder.Services.AddScoped<HorusMockDatabase>();
+builder.Services.AddSingleton<Connection>();
+builder.Services.AddScoped<ProdutoAB>();
+builder.Services.AddScoped<ClienteAB>();
+builder.Services.AddScoped<FornecedorAB>();
+builder.Services.AddScoped<EmpresaAB>();
+builder.Services.AddScoped<HistoricoVendasAB>();
+builder.Services.AddScoped<ModuloMercadoAB>();
+builder.Services.AddScoped<CaixaAB>();
 builder.Services.AddScoped<HorusCaixaService>();
 builder.Services.AddScoped<HorusSecurityStore>();
 builder.Services.AddSingleton<HorusSecurityOptions>();
@@ -48,7 +48,7 @@ builder.Services.AddScoped<IFornecedorService, FornecedorService>();
 var app = builder.Build();
 
 app.Services.GetRequiredService<HorusSecurityOptions>().Validate();
-await HorusDbSeeder.InitializeAsync(app.Services);
+await HorusDatabaseInitializer.InitializeAsync(app.Services);
 
 if (app.Environment.IsDevelopment())
 {

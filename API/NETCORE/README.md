@@ -6,7 +6,7 @@ API ASP.NET Core do Hórus PDV.
 
 - .NET 8
 - ASP.NET Core Web API
-- Entity Framework Core
+- Microsoft.Data.SqlClient
 - SQL Server
 - Swagger
 - JWT
@@ -29,7 +29,12 @@ Connection string padrão:
   "HorusPdv": "Server=localhost,1433;Database=HorusPdv;User Id=sa;Password=Senha@12345;TrustServerCertificate=True;Encrypt=True;MultipleActiveResultSets=True"
 }</code></pre>
 
-Ao iniciar, a API cria o banco `HorusPdv`, cria as tabelas com `EnsureCreated` e insere os dados iniciais.
+Ao iniciar, a API executa `DataBase/Resumo.sql` para criar o banco `HorusPdv`, criar tabelas/relacionamentos e inserir os dados iniciais quando ainda não existirem.
+
+Script principal:
+
+<pre><code class="language-text">DataBase/Resumo.sql
+</code></pre>
 
 ## Rodando
 
@@ -58,6 +63,13 @@ Swagger:
 - `ModulosMercado`
 - `ModuloMercadoRegistros`
 
+## Organização dos Repositórios
+
+- `Repositories/DataAccess`: classes `*AD`, usadas para transportar dados vindos do banco.
+- `Repositories/DatabaseAccess`: classes `*AB`, responsáveis por SQL e acesso ao banco.
+- `Services`: regras de negócio e orquestração, sem `SqlCommand`.
+- `Controllers`: HTTP/API, sem SQL direto.
+
 ## Próximo Passo Técnico
 
-Trocar `EnsureCreated` por migrations versionadas antes de produção.
+Criar scripts SQL incrementais para cada evolução de schema antes de produção.
