@@ -72,6 +72,31 @@ const emptyForm: MarketModuleRecordPayload = {
   meta: "",
 };
 
+function getStatusClass(status: string) {
+  const normalized = status
+    .normalize("NFD")
+    .replace(/\p{Diacritic}/gu, "")
+    .toLowerCase();
+
+  if (
+    normalized.includes("ativo") ||
+    normalized.includes("concluido") ||
+    normalized.includes("auditado")
+  ) {
+    return "border-success/30 bg-success/15 text-success";
+  }
+
+  if (normalized.includes("cancelado") || normalized.includes("inativo")) {
+    return "border-primary/30 bg-primary/15 text-primary";
+  }
+
+  if (normalized.includes("pendente") || normalized.includes("analise")) {
+    return "border-accent/30 bg-accent/15 text-accent";
+  }
+
+  return "border-secondary/30 bg-secondary/10 text-secondary";
+}
+
 function toPayload(record: MarketModuleRecord): MarketModuleRecordPayload {
   return {
     title: record.title,
@@ -267,7 +292,7 @@ export default function MarketModulePage({
                   <select
                     value={record.status}
                     onChange={(event) => void handleStatusChange(record, event.target.value)}
-                    className="input-field h-9 w-fit min-w-[140px] rounded-full px-3 text-xs font-semibold text-accent"
+                    className={`h-9 w-fit min-w-[140px] rounded-full border px-3 text-xs font-semibold outline-none transition focus-visible:shadow-[0_0_0_3px_rgba(46,191,244,0.22)] ${getStatusClass(record.status)}`}
                     aria-label={`Alterar status de ${record.title}`}
                   >
                     {statusOptions.map((status) => (
@@ -392,7 +417,7 @@ export default function MarketModulePage({
                 <select
                   value={form.status}
                   onChange={(event) => updateField("status", event.target.value)}
-                  className="input-field w-full"
+                  className={`w-full rounded-xl border px-3 py-2.5 text-sm font-semibold outline-none transition focus-visible:shadow-[0_0_0_3px_rgba(46,191,244,0.22)] ${getStatusClass(form.status)}`}
                 >
                   {statusOptions.map((status) => (
                     <option key={status} value={status}>

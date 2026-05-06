@@ -129,6 +129,47 @@ public class HorusMockDatabase
         return Task.FromResult(removed);
     }
 
+    public Task BaixarEstoqueAsync(IEnumerable<(string ProductCode, int Quantity)> items)
+    {
+        var groupedItems = items
+            .GroupBy(item => item.ProductCode.Trim(), StringComparer.OrdinalIgnoreCase)
+            .Select(group => new { ProductCode = group.Key, Quantity = group.Sum(item => item.Quantity) })
+            .ToList();
+
+        foreach (var item in groupedItems)
+        {
+            var product = _produtos.FirstOrDefault(product =>
+                product.ProductCode.Equals(item.ProductCode, StringComparison.OrdinalIgnoreCase));
+            if (product is null)
+            {
+                throw new InvalidOperationException($"Produto {item.ProductCode} nao encontrado.");
+            }
+
+            var currentStock = ParseInt(product.ProductQnt);
+            if (item.Quantity <= 0)
+            {
+                throw new InvalidOperationException("Quantidade da venda deve ser maior que zero.");
+            }
+
+            if (currentStock < item.Quantity)
+            {
+                throw new InvalidOperationException(
+                    $"Estoque insuficiente para {product.ProductName}. Disponivel: {currentStock}.");
+            }
+        }
+
+        foreach (var item in groupedItems)
+        {
+            var product = _produtos.First(product =>
+                product.ProductCode.Equals(item.ProductCode, StringComparison.OrdinalIgnoreCase));
+            var nextStock = ParseInt(product.ProductQnt) - item.Quantity;
+            product.ProductQnt = nextStock.ToString();
+            product.TotalPriceOnProduct = CalculateTotal(product.ProductUnitPrice, nextStock);
+        }
+
+        return Task.CompletedTask;
+    }
+
     public Task<List<ClienteModel>> ListarClientesAsync()
         => Task.FromResult(_clientes.Select(CloneCliente).ToList());
 
@@ -195,6 +236,24 @@ public class HorusMockDatabase
         ProductSalePrice = source.ProductSalePrice,
         TotalPriceOnProduct = source.TotalPriceOnProduct
     };
+
+    private static int ParseInt(string value)
+        => int.TryParse(value, out var parsed) ? parsed : 0;
+
+    private static string CalculateTotal(string unitPrice, int quantity)
+    {
+        var normalized = unitPrice.Replace(".", "").Replace(",", ".");
+        if (!decimal.TryParse(
+                normalized,
+                System.Globalization.NumberStyles.Number,
+                System.Globalization.CultureInfo.InvariantCulture,
+                out var parsed))
+        {
+            return "0,00";
+        }
+
+        return (parsed * quantity).ToString("N2", new System.Globalization.CultureInfo("pt-BR"));
+    }
 
     private static ClienteModel CloneCliente(ClienteModel source) => new()
     {

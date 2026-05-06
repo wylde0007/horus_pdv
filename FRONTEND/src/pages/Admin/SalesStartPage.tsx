@@ -8,6 +8,7 @@ import { Image as ImageIcon, Search, Trash2, X } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Toast, useStatusDialog } from "@/hooks/Dialog";
 import useInputMasks from "@/hooks/InputMasks/useInputMasks";
+import { companyService, type CompanyDto } from "@/services/api/companyService";
 import { productService } from "@/services/api/productService";
 import { salesHistoryService } from "@/services/api/salesHistoryService";
 
@@ -59,6 +60,7 @@ export default function SalesStartPage({ standalone = false }: SalesStartPagePro
   const [now, setNow] = useState(new Date());
   const [productSearch, setProductSearch] = useState("");
   const [products, setProducts] = useState<Product[]>([]);
+  const [company, setCompany] = useState<CompanyDto | null>(null);
   const [selectedProductId, setSelectedProductId] = useState("");
   const [showProductOptions, setShowProductOptions] = useState(false);
   const [highlightedProductIndex, setHighlightedProductIndex] = useState(0);
@@ -113,26 +115,37 @@ export default function SalesStartPage({ standalone = false }: SalesStartPagePro
     return products.find((item) => item.id === lastItem.id) ?? null;
   }, [selectedProduct, products, cart]);
 
+  const loadProducts = useCallback(async () => {
+    const items = await productService.list();
+    setProducts(
+      items.map((item) => ({
+        id: item.id,
+        name: item.productName,
+        code: item.productCode,
+        stock: Number(item.productQnt || 0),
+        salePrice: parseMoneyBr(item.productSalePrice || "0"),
+        imageUrl: item.productImageUrl,
+      })),
+    );
+  }, [parseMoneyBr]);
+
   useEffect(() => {
-    productService
-      .list()
-      .then((items) => {
-        if (items.length === 0) return;
-        setProducts(
-          items.map((item) => ({
-            id: item.id,
-            name: item.productName,
-            code: item.productCode,
-            stock: Number(item.productQnt || 0),
-            salePrice: parseMoneyBr(item.productSalePrice || "0"),
-            imageUrl: item.productImageUrl,
-          })),
-        );
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    loadProducts().catch(() => {
+      Toast.error("Não foi possível carregar produtos da API no PDV.");
+    });
+  }, [loadProducts]);
+
+  useEffect(() => {
+    companyService
+      .get()
+      .then((data) => {
+        if (data) setCompany(data);
       })
       .catch(() => {
-        Toast.error("Não foi possível carregar produtos da API no PDV.");
+        Toast.error("Não foi possível carregar dados da empresa no PDV.");
       });
-  }, [parseMoneyBr]);
+  }, []);
 
   useEffect(() => {
     const timer = window.setInterval(() => setNow(new Date()), 1000);
@@ -264,6 +277,7 @@ export default function SalesStartPage({ standalone = false }: SalesStartPagePro
         })),
       });
       setCheckoutOpen(false);
+      await loadProducts();
       await statusDialog.success(
         result?.saleNumber
           ? `Pagamento confirmado. Venda ${result.saleNumber} registrada.`
@@ -493,10 +507,11 @@ export default function SalesStartPage({ standalone = false }: SalesStartPagePro
           <section className="flex min-h-[55vh] flex-col bg-bg-light lg:min-h-0">
             <div className="grid grid-cols-1 gap-1 border-b border-border-primary bg-bg-gray-theme px-3 py-2 text-xs text-text-primary sm:grid-cols-[1fr_200px] sm:gap-0">
               <p>
-                <span className="font-semibold">Cliente:</span> McDonads
+                <span className="font-semibold">Empresa:</span>{" "}
+                {company?.fantasyName || "Hórus PDV"}
               </p>
               <p className="sm:text-right">
-                <span className="font-semibold">CPF / CNPJ:</span> 06.332.765/0001-05
+                <span className="font-semibold">CNPJ:</span> {company?.cnpj || "-"}
               </p>
             </div>
 
@@ -638,7 +653,9 @@ export default function SalesStartPage({ standalone = false }: SalesStartPagePro
 
               <footer className="space-y-0.5 border-t border-border-primary bg-bg-primary px-3 py-2 text-[11px] text-text-secondary sm:grid sm:grid-cols-3 sm:items-center sm:space-y-0 sm:text-xs">
                 <p>Usuário: July</p>
-                <p className="sm:text-center">Estabelecimento: Festa & Fantasia</p>
+                <p className="sm:text-center">
+                  Estabelecimento: {company?.fantasyName || "Hórus PDV"}
+                </p>
                 <p className="sm:text-right">Nome caixa: PDV01</p>
               </footer>
             </div>

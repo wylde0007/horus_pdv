@@ -1,12 +1,13 @@
 using HORUSPDV_API.Models.Requests;
 using HORUSPDV_API.Models.Response;
+using HORUSPDV_API.Repositories.AcessoBanco;
 using Microsoft.AspNetCore.Mvc;
 
 namespace HORUSPDV_API.Controllers.HistoricoVendas;
 
 [ApiController]
 [Route("api/[controller]")]
-public class HistoricoVendasController : ControllerBase
+public class HistoricoVendasController(HorusMockDatabase database) : ControllerBase
 {
     private static readonly object SyncRoot = new();
     private static int SaleSequence = 15040;
@@ -32,11 +33,21 @@ public class HistoricoVendasController : ControllerBase
     }
 
     [HttpPost]
-    public IActionResult Registrar([FromBody] VendaRequest request)
+    public async Task<IActionResult> Registrar([FromBody] VendaRequest request)
     {
         if (request.Items.Count == 0)
         {
             return BadRequest(new ApiResponse<object> { Success = false, Message = "Venda sem itens." });
+        }
+
+        try
+        {
+            await database.BaixarEstoqueAsync(
+                request.Items.Select(item => (item.ProductCode, item.Quantity)));
+        }
+        catch (InvalidOperationException ex)
+        {
+            return BadRequest(new ApiResponse<object> { Success = false, Message = ex.Message });
         }
 
         lock (SyncRoot)
