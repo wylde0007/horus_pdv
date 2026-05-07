@@ -39,9 +39,9 @@ public class CaixaAB(Connection connection)
         await using var command = new SqlCommand(
             """
             INSERT INTO CaixaSessoes
-                (Id, OpenedAt, OpeningAmount, OperatorId, OperatorName, Note)
+                (Id, OpenedAt, OpeningAmount, ClosingAmount, OperatorId, OperatorName, ClosedById, ClosedByName, Note)
             VALUES
-                (@Id, @OpenedAt, @OpeningAmount, @OperatorId, @OperatorName, N'');
+                (@Id, @OpenedAt, @OpeningAmount, N'0,00', @OperatorId, @OperatorName, N'', N'', N'');
             """,
             db);
         command.Parameters.AddWithValue("@Id", id);

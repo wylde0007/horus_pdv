@@ -556,7 +556,6 @@ export default function MarketModulePage({
                 <input
                   value={form.amount}
                   inputMode="numeric"
-                  pattern="[0-9,.]*"
                   onBeforeInput={preventNonDigitBeforeInput}
                   onPaste={pasteAmount}
                   onChange={(event) => updateAmount(event.target.value)}

@@ -18,6 +18,7 @@ O projeto está em evolução ativa, com frontend em React, API em ASP.NET Core 
 - [Quick Start](#quick-start)
 - [Variáveis de Ambiente](#variáveis-de-ambiente)
 - [Scripts](#scripts)
+- [Smoke Test](#smoke-test)
 - [Autenticação e Segurança](#autenticação-e-segurança)
 - [Padrões de Interface](#padrões-de-interface)
 - [Módulos em Desenvolvimento](#módulos-em-desenvolvimento)
@@ -177,6 +178,9 @@ npm run lint         # ESLint
 npm run build:dev    # build usando env de desenvolvimento
 npm run build:prod   # build usando env de produção
 npm run preview      # preview do build
+npm run smoke         # smoke test frontend + API
+npm run smoke:headed  # smoke test com navegador visível
+npm run smoke:keep    # smoke com navegador visível e dados mantidos para conferência
 </code></pre>
 
 ### API .NET
@@ -186,6 +190,48 @@ dotnet restore
 dotnet build
 dotnet run --urls http://localhost:5260
 </code></pre>
+
+## Smoke Test
+
+O smoke test sobe a API e o frontend automaticamente, cria uma conta pública, autentica, valida navegação, executa operações principais via API e limpa os dados criados com prefixo `SMOKE_`.
+
+Primeiro uso na máquina:
+
+<pre><code class="language-bash">cd FRONTEND
+npm run smoke:install
+npm run smoke
+</code></pre>
+
+Execução recorrente:
+
+<pre><code class="language-bash">cd FRONTEND
+npm run smoke
+</code></pre>
+
+Execução para conferir dados no banco:
+
+<pre><code class="language-bash">cd FRONTEND
+npm run smoke:keep
+</code></pre>
+
+Variáveis opcionais:
+
+- `SMOKE_APP_URL`, padrão `http://127.0.0.1:5173`.
+- `SMOKE_API_URL`, padrão `http://localhost:5260/api`.
+- `SMOKE_SQL_CONTAINER`, padrão tenta `sqlserver2025` e depois `sqlserver`.
+- `SMOKE_SQL_PASSWORD`, padrão `Senha@12345`.
+- `SMOKE_KEEP_DATA=1`, mantém os dados criados no banco para conferência manual.
+
+O SQL Server Docker precisa estar rodando. O teste desativa temporariamente o disparo real de e-mail da empresa durante a execução e restaura a configuração ao final.
+
+O script `smoke:keep` usa `SMOKE_RUN_ID=SMOKE_CONFERE` e `SMOKE_KEEP_DATA=1`.
+Se quiser outro prefixo manualmente:
+
+<pre><code class="language-bash">cd FRONTEND
+SMOKE_RUN_ID=SMOKE_CONFERE SMOKE_KEEP_DATA=1 npm run smoke
+</code></pre>
+
+Depois procure no banco por `SMOKE_CONFERE%` em `Usuarios`, `Clientes`, `Fornecedores`, `Produtos`, `Vendas`, `CaixaSessoes` e `ModuloMercadoRegistros`.
 
 ## Autenticação e Segurança
 
