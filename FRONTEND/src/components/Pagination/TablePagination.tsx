@@ -48,7 +48,10 @@ export default function TablePagination({
   const pageItems = createPageItems(totalPages, safeCurrentPage);
 
   return (
-    <div className="flex flex-col items-center justify-center gap-3 border-t border-border-primary pt-4 md:flex-row md:items-center md:justify-between">
+    <div
+      data-tour="table-pagination"
+      className="flex flex-col items-center justify-center gap-3 border-t border-border-primary pt-4 md:flex-row md:items-center md:justify-between"
+    >
       <p className="text-center text-xs text-text-secondary md:text-left">
         Mostrando <span className="font-semibold text-text-primary">{from}</span>-<span className="font-semibold text-text-primary">{to}</span> de <span className="font-semibold text-text-primary">{totalItems}</span> registros
       </p>

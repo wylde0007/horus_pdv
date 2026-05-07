@@ -126,6 +126,7 @@ test("smoke completo: cadastro, login, navegacao e operacoes conectadas", async 
 
   await expect(page.getByText(smoke.companyName).first()).toBeVisible();
   await api(request, authToken, "/Auth/me");
+  await validateGuidedTour(page);
 
   await logoutAndLoginAgain(page);
   const loginData = await loginApi(request);
@@ -172,6 +173,15 @@ async function logoutAndLoginAgain(page: Page) {
   await page.getByLabel(/^senha$/i).fill(PASSWORD);
   await page.getByRole("button", { name: /^entrar$/i }).click();
   await expect(page.getByRole("heading", { name: "Home" })).toBeVisible({ timeout: 20_000 });
+}
+
+async function validateGuidedTour(page: Page) {
+  await page.getByRole("button", { name: "Abrir tour da tela", exact: true }).click();
+  await expect(page.getByText("Objetivo da tela")).toBeVisible();
+  await page.getByRole("button", { name: "Próximo", exact: true }).click();
+  await expect(page.getByText("Área de trabalho")).toBeVisible();
+  await page.getByRole("button", { name: "Pular", exact: true }).click();
+  await expect(page.getByText("Área de trabalho")).toBeHidden();
 }
 
 async function hydrateBrowserSession(page: Page, loginData: LoginData) {

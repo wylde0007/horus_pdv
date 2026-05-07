@@ -4,9 +4,11 @@
  * Entradas esperadas: não recebe props; controla estado global de navegação local.
  */
 import { lazy, Suspense, useEffect, useMemo, useRef, useState } from "react";
-import { Menu } from "lucide-react";
+import { CircleHelp, Menu } from "lucide-react";
 import AppSidebar, { type PageKey } from "@/components/AppSidebar/AppSidebar";
 import LoadingBar from "@/components/Loading/LoadingBar";
+import GuidedTour from "@/components/Tour/GuidedTour";
+import { APP_OPEN_TOUR_EVENT } from "@/domain/navigation/events";
 import { Toast, useStatusDialog } from "@/hooks/Dialog";
 import ForgotPasswordPage from "@/pages/Auth/ForgotPasswordPage";
 import LoginPage from "@/pages/Auth/LoginPage";
@@ -132,6 +134,7 @@ export default function App() {
 
   const [collapsed, setCollapsed] = useState(false);
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
+  const [tourOpen, setTourOpen] = useState(false);
   const [activePage, setActivePage] = useState<PageKey>(() => {
     if (typeof window === "undefined") return "home";
     if (new URLSearchParams(window.location.search).get("pdv") === "1") {
@@ -528,6 +531,15 @@ export default function App() {
   }, [activePage, isStandalonePos]);
 
   useEffect(() => {
+    const handleOpenTourEvent = () => {
+      setTourOpen(true);
+    };
+
+    window.addEventListener(APP_OPEN_TOUR_EVENT, handleOpenTourEvent);
+    return () => window.removeEventListener(APP_OPEN_TOUR_EVENT, handleOpenTourEvent);
+  }, []);
+
+  useEffect(() => {
     document.documentElement.setAttribute("data-theme", themeMode);
     window.localStorage.setItem(THEME_STORAGE_KEY, themeMode);
   }, [themeMode]);
@@ -628,7 +640,15 @@ export default function App() {
           <h1 className="text-sm font-semibold text-text-primary truncate px-2">
             {pageTitleByKey[activePage]}
           </h1>
-          <div className="w-10" />
+          <button
+            type="button"
+            onClick={() => setTourOpen(true)}
+            className="inline-flex h-10 w-10 items-center justify-center rounded-lg border border-border-primary bg-bg-light text-secondary shadow-sm transition hover:bg-secondary/10"
+            aria-label="Abrir tour da tela"
+            title="Tour da tela"
+          >
+            <CircleHelp size={16} />
+          </button>
         </div>
       </header>
 
@@ -664,7 +684,10 @@ export default function App() {
           </div>
         }
       >
-        <main className="flex-1 h-full min-h-0 min-w-0 overflow-y-auto overflow-x-hidden pt-14 lg:pt-0">
+        <main
+          data-active-page={activePage}
+          className="flex-1 h-full min-h-0 min-w-0 overflow-y-auto overflow-x-hidden pt-14 lg:pt-0"
+        >
           {activePage === "editar-perfil" ? (
             <EditProfilePage
               userName={currentUser.name}
@@ -688,6 +711,11 @@ export default function App() {
           ) : (
             <CurrentPage />
           )}
+          <GuidedTour
+            open={tourOpen}
+            page={activePage}
+            onClose={() => setTourOpen(false)}
+          />
         </main>
       </Suspense>
       {statusDialog.Dialog}
