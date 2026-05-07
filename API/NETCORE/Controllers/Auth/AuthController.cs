@@ -108,23 +108,38 @@ public class AuthController(
             });
         }
 
-        var resetRequest = securityStore.CreatePasswordResetToken(request.Cnpj, request.Email);
+        var ip = GetClientIp();
+        var userAgent = Request.Headers.UserAgent.ToString();
+        var resetRequest = securityStore.CreatePasswordResetToken(request.Cnpj, request.Email, ip, userAgent);
         if (!string.IsNullOrWhiteSpace(resetRequest.ResetToken) && resetRequest.ExpiresAt is not null)
         {
             var resetUrl = emailService.BuildPasswordResetUrl(resetRequest.ResetToken);
-            await emailService.SendPasswordResetEmailAsync(
-                request.Email,
-                "Hórus PDV",
-                resetUrl,
-                resetRequest.ExpiresAt.Value,
-                HttpContext.RequestAborted);
+            try
+            {
+                await emailService.SendPasswordResetEmailAsync(
+                    request.Email,
+                    "Hórus PDV",
+                    resetUrl,
+                    resetRequest.ExpiresAt.Value,
+                    HttpContext.RequestAborted);
+            }
+            catch (Exception ex)
+            {
+                securityStore.ConsumePasswordResetToken(resetRequest.ResetToken, ip, userAgent);
+                logger.LogWarning(ex, "Nao foi possivel enviar e-mail de recuperacao para {Email}.", request.Email);
+                return StatusCode(StatusCodes.Status502BadGateway, new ApiResponse<object>
+                {
+                    Success = false,
+                    Message = "Não foi possível enviar o e-mail de recuperação. Verifique a configuração SMTP."
+                });
+            }
         }
 
         return Ok(new ApiResponse<object>
         {
             Success = true,
             Message = "Se o e-mail estiver cadastrado, enviaremos as instruções de recuperação.",
-            Data = emailService.IsEnabled
+            Data = await emailService.IsEnabledAsync()
                 ? new
                 {
                     resetRequest.Accepted,
@@ -155,7 +170,12 @@ public class AuthController(
 
         try
         {
-            var user = securityStore.ResetPasswordWithToken(request.Token, request.NextPassword, request.ConfirmPassword);
+            var user = securityStore.ResetPasswordWithToken(
+                request.Token,
+                request.NextPassword,
+                request.ConfirmPassword,
+                GetClientIp(),
+                Request.Headers.UserAgent.ToString());
             return Ok(new ApiResponse<object>
             {
                 Success = true,

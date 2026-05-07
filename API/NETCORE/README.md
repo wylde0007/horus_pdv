@@ -36,14 +36,14 @@ Script principal:
 <pre><code class="language-text">DataBase/Resumo.sql
 </code></pre>
 
-## E-mail SMTP
+## E-mail
 
-O envio de e-mail usa Outlook/Office 365 via SMTP. O remetente configurado é:
+O remetente configurado é:
 
 <pre><code class="language-text">naoresponderhoruspdv@outlook.com
 </code></pre>
 
-Não coloque a senha de app em arquivo versionado. Configure localmente com User Secrets:
+O envio é SMTP simples, no mesmo modelo usado com Gmail: host, porta, usuário e senha de app. Não coloque a senha em arquivo versionado. Configure localmente com User Secrets:
 
 <pre><code class="language-bash">cd API/NETCORE
 dotnet user-secrets set "Email:Enabled" "true"
@@ -53,12 +53,33 @@ dotnet user-secrets set "Email:Password" "SUA_SENHA_DE_APP_AQUI"
 Configurações padrão em `appsettings.json`:
 
 <pre><code class="language-json">"Email": {
-  "Host": "smtp.office365.com",
+  "Host": "smtp-mail.outlook.com",
   "Port": 587,
   "User": "naoresponderhoruspdv@outlook.com",
   "FromEmail": "naoresponderhoruspdv@outlook.com",
   "FrontendBaseUrl": "http://localhost:5173"
 }</code></pre>
+
+Para conta `@outlook.com`, o host padrão é `smtp-mail.outlook.com`, porta `587`, com STARTTLS. Para conta Microsoft 365 corporativa, use `smtp.office365.com`.
+
+Se o envio SMTP retornar `SmtpClientAuthentication is disabled for the Mailbox`, o código está chegando no Outlook, mas a caixa postal está bloqueando SMTP autenticado. Nesse caso, a conta precisa liberar envio SMTP/autenticação por app ou o remetente precisa ser trocado por uma conta que aceite senha de app via SMTP.
+
+Em operação, a configuração principal fica em `Minha Empresa > Configuração de e-mail`, salva na tabela `Empresas`. Quando ela estiver ativa, os disparos usam o SMTP da empresa; quando estiver desativada, a API usa o fallback de `appsettings`/User Secrets para desenvolvimento. A senha SMTP não é devolvida pela API, apenas o indicador de senha configurada.
+
+Exemplo para Gmail, se você decidir usar uma caixa Gmail no futuro:
+
+<pre><code class="language-bash">dotnet user-secrets set "Email:Host" "smtp.gmail.com"
+dotnet user-secrets set "Email:Port" "587"
+dotnet user-secrets set "Email:User" "seu-email@gmail.com"
+dotnet user-secrets set "Email:FromEmail" "seu-email@gmail.com"
+dotnet user-secrets set "Email:Password" "SENHA_DE_APP_DO_GMAIL"
+</code></pre>
+
+Para testar outro host sem mexer no arquivo:
+
+<pre><code class="language-bash">dotnet user-secrets set "Email:Host" "smtp-mail.outlook.com"
+dotnet user-secrets set "Email:Port" "587"
+</code></pre>
 
 ## Rodando
 

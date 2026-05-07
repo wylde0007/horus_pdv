@@ -40,6 +40,18 @@ public class EmpresaController(EmpresaAB empresaAB) : ControllerBase
             return BadRequest(new ApiResponse<EmpresaRequest> { Success = false, Message = "CNPJ invalido." });
         }
 
+        var current = await empresaAB.ObterPrincipalAsync();
+        if (request.EmailSmtpEnabled)
+        {
+            var validationMessage = ValidateEmailConfiguration(
+                request,
+                !string.IsNullOrWhiteSpace(current?.EmailSmtpPassword));
+            if (!string.IsNullOrWhiteSpace(validationMessage))
+            {
+                return BadRequest(new ApiResponse<EmpresaRequest> { Success = false, Message = validationMessage });
+            }
+        }
+
         var saved = await empresaAB.SalvarPrincipalAsync(ToDataAccess(request));
         return Ok(new ApiResponse<EmpresaRequest>
         {
@@ -66,7 +78,16 @@ public class EmpresaController(EmpresaAB empresaAB) : ControllerBase
         Neighborhood = source.Neighborhood,
         City = source.City,
         Uf = source.Uf,
-        Complement = source.Complement
+        Complement = source.Complement,
+        EmailSmtpEnabled = source.EmailSmtpEnabled,
+        EmailSmtpHost = source.EmailSmtpHost,
+        EmailSmtpPort = source.EmailSmtpPort,
+        EmailSmtpEnableSsl = source.EmailSmtpEnableSsl,
+        EmailSmtpUser = source.EmailSmtpUser,
+        EmailSmtpPassword = source.EmailSmtpPassword,
+        EmailSmtpFromEmail = source.EmailSmtpFromEmail,
+        EmailSmtpFromName = source.EmailSmtpFromName,
+        EmailSmtpReplyTo = source.EmailSmtpReplyTo
     };
 
     private static EmpresaRequest ToRequest(EmpresaAD source) => new()
@@ -86,6 +107,51 @@ public class EmpresaController(EmpresaAB empresaAB) : ControllerBase
         Neighborhood = source.Neighborhood,
         City = source.City,
         Uf = source.Uf,
-        Complement = source.Complement
+        Complement = source.Complement,
+        EmailSmtpEnabled = source.EmailSmtpEnabled,
+        EmailSmtpHost = source.EmailSmtpHost,
+        EmailSmtpPort = source.EmailSmtpPort,
+        EmailSmtpEnableSsl = source.EmailSmtpEnableSsl,
+        EmailSmtpUser = source.EmailSmtpUser,
+        EmailSmtpPassword = string.Empty,
+        EmailSmtpHasPassword = !string.IsNullOrWhiteSpace(source.EmailSmtpPassword),
+        EmailSmtpFromEmail = source.EmailSmtpFromEmail,
+        EmailSmtpFromName = source.EmailSmtpFromName,
+        EmailSmtpReplyTo = source.EmailSmtpReplyTo
     };
+
+    private static string ValidateEmailConfiguration(EmpresaRequest request, bool hasExistingPassword)
+    {
+        if (string.IsNullOrWhiteSpace(request.EmailSmtpHost))
+        {
+            return "Informe o host SMTP.";
+        }
+
+        if (request.EmailSmtpPort is < 1 or > 65535)
+        {
+            return "Informe uma porta SMTP valida.";
+        }
+
+        if (string.IsNullOrWhiteSpace(request.EmailSmtpUser) || !request.EmailSmtpUser.Contains('@'))
+        {
+            return "Informe o usuario SMTP.";
+        }
+
+        if (string.IsNullOrWhiteSpace(request.EmailSmtpFromEmail) || !request.EmailSmtpFromEmail.Contains('@'))
+        {
+            return "Informe o e-mail remetente.";
+        }
+
+        if (string.IsNullOrWhiteSpace(request.EmailSmtpPassword) && !hasExistingPassword)
+        {
+            return "Informe a senha de app SMTP.";
+        }
+
+        if (!string.IsNullOrWhiteSpace(request.EmailSmtpReplyTo) && !request.EmailSmtpReplyTo.Contains('@'))
+        {
+            return "Informe um e-mail de resposta valido.";
+        }
+
+        return string.Empty;
+    }
 }

@@ -41,6 +41,7 @@ builder.Services.AddScoped<CaixaAB>();
 builder.Services.AddScoped<HorusCaixaService>();
 builder.Services.AddScoped<HorusSecurityStore>();
 builder.Services.AddSingleton<HorusSecurityOptions>();
+builder.Services.AddSingleton<HorusSecretProtector>();
 builder.Services.AddSingleton<HorusJwtService>();
 builder.Services.AddScoped<HorusEmailService>();
 builder.Services.AddHttpClient<HorusRecaptchaService>();

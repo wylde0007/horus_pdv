@@ -18,4 +18,13 @@ public class EmpresaAD
     public string City { get; set; } = string.Empty;
     public string Uf { get; set; } = string.Empty;
     public string Complement { get; set; } = string.Empty;
+    public bool EmailSmtpEnabled { get; set; }
+    public string EmailSmtpHost { get; set; } = string.Empty;
+    public int EmailSmtpPort { get; set; } = 587;
+    public bool EmailSmtpEnableSsl { get; set; } = true;
+    public string EmailSmtpUser { get; set; } = string.Empty;
+    public string EmailSmtpPassword { get; set; } = string.Empty;
+    public string EmailSmtpFromEmail { get; set; } = string.Empty;
+    public string EmailSmtpFromName { get; set; } = string.Empty;
+    public string EmailSmtpReplyTo { get; set; } = string.Empty;
 }

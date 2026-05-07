@@ -20,6 +20,16 @@ export type CompanyDto = {
   city: string;
   uf: string;
   complement: string;
+  emailSmtpEnabled: boolean;
+  emailSmtpHost: string;
+  emailSmtpPort: number;
+  emailSmtpEnableSsl: boolean;
+  emailSmtpUser: string;
+  emailSmtpPassword: string;
+  emailSmtpHasPassword: boolean;
+  emailSmtpFromEmail: string;
+  emailSmtpFromName: string;
+  emailSmtpReplyTo: string;
 };
 
 export const companyService = {
