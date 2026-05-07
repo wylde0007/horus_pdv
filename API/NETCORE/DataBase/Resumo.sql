@@ -97,9 +97,36 @@ BEGIN
         Neighborhood NVARCHAR(120) NOT NULL CONSTRAINT DF_Empresas_Neighborhood DEFAULT N'',
         City NVARCHAR(120) NOT NULL CONSTRAINT DF_Empresas_City DEFAULT N'',
         Uf NVARCHAR(2) NOT NULL CONSTRAINT DF_Empresas_Uf DEFAULT N'',
-        Complement NVARCHAR(180) NOT NULL CONSTRAINT DF_Empresas_Complement DEFAULT N''
+        Complement NVARCHAR(180) NOT NULL CONSTRAINT DF_Empresas_Complement DEFAULT N'',
+        EmailSmtpEnabled BIT NOT NULL CONSTRAINT DF_Empresas_EmailSmtpEnabled DEFAULT 0,
+        EmailSmtpHost NVARCHAR(180) NOT NULL CONSTRAINT DF_Empresas_EmailSmtpHost DEFAULT N'smtp-mail.outlook.com',
+        EmailSmtpPort INT NOT NULL CONSTRAINT DF_Empresas_EmailSmtpPort DEFAULT 587,
+        EmailSmtpEnableSsl BIT NOT NULL CONSTRAINT DF_Empresas_EmailSmtpEnableSsl DEFAULT 1,
+        EmailSmtpUser NVARCHAR(180) NOT NULL CONSTRAINT DF_Empresas_EmailSmtpUser DEFAULT N'',
+        EmailSmtpPassword NVARCHAR(500) NOT NULL CONSTRAINT DF_Empresas_EmailSmtpPassword DEFAULT N'',
+        EmailSmtpFromEmail NVARCHAR(180) NOT NULL CONSTRAINT DF_Empresas_EmailSmtpFromEmail DEFAULT N'',
+        EmailSmtpFromName NVARCHAR(180) NOT NULL CONSTRAINT DF_Empresas_EmailSmtpFromName DEFAULT N'',
+        EmailSmtpReplyTo NVARCHAR(180) NOT NULL CONSTRAINT DF_Empresas_EmailSmtpReplyTo DEFAULT N''
     );
 END;
+
+IF COL_LENGTH(N'Empresas', N'EmailSmtpEnabled') IS NULL
+BEGIN
+    ALTER TABLE Empresas ADD EmailSmtpEnabled BIT NOT NULL CONSTRAINT DF_Empresas_EmailSmtpEnabled DEFAULT 0;
+    ALTER TABLE Empresas ADD EmailSmtpHost NVARCHAR(180) NOT NULL CONSTRAINT DF_Empresas_EmailSmtpHost DEFAULT N'smtp-mail.outlook.com';
+    ALTER TABLE Empresas ADD EmailSmtpPort INT NOT NULL CONSTRAINT DF_Empresas_EmailSmtpPort DEFAULT 587;
+    ALTER TABLE Empresas ADD EmailSmtpEnableSsl BIT NOT NULL CONSTRAINT DF_Empresas_EmailSmtpEnableSsl DEFAULT 1;
+    ALTER TABLE Empresas ADD EmailSmtpUser NVARCHAR(180) NOT NULL CONSTRAINT DF_Empresas_EmailSmtpUser DEFAULT N'';
+    ALTER TABLE Empresas ADD EmailSmtpPassword NVARCHAR(500) NOT NULL CONSTRAINT DF_Empresas_EmailSmtpPassword DEFAULT N'';
+    ALTER TABLE Empresas ADD EmailSmtpFromEmail NVARCHAR(180) NOT NULL CONSTRAINT DF_Empresas_EmailSmtpFromEmail DEFAULT N'';
+    ALTER TABLE Empresas ADD EmailSmtpFromName NVARCHAR(180) NOT NULL CONSTRAINT DF_Empresas_EmailSmtpFromName DEFAULT N'';
+    ALTER TABLE Empresas ADD EmailSmtpReplyTo NVARCHAR(180) NOT NULL CONSTRAINT DF_Empresas_EmailSmtpReplyTo DEFAULT N'';
+END;
+
+GO
+
+USE HorusPdv;
+GO
 
 IF OBJECT_ID(N'Usuarios', N'U') IS NULL
 BEGIN
@@ -138,19 +165,38 @@ BEGIN
     CREATE INDEX IX_Sessoes_UserId ON Sessoes (UserId);
 END;
 
+IF OBJECT_ID(N'PasswordResetTokens', N'U') IS NOT NULL
+   AND COL_LENGTH(N'PasswordResetTokens', N'TokenHash') IS NULL
+BEGIN
+    DROP TABLE PasswordResetTokens;
+END;
+
 IF OBJECT_ID(N'PasswordResetTokens', N'U') IS NULL
 BEGIN
     CREATE TABLE PasswordResetTokens
     (
-        Token NVARCHAR(120) NOT NULL CONSTRAINT PK_PasswordResetTokens PRIMARY KEY,
+        Id NVARCHAR(40) NOT NULL CONSTRAINT PK_PasswordResetTokens PRIMARY KEY,
         UserId NVARCHAR(40) NOT NULL,
         Email NVARCHAR(180) NOT NULL,
+        Cnpj NVARCHAR(30) NULL,
+        TokenHash NVARCHAR(128) NOT NULL,
         CreatedAt DATETIMEOFFSET NOT NULL,
+        RequestedAt DATETIMEOFFSET NOT NULL,
         ExpiresAt DATETIMEOFFSET NOT NULL,
         ConsumedAt DATETIMEOFFSET NULL,
+        RequestedIp NVARCHAR(64) NULL,
+        RequestedUserAgent NVARCHAR(500) NULL,
+        RequestedDevice NVARCHAR(120) NULL,
+        ResetIp NVARCHAR(64) NULL,
+        ResetUserAgent NVARCHAR(500) NULL,
+        ResetDevice NVARCHAR(120) NULL,
+        UpdatedAt DATETIMEOFFSET NOT NULL,
         CONSTRAINT FK_PasswordResetTokens_Usuarios FOREIGN KEY (UserId) REFERENCES Usuarios (Id) ON DELETE CASCADE
     );
     CREATE INDEX IX_PasswordResetTokens_UserId ON PasswordResetTokens (UserId);
+    CREATE UNIQUE INDEX IX_PasswordResetTokens_TokenHash ON PasswordResetTokens (TokenHash);
+    CREATE INDEX IX_PasswordResetTokens_ExpiresAt ON PasswordResetTokens (ExpiresAt);
+    CREATE INDEX IX_PasswordResetTokens_ConsumedAt ON PasswordResetTokens (ConsumedAt);
 END;
 
 IF OBJECT_ID(N'CaixaSessoes', N'U') IS NULL
@@ -227,7 +273,7 @@ END;
 IF EXISTS (SELECT 1 FROM Usuarios WHERE Id = N'usr-001')
 BEGIN
     UPDATE Usuarios
-       SET Cpf = N'123.456.789-01',
+       SET Cpf = N'06.332.765/0001-05',
            Name = N'Flávio Oliveira',
            Email = N'flavio@hpdv.com.br',
            Phone = N'(11) 98888-1111',
@@ -242,7 +288,7 @@ END
 ELSE
 BEGIN
     INSERT INTO Usuarios (Id, Cpf, Name, Email, Phone, Role, Status, CreatedAt, LastLoginAt, PasswordHash, MustChangePassword)
-    VALUES (N'usr-001', N'123.456.789-01', N'Flávio Oliveira', N'flavio@hpdv.com.br', N'(11) 98888-1111', N'administrador', N'ativo', N'2026-02-10', N'-', N'100000.kop8te8YGY/xSBBtEPR1yA==.iff4Jd546alYO+CLav8GVyX+p0cquoJK6fEpl6upHZc=', 0);
+    VALUES (N'usr-001', N'06.332.765/0001-05', N'Flávio Oliveira', N'flavio@hpdv.com.br', N'(11) 98888-1111', N'administrador', N'ativo', N'2026-02-10', N'-', N'100000.kop8te8YGY/xSBBtEPR1yA==.iff4Jd546alYO+CLav8GVyX+p0cquoJK6fEpl6upHZc=', 0);
 END;
 
 IF EXISTS (SELECT 1 FROM Empresas WHERE Id = N'empresa-principal')
@@ -263,11 +309,26 @@ BEGIN
            Neighborhood = N'Bela Vista',
            City = N'São Paulo',
            Uf = N'SP',
-           Complement = N'Próximo ao MASP'
+           Complement = N'Próximo ao MASP',
+           EmailSmtpHost = CASE WHEN EmailSmtpHost = N'' THEN N'smtp-mail.outlook.com' ELSE EmailSmtpHost END,
+           EmailSmtpPort = CASE WHEN EmailSmtpPort <= 0 THEN 587 ELSE EmailSmtpPort END,
+           EmailSmtpEnableSsl = 1,
+           EmailSmtpFromEmail = CASE WHEN EmailSmtpFromEmail = N'' THEN N'naoresponderhoruspdv@outlook.com' ELSE EmailSmtpFromEmail END,
+           EmailSmtpFromName = CASE WHEN EmailSmtpFromName = N'' THEN N'Hórus PDV' ELSE EmailSmtpFromName END
      WHERE Id = N'empresa-principal';
 END
 ELSE
 BEGIN
-    INSERT INTO Empresas (Id, FantasyName, CorporateName, Cnpj, StateRegistration, Website, Email, SacPhone, Phone, Mobile, Cep, Address, Number, Neighborhood, City, Uf, Complement)
-    VALUES (N'empresa-principal', N'Hórus PDV', N'Hórus PDV LTDA', N'06.332.765/0001-05', N'123.456.789.110', N'https://www.horuspdv.com.br', N'contato@hpdv.com.br', N'(11) 3000-1000', N'(11) 3149-5959', N'(11) 98888-1000', N'01310-200', N'Avenida Paulista', N'1578', N'Bela Vista', N'São Paulo', N'SP', N'Próximo ao MASP');
+    INSERT INTO Empresas
+        (Id, FantasyName, CorporateName, Cnpj, StateRegistration, Website, Email, SacPhone, Phone, Mobile,
+         Cep, Address, Number, Neighborhood, City, Uf, Complement, EmailSmtpEnabled, EmailSmtpHost,
+         EmailSmtpPort, EmailSmtpEnableSsl, EmailSmtpUser, EmailSmtpPassword, EmailSmtpFromEmail,
+         EmailSmtpFromName, EmailSmtpReplyTo)
+    VALUES
+        (N'empresa-principal', N'Hórus PDV', N'Hórus PDV LTDA', N'06.332.765/0001-05',
+         N'123.456.789.110', N'https://www.horuspdv.com.br', N'contato@hpdv.com.br',
+         N'(11) 3000-1000', N'(11) 3149-5959', N'(11) 98888-1000', N'01310-200',
+         N'Avenida Paulista', N'1578', N'Bela Vista', N'São Paulo', N'SP', N'Próximo ao MASP',
+         0, N'smtp-mail.outlook.com', 587, 1, N'', N'', N'naoresponderhoruspdv@outlook.com',
+         N'Hórus PDV', N'');
 END;

@@ -31,7 +31,9 @@ const CustomerRegisterPage = lazy(
 const SupplierRegisterPage = lazy(
   () => import("@/pages/Admin/SupplierRegisterPage"),
 );
-const ProductRegisterPage = lazy(() => import("@/pages/Admin/ProductRegisterPage"));
+const ProductRegisterPage = lazy(
+  () => import("@/pages/Admin/ProductRegisterPage"),
+);
 const SalesHistoryPage = lazy(() => import("@/pages/Admin/SalesHistoryPage"));
 const SalesStartPage = lazy(() => import("@/pages/Admin/SalesStartPage"));
 const ReportsPage = lazy(() => import("@/pages/Admin/ReportsPage"));
@@ -46,7 +48,9 @@ const CrmLoyaltyPage = lazy(() => import("@/pages/Admin/CrmLoyaltyPage"));
 const OmnichannelPage = lazy(() => import("@/pages/Admin/OmnichannelPage"));
 const SettingsPage = lazy(() => import("@/pages/Admin/SettingsPage"));
 const MyCompanyPage = lazy(() => import("@/pages/Admin/MyCompanyPage"));
-const LicenseDetailsPage = lazy(() => import("@/pages/Admin/LicenseDetailsPage"));
+const LicenseDetailsPage = lazy(
+  () => import("@/pages/Admin/LicenseDetailsPage"),
+);
 const AboutPdvPage = lazy(() => import("@/pages/Admin/AboutPdvPage"));
 const EditProfilePage = lazy(() => import("@/pages/Admin/EditProfilePage"));
 const PROFILE_AVATAR_STORAGE_KEY = "horuspdv.profile.avatar";
@@ -65,7 +69,11 @@ type CurrentUser = {
 };
 
 type ThemeMode = "light" | "dark";
-type PublicAuthPage = "login" | "forgot-password" | "reset-password" | "register";
+type PublicAuthPage =
+  | "login"
+  | "forgot-password"
+  | "reset-password"
+  | "register";
 
 function formatRole(role: string) {
   const labels: Record<string, string> = {
@@ -144,21 +152,31 @@ export default function App() {
   });
 
   const [currentUser, setCurrentUser] = useState<CurrentUser>(() => {
-    const storedUser = typeof window !== "undefined" ? getStoredAuthUser() : null;
+    const storedUser =
+      typeof window !== "undefined" ? getStoredAuthUser() : null;
     return {
       id: storedUser?.id || "",
-      name: storedUser?.name || "Operador",
-      email: storedUser?.email || "flavio@hpdv.com.br",
-      permission: formatRole(storedUser?.role || "atendente"),
+      name: storedUser?.name || "",
+      email: storedUser?.email || "",
+      permission: formatRole(storedUser?.role || ""),
       avatarUrl:
         typeof window !== "undefined"
           ? window.localStorage.getItem(PROFILE_AVATAR_STORAGE_KEY)
           : null,
     };
   });
-  const [publicAuthPage, setPublicAuthPage] = useState<PublicAuthPage>("login");
-  const [authLoginEmail, setAuthLoginEmail] = useState(currentUser.email);
-  const [passwordResetToken, setPasswordResetToken] = useState("");
+  const [publicAuthPage, setPublicAuthPage] = useState<PublicAuthPage>(() => {
+    if (typeof window === "undefined") return "login";
+    const params = new URLSearchParams(window.location.search);
+    return params.get("resetToken") || params.get("token")
+      ? "reset-password"
+      : "login";
+  });
+  const [passwordResetToken, setPasswordResetToken] = useState(() => {
+    if (typeof window === "undefined") return "";
+    const params = new URLSearchParams(window.location.search);
+    return params.get("resetToken") || params.get("token") || "";
+  });
 
   const pageTitleByKey: Record<PageKey, string> = {
     home: "Home",
@@ -260,16 +278,23 @@ export default function App() {
     });
   };
 
-  const handleChangePassword = async (currentPassword: string, nextPassword: string) => {
+  const handleChangePassword = async (
+    currentPassword: string,
+    nextPassword: string,
+  ) => {
     try {
       await authService.changePassword(currentPassword, nextPassword);
       clearAuthSession();
       setIsAuthenticated(false);
-      return { success: true, message: "Senha atualizada com sucesso. Faça login novamente." };
+      return {
+        success: true,
+        message: "Senha atualizada com sucesso. Faça login novamente.",
+      };
     } catch (error) {
       return {
         success: false,
-        message: error instanceof Error ? error.message : "Erro ao atualizar senha.",
+        message:
+          error instanceof Error ? error.message : "Erro ao atualizar senha.",
       };
     }
   };
@@ -327,7 +352,9 @@ export default function App() {
 
     posTabRef.current = window.open(url.toString(), POS_TAB_NAME);
     if (!posTabRef.current) {
-      Toast.error("Não foi possível abrir a aba do PDV. Verifique bloqueio de pop-up.");
+      Toast.error(
+        "Não foi possível abrir a aba do PDV. Verifique bloqueio de pop-up.",
+      );
       setMobileSidebarOpen(false);
       return;
     }
@@ -351,7 +378,10 @@ export default function App() {
       });
 
       if (!result) {
-        return { success: false, message: "A API não retornou os dados de login." };
+        return {
+          success: false,
+          message: "A API não retornou os dados de login.",
+        };
       }
 
       setAuthSession(result.token, result.user, remember);
@@ -362,7 +392,8 @@ export default function App() {
     } catch (error) {
       return {
         success: false,
-        message: error instanceof Error ? error.message : "Erro ao fazer login.",
+        message:
+          error instanceof Error ? error.message : "Erro ao fazer login.",
       };
     }
   };
@@ -373,10 +404,15 @@ export default function App() {
     recaptchaToken?: string,
   ) => {
     try {
-      const data = await authService.forgotPassword(cnpj.trim(), email.trim(), recaptchaToken);
+      const data = await authService.forgotPassword(
+        cnpj.trim(),
+        email.trim(),
+        recaptchaToken,
+      );
       return {
         success: true,
-        message: "Se o e-mail estiver cadastrado, enviaremos as instruções de recuperação.",
+        message:
+          "Se o e-mail estiver cadastrado, enviaremos as instruções de recuperação.",
         data,
       };
     } catch (error) {
@@ -397,12 +433,25 @@ export default function App() {
     recaptchaToken?: string,
   ) => {
     try {
-      await authService.resetPassword(token.trim(), nextPassword, confirmPassword, recaptchaToken);
-      return { success: true, message: "Senha redefinida com sucesso. Faça login novamente." };
+      await authService.resetPassword(
+        token.trim(),
+        nextPassword,
+        confirmPassword,
+        recaptchaToken,
+      );
+      const url = new URL(window.location.href);
+      url.searchParams.delete("resetToken");
+      url.searchParams.delete("token");
+      window.history.replaceState({}, "", url.toString());
+      return {
+        success: true,
+        message: "Senha redefinida com sucesso. Faça login novamente.",
+      };
     } catch (error) {
       return {
         success: false,
-        message: error instanceof Error ? error.message : "Erro ao redefinir senha.",
+        message:
+          error instanceof Error ? error.message : "Erro ao redefinir senha.",
       };
     }
   };
@@ -418,11 +467,15 @@ export default function App() {
         name: payload.name.trim(),
         recaptchaToken,
       });
-      return { success: true, message: "Cadastro criado com sucesso. Faça login para continuar." };
+      return {
+        success: true,
+        message: "Cadastro criado com sucesso. Faça login para continuar.",
+      };
     } catch (error) {
       return {
         success: false,
-        message: error instanceof Error ? error.message : "Erro ao criar cadastro.",
+        message:
+          error instanceof Error ? error.message : "Erro ao criar cadastro.",
       };
     }
   };
@@ -491,7 +544,6 @@ export default function App() {
     if (publicAuthPage === "forgot-password") {
       return (
         <ForgotPasswordPage
-          defaultEmail={authLoginEmail}
           onForgotPassword={handleForgotPassword}
           onOpenLogin={() => setPublicAuthPage("login")}
           onOpenResetPassword={(token) => {
@@ -517,8 +569,7 @@ export default function App() {
         <RegisterPage
           onRegister={handleRegister}
           onOpenLogin={() => setPublicAuthPage("login")}
-          onRegisterSuccess={(email) => {
-            setAuthLoginEmail(email);
+          onRegisterSuccess={() => {
             setPublicAuthPage("login");
           }}
         />
@@ -527,7 +578,6 @@ export default function App() {
 
     return (
       <LoginPage
-        defaultEmail={authLoginEmail}
         onLogin={handleLogin}
         onOpenForgotPassword={() => setPublicAuthPage("forgot-password")}
         onOpenRegister={() => setPublicAuthPage("register")}
@@ -626,7 +676,10 @@ export default function App() {
               onChangePassword={handleChangePassword}
             />
           ) : activePage === "configuracoes" ? (
-            <SettingsPage themeMode={themeMode} onToggleTheme={handleToggleTheme} />
+            <SettingsPage
+              themeMode={themeMode}
+              onToggleTheme={handleToggleTheme}
+            />
           ) : activePage === "home" ? (
             <HomePage
               onNavigate={setActivePage}

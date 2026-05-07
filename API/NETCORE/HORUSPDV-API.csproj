@@ -5,6 +5,7 @@
         <Nullable>enable</Nullable>
         <ImplicitUsings>enable</ImplicitUsings>
         <RootNamespace>HORUSPDV_API</RootNamespace>
+        <UserSecretsId>horus-pdv-api-dev</UserSecretsId>
     </PropertyGroup>
 
     <ItemGroup>

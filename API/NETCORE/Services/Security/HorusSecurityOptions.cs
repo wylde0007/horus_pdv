@@ -5,6 +5,8 @@ public class HorusSecurityOptions(IConfiguration configuration, IWebHostEnvironm
     public string JwtSecret { get; } = configuration["Auth:JwtSecret"]
         ?? "horus-pdv-development-secret-change-before-production-2026";
 
+    public string EncryptionKey { get; } = configuration["Security:EncryptionKey"] ?? "";
+
     public string JwtIssuer { get; } = configuration["Auth:Issuer"] ?? "horus-pdv-api";
 
     public string JwtAudience { get; } = configuration["Auth:Audience"] ?? "horus-pdv-web";
@@ -12,6 +14,11 @@ public class HorusSecurityOptions(IConfiguration configuration, IWebHostEnvironm
     public int SessionHours { get; } = int.TryParse(configuration["Auth:SessionHours"], out var hours)
         ? Math.Clamp(hours, 1, 24)
         : 8;
+
+    public int PasswordResetTokenMinutes { get; } =
+        int.TryParse(configuration["Auth:PasswordResetTokenMinutes"], out var resetMinutes)
+            ? Math.Clamp(resetMinutes, 5, 180)
+            : 30;
 
     public bool RecaptchaEnabled { get; } =
         bool.TryParse(configuration["Recaptcha:Enabled"], out var recaptchaEnabled) &&
@@ -48,6 +55,12 @@ public class HorusSecurityOptions(IConfiguration configuration, IWebHostEnvironm
         {
             throw new InvalidOperationException(
                 "Auth:JwtSecret invalido em producao. Defina um segredo forte com pelo menos 32 caracteres.");
+        }
+
+        if (string.IsNullOrWhiteSpace(EncryptionKey) || EncryptionKey.Length < 32)
+        {
+            throw new InvalidOperationException(
+                "Security:EncryptionKey invalido em producao. Defina uma chave forte com pelo menos 32 caracteres.");
         }
 
         if (RecaptchaEnabled && string.IsNullOrWhiteSpace(RecaptchaSecretKey))

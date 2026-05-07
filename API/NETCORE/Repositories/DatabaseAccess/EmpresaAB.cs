@@ -1,9 +1,10 @@
 using HORUSPDV_API.Repositories.DataAccess;
+using HORUSPDV_API.Services.Security;
 using Microsoft.Data.SqlClient;
 
 namespace HORUSPDV_API.Repositories.DatabaseAccess;
 
-public class EmpresaAB(Connection connection)
+public class EmpresaAB(Connection connection, HorusSecretProtector secretProtector)
 {
     public async Task<EmpresaAD?> ObterPrincipalAsync()
     {
@@ -11,7 +12,9 @@ public class EmpresaAB(Connection connection)
         await using var command = new SqlCommand(
             """
             SELECT FantasyName, CorporateName, Cnpj, StateRegistration, Website, Email, SacPhone,
-                   Phone, Mobile, Cep, Address, Number, Neighborhood, City, Uf, Complement
+                   Phone, Mobile, Cep, Address, Number, Neighborhood, City, Uf, Complement,
+                   EmailSmtpEnabled, EmailSmtpHost, EmailSmtpPort, EmailSmtpEnableSsl, EmailSmtpUser,
+                   EmailSmtpPassword, EmailSmtpFromEmail, EmailSmtpFromName, EmailSmtpReplyTo
             FROM Empresas
             WHERE Id = N'empresa-principal';
             """,
@@ -43,26 +46,42 @@ public class EmpresaAB(Connection connection)
                        Neighborhood = @Neighborhood,
                        City = @City,
                        Uf = @Uf,
-                       Complement = @Complement
+                       Complement = @Complement,
+                       EmailSmtpEnabled = @EmailSmtpEnabled,
+                       EmailSmtpHost = @EmailSmtpHost,
+                       EmailSmtpPort = @EmailSmtpPort,
+                       EmailSmtpEnableSsl = @EmailSmtpEnableSsl,
+                       EmailSmtpUser = @EmailSmtpUser,
+                       EmailSmtpPassword = CASE
+                           WHEN @EmailSmtpPassword = N'' THEN EmailSmtpPassword
+                           ELSE @EmailSmtpPassword
+                       END,
+                       EmailSmtpFromEmail = @EmailSmtpFromEmail,
+                       EmailSmtpFromName = @EmailSmtpFromName,
+                       EmailSmtpReplyTo = @EmailSmtpReplyTo
                  WHERE Id = N'empresa-principal';
             END
             ELSE
             BEGIN
                 INSERT INTO Empresas
                     (Id, FantasyName, CorporateName, Cnpj, StateRegistration, Website, Email, SacPhone,
-                     Phone, Mobile, Cep, Address, Number, Neighborhood, City, Uf, Complement)
+                     Phone, Mobile, Cep, Address, Number, Neighborhood, City, Uf, Complement,
+                     EmailSmtpEnabled, EmailSmtpHost, EmailSmtpPort, EmailSmtpEnableSsl, EmailSmtpUser,
+                     EmailSmtpPassword, EmailSmtpFromEmail, EmailSmtpFromName, EmailSmtpReplyTo)
                 VALUES
                     (N'empresa-principal', @FantasyName, @CorporateName, @Cnpj, @StateRegistration, @Website,
-                     @Email, @SacPhone, @Phone, @Mobile, @Cep, @Address, @Number, @Neighborhood, @City, @Uf, @Complement);
+                     @Email, @SacPhone, @Phone, @Mobile, @Cep, @Address, @Number, @Neighborhood, @City, @Uf, @Complement,
+                     @EmailSmtpEnabled, @EmailSmtpHost, @EmailSmtpPort, @EmailSmtpEnableSsl, @EmailSmtpUser,
+                     @EmailSmtpPassword, @EmailSmtpFromEmail, @EmailSmtpFromName, @EmailSmtpReplyTo);
             END;
             """,
             db);
         AddParameters(command, empresa);
         await command.ExecuteNonQueryAsync();
-        return empresa;
+        return await ObterPrincipalAsync() ?? empresa;
     }
 
-    private static void AddParameters(SqlCommand command, EmpresaAD source)
+    private void AddParameters(SqlCommand command, EmpresaAD source)
     {
         command.Parameters.AddWithValue("@FantasyName", source.FantasyName.Trim());
         command.Parameters.AddWithValue("@CorporateName", source.CorporateName.Trim());
@@ -80,9 +99,22 @@ public class EmpresaAB(Connection connection)
         command.Parameters.AddWithValue("@City", source.City.Trim());
         command.Parameters.AddWithValue("@Uf", source.Uf.Trim());
         command.Parameters.AddWithValue("@Complement", source.Complement.Trim());
+        command.Parameters.AddWithValue("@EmailSmtpEnabled", source.EmailSmtpEnabled);
+        command.Parameters.AddWithValue("@EmailSmtpHost", source.EmailSmtpHost.Trim());
+        command.Parameters.AddWithValue("@EmailSmtpPort", source.EmailSmtpPort);
+        command.Parameters.AddWithValue("@EmailSmtpEnableSsl", source.EmailSmtpEnableSsl);
+        command.Parameters.AddWithValue("@EmailSmtpUser", source.EmailSmtpUser.Trim());
+        command.Parameters.AddWithValue(
+            "@EmailSmtpPassword",
+            string.IsNullOrWhiteSpace(source.EmailSmtpPassword)
+                ? string.Empty
+                : secretProtector.Protect(source.EmailSmtpPassword));
+        command.Parameters.AddWithValue("@EmailSmtpFromEmail", source.EmailSmtpFromEmail.Trim());
+        command.Parameters.AddWithValue("@EmailSmtpFromName", source.EmailSmtpFromName.Trim());
+        command.Parameters.AddWithValue("@EmailSmtpReplyTo", source.EmailSmtpReplyTo.Trim());
     }
 
-    private static EmpresaAD Map(SqlDataReader source) => new()
+    private EmpresaAD Map(SqlDataReader source) => new()
     {
         FantasyName = ReadString(source, "FantasyName"),
         CorporateName = ReadString(source, "CorporateName"),
@@ -99,12 +131,48 @@ public class EmpresaAB(Connection connection)
         Neighborhood = ReadString(source, "Neighborhood"),
         City = ReadString(source, "City"),
         Uf = ReadString(source, "Uf"),
-        Complement = ReadString(source, "Complement")
+        Complement = ReadString(source, "Complement"),
+        EmailSmtpEnabled = ReadBool(source, "EmailSmtpEnabled"),
+        EmailSmtpHost = ReadString(source, "EmailSmtpHost"),
+        EmailSmtpPort = ReadInt(source, "EmailSmtpPort"),
+        EmailSmtpEnableSsl = ReadBool(source, "EmailSmtpEnableSsl"),
+        EmailSmtpUser = ReadString(source, "EmailSmtpUser"),
+        EmailSmtpPassword = UnprotectSecret(ReadString(source, "EmailSmtpPassword")),
+        EmailSmtpFromEmail = ReadString(source, "EmailSmtpFromEmail"),
+        EmailSmtpFromName = ReadString(source, "EmailSmtpFromName"),
+        EmailSmtpReplyTo = ReadString(source, "EmailSmtpReplyTo")
     };
 
     private static string ReadString(SqlDataReader reader, string name)
     {
         var ordinal = reader.GetOrdinal(name);
         return reader.IsDBNull(ordinal) ? string.Empty : reader.GetString(ordinal);
+    }
+
+    private static bool ReadBool(SqlDataReader reader, string name)
+    {
+        var ordinal = reader.GetOrdinal(name);
+        return !reader.IsDBNull(ordinal) && reader.GetBoolean(ordinal);
+    }
+
+    private static int ReadInt(SqlDataReader reader, string name)
+    {
+        var ordinal = reader.GetOrdinal(name);
+        return reader.IsDBNull(ordinal) ? 0 : reader.GetInt32(ordinal);
+    }
+
+    private string UnprotectSecret(string value)
+    {
+        if (string.IsNullOrWhiteSpace(value)) return string.Empty;
+        if (!value.StartsWith("enc:v1:", StringComparison.Ordinal)) return value;
+
+        try
+        {
+            return secretProtector.Unprotect(value);
+        }
+        catch
+        {
+            return string.Empty;
+        }
     }
 }

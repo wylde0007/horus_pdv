@@ -3,6 +3,7 @@ using HORUSPDV_API.Repositories;
 using HORUSPDV_API.Repositories.DatabaseAccess;
 using HORUSPDV_API.Services.Caixa;
 using HORUSPDV_API.Services.Clientes;
+using HORUSPDV_API.Services.Email;
 using HORUSPDV_API.Services.Fornecedores;
 using HORUSPDV_API.Services.Produtos;
 using HORUSPDV_API.Services.Security;
@@ -16,6 +17,7 @@ var corsOrigins = (builder.Configuration["Security:CorsOrigins"] ??
 builder.Services.AddControllers();
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
+builder.Services.Configure<HorusEmailOptions>(builder.Configuration.GetSection("Email"));
 
 builder.Services.AddCors(options =>
 {
@@ -39,7 +41,9 @@ builder.Services.AddScoped<CaixaAB>();
 builder.Services.AddScoped<HorusCaixaService>();
 builder.Services.AddScoped<HorusSecurityStore>();
 builder.Services.AddSingleton<HorusSecurityOptions>();
+builder.Services.AddSingleton<HorusSecretProtector>();
 builder.Services.AddSingleton<HorusJwtService>();
+builder.Services.AddScoped<HorusEmailService>();
 builder.Services.AddHttpClient<HorusRecaptchaService>();
 builder.Services.AddScoped<IProdutoService, ProdutoService>();
 builder.Services.AddScoped<IClienteService, ClienteService>();

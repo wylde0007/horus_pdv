@@ -1,16 +1,17 @@
 using HORUSPDV_API.Models.Requests;
 using HORUSPDV_API.Repositories;
+using HORUSPDV_API.Services.Security;
 using Microsoft.Data.SqlClient;
 using System.Security.Cryptography;
+using System.Text;
 
 namespace HORUSPDV_API.Repositories.DatabaseAccess;
 
-public class HorusSecurityStore(Connection connection)
+public class HorusSecurityStore(Connection connection, HorusSecurityOptions securityOptions)
 {
     private const int MaxFailedAttempts = 5;
     private static readonly TimeSpan AttemptWindow = TimeSpan.FromMinutes(15);
     private static readonly TimeSpan LockDuration = TimeSpan.FromMinutes(10);
-    private static readonly TimeSpan PasswordResetExpiration = TimeSpan.FromMinutes(30);
     private static readonly object AttemptSyncRoot = new();
     private static readonly Dictionary<string, LoginAttemptBucket> Attempts = new(StringComparer.OrdinalIgnoreCase);
 
@@ -291,22 +292,24 @@ public class HorusSecurityStore(Connection connection)
         return Convert.ToInt32(command.ExecuteScalar()) > 0;
     }
 
-    public PasswordResetRequestResult CreatePasswordResetToken(string cnpj, string email)
+    public PasswordResetRequestResult CreatePasswordResetToken(string cnpj, string email, string ip, string userAgent)
     {
         var normalizedCnpj = OnlyDigits(cnpj);
         var normalizedEmail = email.Trim().ToLowerInvariant();
         var now = DateTimeOffset.UtcNow;
+        var expiresAt = now.AddMinutes(securityOptions.PasswordResetTokenMinutes);
+        var requestedDevice = BuildDeviceLabel(userAgent);
 
         using var db = connection.OpenConnection();
         using var transaction = db.BeginTransaction();
         try
         {
             using (var cleanup = new SqlCommand(
-                       "DELETE FROM PasswordResetTokens WHERE ExpiresAt <= @Now OR ConsumedAt IS NOT NULL;",
+                       "DELETE FROM PasswordResetTokens WHERE ExpiresAt <= @RetentionCutoff;",
                        db,
                        transaction))
             {
-                cleanup.Parameters.AddWithValue("@Now", now);
+                cleanup.Parameters.AddWithValue("@RetentionCutoff", now.AddDays(-7));
                 cleanup.ExecuteNonQuery();
             }
 
@@ -319,31 +322,46 @@ public class HorusSecurityStore(Connection connection)
 
             using (var deleteTokens = new SqlCommand(
                        """
-                       DELETE FROM PasswordResetTokens WHERE UserId = @UserId;
-                       DELETE FROM Sessoes WHERE UserId = @UserId;
+                       UPDATE PasswordResetTokens
+                          SET ConsumedAt = @Now,
+                              UpdatedAt = @Now
+                        WHERE UserId = @UserId
+                          AND ConsumedAt IS NULL;
                        """,
                        db,
                        transaction))
             {
                 deleteTokens.Parameters.AddWithValue("@UserId", user.Id);
+                deleteTokens.Parameters.AddWithValue("@Now", now);
                 deleteTokens.ExecuteNonQuery();
             }
 
             var token = GenerateSecureToken();
-            var expiresAt = now.Add(PasswordResetExpiration);
+            var tokenHash = HashPasswordResetToken(token);
             using (var insert = new SqlCommand(
                        """
-                       INSERT INTO PasswordResetTokens (Token, UserId, Email, CreatedAt, ExpiresAt, ConsumedAt)
-                       VALUES (@Token, @UserId, @Email, @CreatedAt, @ExpiresAt, NULL);
+                       INSERT INTO PasswordResetTokens
+                           (Id, UserId, Email, Cnpj, TokenHash, CreatedAt, RequestedAt, ExpiresAt, ConsumedAt,
+                            RequestedIp, RequestedUserAgent, RequestedDevice, ResetIp, ResetUserAgent, ResetDevice, UpdatedAt)
+                       VALUES
+                           (@Id, @UserId, @Email, @Cnpj, @TokenHash, @CreatedAt, @RequestedAt, @ExpiresAt, NULL,
+                            @RequestedIp, @RequestedUserAgent, @RequestedDevice, NULL, NULL, NULL, @UpdatedAt);
                        """,
                        db,
                        transaction))
             {
-                insert.Parameters.AddWithValue("@Token", token);
+                insert.Parameters.AddWithValue("@Id", $"prt-{Guid.NewGuid():N}");
                 insert.Parameters.AddWithValue("@UserId", user.Id);
                 insert.Parameters.AddWithValue("@Email", user.Email);
+                insert.Parameters.AddWithValue("@Cnpj", normalizedCnpj);
+                insert.Parameters.AddWithValue("@TokenHash", tokenHash);
                 insert.Parameters.AddWithValue("@CreatedAt", now);
+                insert.Parameters.AddWithValue("@RequestedAt", now);
                 insert.Parameters.AddWithValue("@ExpiresAt", expiresAt);
+                insert.Parameters.AddWithValue("@RequestedIp", NullIfEmpty(ip));
+                insert.Parameters.AddWithValue("@RequestedUserAgent", NullIfEmpty(userAgent));
+                insert.Parameters.AddWithValue("@RequestedDevice", NullIfEmpty(requestedDevice));
+                insert.Parameters.AddWithValue("@UpdatedAt", now);
                 insert.ExecuteNonQuery();
             }
 
@@ -357,7 +375,37 @@ public class HorusSecurityStore(Connection connection)
         }
     }
 
-    public SecurityUserDto ResetPasswordWithToken(string token, string nextPassword, string confirmPassword)
+    public void ConsumePasswordResetToken(string token, string ip, string userAgent)
+    {
+        if (string.IsNullOrWhiteSpace(token)) return;
+
+        var now = DateTimeOffset.UtcNow;
+        using var db = connection.OpenConnection();
+        using var command = new SqlCommand(
+            """
+            UPDATE PasswordResetTokens
+               SET ConsumedAt = COALESCE(ConsumedAt, @Now),
+                   ResetIp = @ResetIp,
+                   ResetUserAgent = @ResetUserAgent,
+                   ResetDevice = @ResetDevice,
+                   UpdatedAt = @Now
+             WHERE TokenHash = @TokenHash;
+            """,
+            db);
+        command.Parameters.AddWithValue("@Now", now);
+        command.Parameters.AddWithValue("@ResetIp", NullIfEmpty(ip));
+        command.Parameters.AddWithValue("@ResetUserAgent", NullIfEmpty(userAgent));
+        command.Parameters.AddWithValue("@ResetDevice", NullIfEmpty(BuildDeviceLabel(userAgent)));
+        command.Parameters.AddWithValue("@TokenHash", HashPasswordResetToken(token.Trim()));
+        command.ExecuteNonQuery();
+    }
+
+    public SecurityUserDto ResetPasswordWithToken(
+        string token,
+        string nextPassword,
+        string confirmPassword,
+        string ip = "",
+        string userAgent = "")
     {
         if (string.IsNullOrWhiteSpace(token)) throw new InvalidOperationException("Token de redefinição inválido.");
         if (!nextPassword.Equals(confirmPassword, StringComparison.Ordinal)) throw new InvalidOperationException("A confirmação de senha não confere.");
@@ -386,13 +434,23 @@ public class HorusSecurityStore(Connection connection)
                    SET PasswordHash = @PasswordHash,
                        MustChangePassword = 0
                  WHERE Id = @UserId;
-                DELETE FROM PasswordResetTokens WHERE UserId = @UserId;
+                UPDATE PasswordResetTokens
+                   SET ConsumedAt = COALESCE(ConsumedAt, @Now),
+                       ResetIp = @ResetIp,
+                       ResetUserAgent = @ResetUserAgent,
+                       ResetDevice = @ResetDevice,
+                       UpdatedAt = @Now
+                 WHERE UserId = @UserId;
                 DELETE FROM Sessoes WHERE UserId = @UserId;
                 """,
                 db,
                 transaction);
             command.Parameters.AddWithValue("@PasswordHash", PasswordHasher.Hash(nextPassword));
             command.Parameters.AddWithValue("@UserId", user.Id);
+            command.Parameters.AddWithValue("@Now", now);
+            command.Parameters.AddWithValue("@ResetIp", NullIfEmpty(ip));
+            command.Parameters.AddWithValue("@ResetUserAgent", NullIfEmpty(userAgent));
+            command.Parameters.AddWithValue("@ResetDevice", NullIfEmpty(BuildDeviceLabel(userAgent)));
             command.ExecuteNonQuery();
             transaction.Commit();
             user.MustChangePassword = false;
@@ -592,24 +650,28 @@ public class HorusSecurityStore(Connection connection)
         return reader.Read() ? ReadUser(reader) : null;
     }
 
-    private static PasswordResetTokenRecord? FindResetToken(SqlConnection db, SqlTransaction transaction, string token)
+    private PasswordResetTokenRecord? FindResetToken(SqlConnection db, SqlTransaction transaction, string token)
     {
+        var tokenHash = HashPasswordResetToken(token);
         using var command = new SqlCommand(
             """
-            SELECT Token, UserId, Email, CreatedAt, ExpiresAt, ConsumedAt
+            SELECT Id, UserId, Email, Cnpj, TokenHash, CreatedAt, RequestedAt, ExpiresAt, ConsumedAt
             FROM PasswordResetTokens
-            WHERE Token = @Token AND ConsumedAt IS NULL;
+            WHERE TokenHash = @TokenHash AND ConsumedAt IS NULL;
             """,
             db,
             transaction);
-        command.Parameters.AddWithValue("@Token", token);
+        command.Parameters.AddWithValue("@TokenHash", tokenHash);
         using var reader = command.ExecuteReader();
         return reader.Read()
             ? new PasswordResetTokenRecord(
-                ReadString(reader, "Token"),
+                ReadString(reader, "Id"),
                 ReadString(reader, "UserId"),
                 ReadString(reader, "Email"),
+                ReadString(reader, "Cnpj"),
+                ReadString(reader, "TokenHash"),
                 reader.GetDateTimeOffset(reader.GetOrdinal("CreatedAt")),
+                reader.GetDateTimeOffset(reader.GetOrdinal("RequestedAt")),
                 reader.GetDateTimeOffset(reader.GetOrdinal("ExpiresAt")))
             : null;
     }
@@ -690,6 +752,17 @@ public class HorusSecurityStore(Connection connection)
             .Replace("/", "_", StringComparison.Ordinal)
             .TrimEnd('=');
     }
+
+    private string HashPasswordResetToken(string token)
+    {
+        var normalized = token.Trim();
+        var payload = Encoding.UTF8.GetBytes($"{normalized}:{securityOptions.JwtSecret}");
+        var hash = SHA256.HashData(payload);
+        return Convert.ToHexString(hash).ToLowerInvariant();
+    }
+
+    private static object NullIfEmpty(string value)
+        => string.IsNullOrWhiteSpace(value) ? DBNull.Value : value.Trim();
 
     private static string MaskEmail(string email)
     {
@@ -832,10 +905,13 @@ internal sealed class SecurityUserRecord
 }
 
 internal sealed record PasswordResetTokenRecord(
-    string Token,
+    string Id,
     string UserId,
     string Email,
+    string Cnpj,
+    string TokenHash,
     DateTimeOffset CreatedAt,
+    DateTimeOffset RequestedAt,
     DateTimeOffset ExpiresAt);
 
 internal static class PasswordHasher
