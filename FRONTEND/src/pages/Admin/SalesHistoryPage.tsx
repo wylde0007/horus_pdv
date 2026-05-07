@@ -42,6 +42,11 @@ function toCompanyReceipt(company: CompanyDto | null): SaleReceipt["company"] {
   };
 }
 
+function splitSaleDate(value: string) {
+  const [date = value, time = ""] = value.split(" ");
+  return { date, time };
+}
+
 export default function SalesHistoryPage() {
   const { formatMoneyBr, parseMoneyBr } = useInputMasks();
   const [search, setSearch] = useState("");
@@ -175,38 +180,55 @@ export default function SalesHistoryPage() {
 
       <section className="card overflow-hidden">
         <div className="overflow-x-auto">
-          <table className="w-full min-w-[1240px] text-sm">
+          <table className="w-full min-w-[980px] table-fixed text-sm">
             <thead className="bg-bg-primary text-left text-text-secondary">
               <tr>
-                <th className="px-4 py-3">Número da Venda</th>
-                <th className="px-4 py-3">Cliente</th>
-                <th className="px-4 py-3">CPF</th>
-                <th className="px-4 py-3">Código do Produto</th>
-                <th className="px-4 py-3">Nome do Produto</th>
-                <th className="px-4 py-3">QNT</th>
-                <th className="px-4 py-3 text-right">Valor Unitário</th>
-                <th className="px-4 py-3 text-right">Valor Total</th>
-                <th className="px-4 py-3">Data da Venda</th>
-                <th className="px-4 py-3">Ações</th>
+                <th className="w-[8%] px-3 py-3">Venda</th>
+                <th className="w-[13%] px-3 py-3">Cliente</th>
+                <th className="w-[10%] px-3 py-3">CPF</th>
+                <th className="w-[16%] px-3 py-3">Cód. Produto</th>
+                <th className="w-[16%] px-3 py-3">Produto</th>
+                <th className="w-[5%] px-3 py-3 text-center">QNT</th>
+                <th className="w-[10%] px-3 py-3 text-right">Vl. Unit.</th>
+                <th className="w-[9%] px-3 py-3 text-right">Vl. Total</th>
+                <th className="w-[9%] px-3 py-3">Data</th>
+                <th className="w-[4%] px-3 py-3 text-center">Ações</th>
               </tr>
             </thead>
             <tbody>
               {paginatedSales.map((sale) => (
                 <tr key={`${sale.saleNumber}-${sale.productCode}`} className="border-t border-border-primary">
-                  <td className="px-4 py-3 font-semibold text-text-primary">{sale.saleNumber}</td>
-                  <td className="px-4 py-3">{sale.customerName}</td>
-                  <td className="px-4 py-3">{sale.customerCpf}</td>
-                  <td className="px-4 py-3">{sale.productCode}</td>
-                  <td className="px-4 py-3">{sale.productName}</td>
-                  <td className="px-4 py-3">{sale.quantity}</td>
-                  <td className="px-4 py-3 text-right font-medium text-text-primary">
+                  <td className="px-3 py-3 font-semibold text-text-primary">{sale.saleNumber}</td>
+                  <td className="px-3 py-3">
+                    <span className="block break-words leading-snug" title={sale.customerName}>
+                      {sale.customerName}
+                    </span>
+                  </td>
+                  <td className="px-3 py-3 break-words">{sale.customerCpf}</td>
+                  <td className="px-3 py-3">
+                    <span className="block break-all font-medium leading-snug text-text-primary" title={sale.productCode}>
+                      {sale.productCode}
+                    </span>
+                  </td>
+                  <td className="px-3 py-3">
+                    <span className="block break-words leading-snug" title={sale.productName}>
+                      {sale.productName}
+                    </span>
+                  </td>
+                  <td className="px-3 py-3 text-center tabular-nums">{sale.quantity}</td>
+                  <td className="px-3 py-3 text-right font-medium text-text-primary">
                     R$ {formatMoneyBr(getUnitPrice(sale))}
                   </td>
-                  <td className="px-4 py-3 text-right font-semibold text-text-primary">
+                  <td className="px-3 py-3 text-right font-semibold text-text-primary">
                     R$ {formatMoneyBr(getItemTotal(sale))}
                   </td>
-                  <td className="px-4 py-3">{sale.saleDate}</td>
-                  <td className="px-4 py-3">
+                  <td className="px-3 py-3">
+                    <span className="block whitespace-nowrap">{splitSaleDate(sale.saleDate).date}</span>
+                    <span className="block whitespace-nowrap text-xs text-text-secondary">
+                      {splitSaleDate(sale.saleDate).time}
+                    </span>
+                  </td>
+                  <td className="px-3 py-3 text-center">
                     <RowActionsMenu
                       items={[
                         {

@@ -262,6 +262,8 @@ IF COL_LENGTH(N'VendaItens', N'UnitPrice') IS NULL
 IF COL_LENGTH(N'VendaItens', N'ItemTotal') IS NULL
     ALTER TABLE VendaItens ADD ItemTotal NVARCHAR(30) NOT NULL CONSTRAINT DF_VendaItens_ItemTotal DEFAULT N'0,00';
 
+GO
+
 UPDATE i
    SET UnitPrice = COALESCE(NULLIF(LTRIM(RTRIM(p.ProductSalePrice)), ''), NULLIF(LTRIM(RTRIM(p.ProductUnitPrice)), ''), N'0,00')
   FROM VendaItens i

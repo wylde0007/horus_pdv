@@ -14,8 +14,8 @@ type PageLayoutProps = {
 };
 
 const SIZE_CLASS: Record<PageLayoutSize, string> = {
-  default: "max-w-[1200px]",
-  wide: "max-w-[1320px]",
+  default: "max-w-[1440px]",
+  wide: "max-w-[1600px]",
 };
 
 export default function PageLayout({
@@ -25,7 +25,7 @@ export default function PageLayout({
 }: PageLayoutProps) {
   return (
     <section
-      className={`mx-auto w-full px-3 sm:px-4 md:px-6 lg:px-4 xl:px-6 ${SIZE_CLASS[size]} ${className}`.trim()}
+      className={`mx-auto w-full px-3 sm:px-4 md:px-5 lg:px-5 2xl:px-4 ${SIZE_CLASS[size]} ${className}`.trim()}
     >
       {children}
     </section>

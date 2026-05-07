@@ -218,7 +218,7 @@ public class HistoricoVendasAB(Connection connection)
 
     private static async Task EnsurePrintColumnsAsync(SqlConnection db)
     {
-        const string sql = """
+        const string schemaSql = """
             IF COL_LENGTH('Vendas', 'PaymentType') IS NULL
                 ALTER TABLE Vendas ADD PaymentType NVARCHAR(30) NOT NULL CONSTRAINT DF_Vendas_PaymentType DEFAULT N'-';
             IF COL_LENGTH('Vendas', 'TotalAmount') IS NULL
@@ -229,7 +229,9 @@ public class HistoricoVendasAB(Connection connection)
                 ALTER TABLE VendaItens ADD UnitPrice NVARCHAR(30) NOT NULL CONSTRAINT DF_VendaItens_UnitPrice DEFAULT N'0,00';
             IF COL_LENGTH('VendaItens', 'ItemTotal') IS NULL
                 ALTER TABLE VendaItens ADD ItemTotal NVARCHAR(30) NOT NULL CONSTRAINT DF_VendaItens_ItemTotal DEFAULT N'0,00';
+            """;
 
+        const string backfillSql = """
             UPDATE i
                SET UnitPrice = COALESCE(NULLIF(LTRIM(RTRIM(p.ProductSalePrice)), ''), NULLIF(LTRIM(RTRIM(p.ProductUnitPrice)), ''), N'0,00')
               FROM VendaItens i
@@ -255,8 +257,13 @@ public class HistoricoVendasAB(Connection connection)
                ) IS NOT NULL;
             """;
 
-        await using var command = new SqlCommand(sql, db);
-        await command.ExecuteNonQueryAsync();
+        await using (var schemaCommand = new SqlCommand(schemaSql, db))
+        {
+            await schemaCommand.ExecuteNonQueryAsync();
+        }
+
+        await using var backfillCommand = new SqlCommand(backfillSql, db);
+        await backfillCommand.ExecuteNonQueryAsync();
     }
 
     private static int ParseInt(string value)
