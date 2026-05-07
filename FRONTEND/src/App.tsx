@@ -172,7 +172,6 @@ export default function App() {
       ? "reset-password"
       : "login";
   });
-  const [authLoginEmail, setAuthLoginEmail] = useState(currentUser.email);
   const [passwordResetToken, setPasswordResetToken] = useState(() => {
     if (typeof window === "undefined") return "";
     const params = new URLSearchParams(window.location.search);
@@ -545,7 +544,6 @@ export default function App() {
     if (publicAuthPage === "forgot-password") {
       return (
         <ForgotPasswordPage
-          defaultEmail={authLoginEmail}
           onForgotPassword={handleForgotPassword}
           onOpenLogin={() => setPublicAuthPage("login")}
           onOpenResetPassword={(token) => {
@@ -571,8 +569,7 @@ export default function App() {
         <RegisterPage
           onRegister={handleRegister}
           onOpenLogin={() => setPublicAuthPage("login")}
-          onRegisterSuccess={(email) => {
-            setAuthLoginEmail(email);
+          onRegisterSuccess={() => {
             setPublicAuthPage("login");
           }}
         />
@@ -581,7 +578,6 @@ export default function App() {
 
     return (
       <LoginPage
-        defaultEmail={authLoginEmail}
         onLogin={handleLogin}
         onOpenForgotPassword={() => setPublicAuthPage("forgot-password")}
         onOpenRegister={() => setPublicAuthPage("register")}

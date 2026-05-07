@@ -66,6 +66,11 @@ Se o envio SMTP retornar `SmtpClientAuthentication is disabled for the Mailbox`,
 
 Em operação, a configuração principal fica em `Minha Empresa > Configuração de e-mail`, salva na tabela `Empresas`. Quando ela estiver ativa, os disparos usam o SMTP da empresa; quando estiver desativada, a API usa o fallback de `appsettings`/User Secrets para desenvolvimento. A senha SMTP não é devolvida pela API, apenas o indicador de senha configurada.
 
+A senha SMTP é gravada criptografada no banco. Em produção, configure uma chave forte:
+
+<pre><code class="language-bash">dotnet user-secrets set "Security:EncryptionKey" "UMA_CHAVE_FORTE_COM_PELO_MENOS_32_CARACTERES"
+</code></pre>
+
 Exemplo para Gmail, se você decidir usar uma caixa Gmail no futuro:
 
 <pre><code class="language-bash">dotnet user-secrets set "Email:Host" "smtp.gmail.com"

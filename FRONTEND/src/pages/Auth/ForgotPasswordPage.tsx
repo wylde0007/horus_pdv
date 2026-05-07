@@ -7,7 +7,6 @@ import { CnpjField, EmailField, FeedbackMessage } from "./AuthFields";
 import type { AuthActionResult } from "./types";
 
 type ForgotPasswordPageProps = {
-  defaultEmail: string;
   onForgotPassword: (
     cnpj: string,
     email: string,
@@ -18,14 +17,13 @@ type ForgotPasswordPageProps = {
 };
 
 export default function ForgotPasswordPage({
-  defaultEmail,
   onForgotPassword,
   onOpenLogin,
   onOpenResetPassword,
 }: ForgotPasswordPageProps) {
   const { executeRecaptcha, isRecaptchaConfigured } = useRecaptchaV3();
   const [cnpj, setCnpj] = useState("");
-  const [email, setEmail] = useState(defaultEmail);
+  const [email, setEmail] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [feedback, setFeedback] = useState<AuthActionResult | null>(null);
 

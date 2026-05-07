@@ -6,7 +6,6 @@ import { EmailField, FeedbackMessage, PasswordField } from "./AuthFields";
 import type { AuthActionResult } from "./types";
 
 type LoginPageProps = {
-  defaultEmail: string;
   onLogin: (
     email: string,
     password: string,
@@ -18,13 +17,12 @@ type LoginPageProps = {
 };
 
 export default function LoginPage({
-  defaultEmail,
   onLogin,
   onOpenForgotPassword,
   onOpenRegister,
 }: LoginPageProps) {
   const { executeRecaptcha, isRecaptchaConfigured } = useRecaptchaV3();
-  const [email, setEmail] = useState(defaultEmail);
+  const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [remember, setRemember] = useState(true);

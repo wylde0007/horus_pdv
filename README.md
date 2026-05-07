@@ -19,6 +19,7 @@ O projeto está em evolução ativa, com frontend em React, API em ASP.NET Core 
 - [Variáveis de Ambiente](#variáveis-de-ambiente)
 - [Scripts](#scripts)
 - [Autenticação e Segurança](#autenticação-e-segurança)
+- [Padrões de Interface](#padrões-de-interface)
 - [Módulos em Desenvolvimento](#módulos-em-desenvolvimento)
 - [Roadmap](#roadmap)
 - [Contribuindo](#contribuindo)
@@ -200,6 +201,28 @@ O projeto já possui uma base de segurança para desenvolvimento:
 - CORS configurado para ambientes locais do frontend.
 
 > Importante: antes de produção, altere `Auth:JwtSecret`, habilite armazenamento persistente e configure chaves reais de reCAPTCHA quando necessário.
+
+## Padrões de Interface
+
+Para escolhas booleanas voltadas ao usuário final, use sempre o controle segmentado `Sim/Não`, no padrão visual da página de Configurações.
+
+Componente padrão:
+
+<pre><code class="language-text">FRONTEND/src/components/Form/YesNoSegmentedControl.tsx
+</code></pre>
+
+Uso:
+
+<pre><code class="language-tsx">import { YesNoSegmentedControl } from "@/components/Form";
+
+&lt;YesNoSegmentedControl
+  value={enabled}
+  onChange={setEnabled}
+  ariaLabel="Ativar recurso"
+/&gt;
+</code></pre>
+
+Não use checkbox cru para preferências como "ativar/desativar", "mostrar/ocultar", "enviar/não enviar" ou decisões equivalentes de `Sim/Não`.
 
 ## Módulos em Desenvolvimento
 

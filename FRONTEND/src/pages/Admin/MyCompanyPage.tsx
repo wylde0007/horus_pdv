@@ -5,7 +5,7 @@
  */
 import { useEffect, useState } from "react";
 import PageHeader from "@/components/Admin/PageHeader";
-import { SearchableSelectField } from "@/components/Form";
+import { SearchableSelectField, YesNoSegmentedControl } from "@/components/Form";
 import { Toast } from "@/hooks/Dialog";
 import useInputMasks from "@/hooks/InputMasks/useInputMasks";
 import PageLayout from "@/layout/PageLayout";
@@ -487,26 +487,11 @@ export default function MyCompanyPage() {
             </p>
           </div>
 
-          <button
-            type="button"
-            role="switch"
-            aria-checked={emailSmtpEnabled}
-            onClick={() => setEmailSmtpEnabled((current) => !current)}
-            className={`relative inline-flex h-9 w-16 shrink-0 items-center self-start rounded-full border transition sm:self-center ${
-              emailSmtpEnabled
-                ? "border-secondary/40 bg-secondary/25"
-                : "border-border-secondary bg-bg-light"
-            }`}
-            aria-label="Ativar ou desativar envio de e-mails pelo sistema"
-          >
-            <span
-              className={`absolute left-1 inline-flex h-7 w-7 items-center justify-center rounded-full bg-bg-light text-xs font-bold text-text-primary shadow-sm transition-transform ${
-                emailSmtpEnabled ? "translate-x-7" : "translate-x-0"
-              }`}
-            >
-              {emailSmtpEnabled ? "Sim" : "Não"}
-            </span>
-          </button>
+          <YesNoSegmentedControl
+            value={emailSmtpEnabled}
+            onChange={setEmailSmtpEnabled}
+            ariaLabel="Usar envio de e-mails pela conta da empresa"
+          />
         </div>
 
         <form className="grid gap-4 md:grid-cols-12">

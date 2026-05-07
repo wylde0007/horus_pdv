@@ -7,3 +7,4 @@
 export { default as DatePickerField } from "./DatePickerField";
 export { default as SearchableSelectField } from "./SearchableSelectField";
 export { default as TimePickerField } from "./TimePickerField";
+export { default as YesNoSegmentedControl } from "./YesNoSegmentedControl";

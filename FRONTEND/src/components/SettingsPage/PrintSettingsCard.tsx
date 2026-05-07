@@ -3,6 +3,7 @@
  * Objetivo: renderiza preferencias de impressao da frente de caixa.
  */
 import { Printer } from "lucide-react";
+import { YesNoSegmentedControl } from "@/components/Form";
 
 type PrintSettingsCardProps = {
   printPreviewEnabled: boolean;
@@ -28,32 +29,11 @@ export default function PrintSettingsCard({
           </div>
         </div>
 
-        <div className="grid w-full grid-cols-2 rounded-xl border border-border-secondary bg-bg-light p-1 sm:w-[168px]">
-          <button
-            type="button"
-            onClick={() => onChangePrintPreview(true)}
-            className={`rounded-lg px-3 py-2 text-sm font-semibold transition ${
-              printPreviewEnabled
-                ? "bg-secondary text-text-light shadow-sm"
-                : "text-text-secondary hover:bg-hover-light"
-            }`}
-            aria-pressed={printPreviewEnabled}
-          >
-            Sim
-          </button>
-          <button
-            type="button"
-            onClick={() => onChangePrintPreview(false)}
-            className={`rounded-lg px-3 py-2 text-sm font-semibold transition ${
-              !printPreviewEnabled
-                ? "bg-primary text-text-light shadow-sm"
-                : "text-text-secondary hover:bg-hover-light"
-            }`}
-            aria-pressed={!printPreviewEnabled}
-          >
-            Não
-          </button>
-        </div>
+        <YesNoSegmentedControl
+          value={printPreviewEnabled}
+          onChange={onChangePrintPreview}
+          ariaLabel="Ativar prévia de impressão"
+        />
       </div>
     </div>
   );
