@@ -5,23 +5,29 @@
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <meta
       name="description"
-      content="Hórus PDV é um sistema open source para frente de caixa, estoque, clientes, vendas, relatórios e gestão operacional."
+      content="Hórus PDV é um sistema open source para frente de caixa, estoque, caixa, clientes, vendas, relatórios e gestão operacional."
     />
+    <meta name="theme-color" content="#075f91" />
     <title>Hórus PDV - Frente de caixa open source</title>
     <style>
       :root {
         color-scheme: light;
-        --bg: #f5f8fc;
+        --bg: #f8fafc;
         --surface: #ffffff;
-        --surface-soft: #eef5fb;
-        --ink: #122033;
+        --surface-soft: #eef6fb;
+        --surface-strong: #e4f0f8;
+        --ink: #111827;
         --muted: #52657d;
+        --subtle: #74849a;
         --line: #d8e4f1;
         --brand: #075f91;
-        --brand-strong: #084b74;
+        --brand-dark: #063f62;
         --accent: #13a38b;
-        --warning: #e09d22;
+        --accent-dark: #0b7d6b;
+        --orange: #c96818;
+        --code: #0f1d2e;
         --shadow: 0 24px 70px rgba(18, 32, 51, 0.12);
+        --container: 1160px;
       }
 
       * {
@@ -35,13 +41,25 @@
       body {
         margin: 0;
         background:
-          linear-gradient(90deg, rgba(7, 95, 145, 0.05) 1px, transparent 1px),
-          linear-gradient(180deg, rgba(7, 95, 145, 0.05) 1px, transparent 1px),
-          var(--bg);
-        background-size: 42px 42px;
+          radial-gradient(
+            circle at 12% 12%,
+            rgba(19, 163, 139, 0.12),
+            transparent 30%
+          ),
+          radial-gradient(
+            circle at 88% 0%,
+            rgba(7, 95, 145, 0.14),
+            transparent 28%
+          ),
+          linear-gradient(180deg, #f8fbff 0%, #ffffff 30%, #f8fafc 100%);
         color: var(--ink);
         font-family:
-          ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+          ui-sans-serif,
+          system-ui,
+          -apple-system,
+          BlinkMacSystemFont,
+          "Segoe UI",
+          sans-serif;
         line-height: 1.55;
       }
 
@@ -50,103 +68,104 @@
         text-decoration: none;
       }
 
-      img {
+      button,
+      input,
+      textarea {
+        font: inherit;
+      }
+
+      img,
+      video {
         display: block;
         max-width: 100%;
       }
 
-      .shell {
-        display: grid;
-        grid-template-columns: 240px minmax(0, 1fr);
-        min-height: 100dvh;
+      .container {
+        width: min(var(--container), calc(100% - 40px));
+        margin-inline: auto;
       }
 
-      .sidebar {
+      .skip-link {
+        position: fixed;
+        left: 16px;
+        top: 12px;
+        z-index: 999;
+        transform: translateY(-140%);
+        border-radius: 999px;
+        background: var(--ink);
+        color: #ffffff;
+        padding: 10px 14px;
+        font-weight: 800;
+      }
+
+      .skip-link:focus {
+        transform: translateY(0);
+      }
+
+      .nav-shell {
         position: sticky;
         top: 0;
-        height: 100dvh;
-        padding: 24px 18px;
-        border-right: 1px solid var(--line);
-        background: rgba(255, 255, 255, 0.86);
-        backdrop-filter: blur(18px);
+        z-index: 50;
+        padding: 14px 0;
+        background: rgba(248, 250, 252, 0.74);
+        backdrop-filter: blur(16px);
+      }
+
+      .navbar {
+        display: flex;
+        min-height: 66px;
+        align-items: center;
+        justify-content: space-between;
+        gap: 18px;
+        border: 1px solid rgba(216, 228, 241, 0.92);
+        border-radius: 22px;
+        background: rgba(255, 255, 255, 0.92);
+        box-shadow: 0 18px 46px rgba(18, 32, 51, 0.08);
+        padding: 10px 12px 10px 14px;
       }
 
       .brand {
-        display: flex;
+        display: inline-flex;
         align-items: center;
         gap: 10px;
-        margin-bottom: 28px;
-        font-weight: 900;
+        font-weight: 950;
         letter-spacing: 0.06em;
         text-transform: uppercase;
+        white-space: nowrap;
       }
 
-      .mark {
-        display: grid;
-        place-items: center;
-        width: 42px;
-        height: 42px;
-        border-radius: 12px;
-        background: var(--brand);
-        color: #ffffff;
-        box-shadow: 0 14px 28px rgba(7, 95, 145, 0.22);
+      .icon svg {
+        width: 22px;
+        height: 22px;
       }
 
-      .mark svg {
-        width: 24px;
-        height: 24px;
-      }
-
-      .side-label {
-        margin: 28px 0 10px;
-        color: var(--muted);
-        font-size: 12px;
-        font-weight: 900;
-        letter-spacing: 0.14em;
-        text-transform: uppercase;
-      }
-
-      .side-nav {
-        display: grid;
+      .nav-links {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        justify-content: center;
         gap: 4px;
       }
 
-      .side-nav a {
-        border-radius: 10px;
+      .nav-links a {
+        border-radius: 12px;
         color: var(--muted);
         font-size: 14px;
-        font-weight: 750;
-        padding: 8px 9px;
+        font-weight: 800;
+        padding: 9px 10px;
       }
 
-      .side-nav a:hover,
-      .side-nav a:focus-visible {
+      .nav-links a:hover,
+      .nav-links a:focus-visible {
         background: var(--surface-soft);
-        color: var(--brand-strong);
+        color: var(--brand-dark);
         outline: none;
       }
 
-      .sidebar-actions {
-        display: grid;
-        gap: 10px;
-        margin-top: 28px;
-      }
-
-      .main {
-        min-width: 0;
-      }
-
-      .topbar {
-        position: sticky;
-        top: 0;
-        z-index: 20;
+      .nav-actions {
         display: flex;
-        justify-content: flex-end;
-        gap: 10px;
-        padding: 16px 28px;
-        border-bottom: 1px solid rgba(216, 228, 241, 0.76);
-        background: rgba(245, 248, 252, 0.82);
-        backdrop-filter: blur(16px);
+        align-items: center;
+        gap: 8px;
       }
 
       .btn {
@@ -156,64 +175,73 @@
         justify-content: center;
         gap: 8px;
         border: 1px solid var(--line);
-        border-radius: 12px;
+        border-radius: 999px;
         background: var(--surface);
         color: var(--ink);
-        font-weight: 850;
-        padding: 9px 14px;
+        cursor: pointer;
+        font-size: 14px;
+        font-weight: 900;
+        padding: 10px 15px;
         transition:
           transform 0.18s ease,
           border-color 0.18s ease,
-          box-shadow 0.18s ease;
+          box-shadow 0.18s ease,
+          background 0.18s ease;
       }
 
       .btn:hover,
       .btn:focus-visible {
         transform: translateY(-1px);
-        border-color: rgba(7, 95, 145, 0.45);
-        box-shadow: 0 10px 24px rgba(18, 32, 51, 0.1);
+        border-color: rgba(7, 95, 145, 0.44);
+        box-shadow: 0 14px 28px rgba(18, 32, 51, 0.1);
         outline: none;
       }
 
       .btn-primary {
         border-color: var(--brand);
-        background: var(--brand);
+        background: linear-gradient(135deg, var(--brand), var(--brand-dark));
         color: #ffffff;
       }
 
       .btn-accent {
         border-color: var(--accent);
-        background: var(--accent);
+        background: linear-gradient(135deg, var(--accent), var(--accent-dark));
         color: #ffffff;
       }
 
-      .hero {
-        display: grid;
-        grid-template-columns: minmax(0, 0.92fr) minmax(340px, 1.08fr);
-        align-items: center;
-        gap: clamp(28px, 5vw, 72px);
-        min-height: calc(100dvh - 75px);
-        padding: clamp(40px, 6vw, 86px);
+      button.btn {
+        appearance: none;
       }
 
-      .eyebrow {
+      .hero {
+        padding: 64px 0 48px;
+      }
+
+      .hero-inner {
+        text-align: center;
+      }
+
+      .badge {
         display: inline-flex;
         align-items: center;
         gap: 8px;
-        margin-bottom: 18px;
-        color: var(--brand-strong);
-        font-size: 13px;
-        font-weight: 900;
-        letter-spacing: 0.14em;
+        border: 1px solid rgba(7, 95, 145, 0.18);
+        border-radius: 999px;
+        background: rgba(255, 255, 255, 0.76);
+        color: var(--brand-dark);
+        font-size: 12px;
+        font-weight: 950;
+        letter-spacing: 0.1em;
+        padding: 7px 12px;
         text-transform: uppercase;
       }
 
-      .eyebrow::before {
-        content: "";
-        width: 34px;
-        height: 3px;
+      .badge-dot {
+        width: 9px;
+        height: 9px;
         border-radius: 99px;
         background: var(--accent);
+        box-shadow: 0 0 0 5px rgba(19, 163, 139, 0.14);
       }
 
       h1,
@@ -224,27 +252,70 @@
       }
 
       h1 {
-        max-width: 760px;
-        margin-bottom: 18px;
-        font-size: clamp(44px, 6vw, 84px);
+        max-width: 980px;
+        margin: 20px auto 0;
+        font-size: clamp(43px, 7vw, 92px);
         line-height: 0.98;
         letter-spacing: 0;
       }
 
+      .rotating-word {
+        display: block;
+        color: var(--brand);
+        animation: word-in 0.52s ease both;
+      }
+
       .lead {
-        max-width: 680px;
+        max-width: 760px;
+        margin: 22px auto 0;
         color: var(--muted);
-        font-size: clamp(18px, 1.6vw, 23px);
+        font-size: clamp(17px, 1.7vw, 22px);
       }
 
       .hero-actions {
         display: flex;
         flex-wrap: wrap;
+        justify-content: center;
         gap: 12px;
         margin-top: 30px;
       }
 
-      .hero-shot {
+      .proof-strip {
+        display: flex;
+        flex-wrap: wrap;
+        justify-content: center;
+        gap: 8px;
+        margin-top: 18px;
+      }
+
+      .proof-strip span {
+        border: 1px solid var(--line);
+        border-radius: 999px;
+        background: rgba(255, 255, 255, 0.84);
+        color: var(--muted);
+        font-size: 13px;
+        font-weight: 850;
+        padding: 7px 11px;
+      }
+
+      .hero-showcase {
+        position: relative;
+        margin-top: 42px;
+      }
+
+      .hero-shadow {
+        position: absolute;
+        left: 50%;
+        bottom: -18px;
+        width: min(760px, 82%);
+        height: 42px;
+        transform: translateX(-50%);
+        border-radius: 999px;
+        background: rgba(18, 32, 51, 0.18);
+        filter: blur(30px);
+      }
+
+      .window {
         position: relative;
         overflow: hidden;
         border: 1px solid var(--line);
@@ -253,537 +324,1685 @@
         box-shadow: var(--shadow);
       }
 
-      .hero-shot::before {
-        content: "";
-        display: block;
-        height: 38px;
+      .window-bar {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 12px;
+        min-height: 42px;
         border-bottom: 1px solid var(--line);
-        background:
-          radial-gradient(circle at 20px 19px, #e85d5d 0 5px, transparent 6px),
-          radial-gradient(circle at 42px 19px, #e0a72f 0 5px, transparent 6px),
-          radial-gradient(circle at 64px 19px, #2fbf75 0 5px, transparent 6px),
-          #ffffff;
+        background: #ffffff;
+        padding: 0 14px;
       }
 
-      .hero-shot img {
-        aspect-ratio: 16 / 10;
+      .traffic {
+        display: flex;
+        gap: 8px;
+      }
+
+      .traffic i {
+        width: 11px;
+        height: 11px;
+        border-radius: 99px;
+      }
+
+      .traffic i:nth-child(1) {
+        background: #e85d5d;
+      }
+
+      .traffic i:nth-child(2) {
+        background: #e0a72f;
+      }
+
+      .traffic i:nth-child(3) {
+        background: #2fbf75;
+      }
+
+      .window-title {
+        color: var(--subtle);
+        font-size: 13px;
+        font-weight: 900;
+      }
+
+      .carousel {
+        position: relative;
+      }
+
+      .slide {
+        display: none;
         width: 100%;
+        border: 0;
+        background: transparent;
+        cursor: zoom-in;
+        padding: 0;
+      }
+
+      .slide.is-active {
+        display: block;
+      }
+
+      .slide img {
+        width: 100%;
+        aspect-ratio: 16 / 9;
         object-fit: cover;
         object-position: left top;
       }
 
-      .section {
-        padding: clamp(44px, 6vw, 78px) clamp(28px, 6vw, 86px);
+      .carousel-panel {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 14px;
         border-top: 1px solid var(--line);
+        background: rgba(255, 255, 255, 0.96);
+        padding: 16px 18px;
+      }
+
+      .carousel-panel strong {
+        display: block;
+        font-size: 16px;
+      }
+
+      .carousel-panel span {
+        display: block;
+        color: var(--muted);
+        font-size: 13px;
+        font-weight: 700;
+      }
+
+      .carousel-controls {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+      }
+
+      .carousel-controls button {
+        display: grid;
+        place-items: center;
+        width: 38px;
+        height: 38px;
+        border: 1px solid var(--line);
+        border-radius: 999px;
+        background: #ffffff;
+        color: var(--brand);
+        cursor: pointer;
+        font-size: 22px;
+        font-weight: 900;
+      }
+
+      .carousel-controls button:hover,
+      .carousel-controls button:focus-visible {
+        border-color: rgba(7, 95, 145, 0.45);
+        outline: none;
+      }
+
+      .dots {
+        display: flex;
+        align-items: center;
+        gap: 7px;
+      }
+
+      .dots button {
+        width: 8px;
+        height: 8px;
+        border: 0;
+        border-radius: 999px;
+        background: #b7c7d7;
+        cursor: pointer;
+        padding: 0;
+      }
+
+      .dots button[aria-current="true"] {
+        width: 26px;
+        background: var(--brand);
+      }
+
+      .section {
+        padding: 72px 0;
+      }
+
+      .section-muted {
+        border-block: 1px solid var(--line);
+        background: rgba(238, 246, 251, 0.68);
       }
 
       .section-header {
-        display: flex;
-        align-items: end;
-        justify-content: space-between;
-        gap: 24px;
-        margin-bottom: 26px;
+        max-width: 760px;
+        margin: 0 auto 34px;
+        text-align: center;
+      }
+
+      .eyebrow {
+        display: inline-flex;
+        align-items: center;
+        border: 1px solid rgba(201, 104, 24, 0.22);
+        border-radius: 999px;
+        background: rgba(201, 104, 24, 0.08);
+        color: var(--orange);
+        font-size: 12px;
+        font-weight: 950;
+        letter-spacing: 0.09em;
+        padding: 6px 10px;
+        text-transform: uppercase;
       }
 
       .section h2 {
-        max-width: 780px;
-        margin-bottom: 0;
-        font-size: clamp(31px, 4vw, 54px);
+        margin: 12px 0 0;
+        font-size: clamp(30px, 4vw, 52px);
         line-height: 1.05;
         letter-spacing: 0;
       }
 
       .section-copy {
-        max-width: 620px;
+        margin: 14px auto 0;
         color: var(--muted);
         font-size: 17px;
       }
 
-      .metric-grid {
+      .trust-grid {
         display: grid;
-        grid-template-columns: repeat(4, minmax(0, 1fr));
-        gap: 14px;
+        grid-template-columns: repeat(6, minmax(0, 1fr));
+        gap: 12px;
       }
 
-      .metric,
-      .feature,
-      .module,
-      .step {
+      .trust-card,
+      .feature-card,
+      .module-card,
+      .step-card,
+      .roadmap-card,
+      .faq details {
         border: 1px solid var(--line);
-        border-radius: 18px;
-        background: rgba(255, 255, 255, 0.84);
-        box-shadow: 0 12px 32px rgba(18, 32, 51, 0.06);
+        border-radius: 20px;
+        background: rgba(255, 255, 255, 0.9);
+        box-shadow: 0 14px 32px rgba(18, 32, 51, 0.06);
       }
 
-      .metric {
-        padding: 20px;
+      .trust-card {
+        padding: 18px;
+        text-align: center;
       }
 
-      .metric strong {
+      .trust-card strong {
         display: block;
-        color: var(--brand-strong);
-        font-size: 34px;
-        line-height: 1;
+        color: var(--brand-dark);
+        font-size: 22px;
+        line-height: 1.1;
       }
 
-      .metric span {
+      .trust-card span {
         display: block;
         margin-top: 8px;
         color: var(--muted);
+        font-size: 13px;
+        font-weight: 800;
+      }
+
+      .quickstart {
+        display: grid;
+        grid-template-columns: minmax(0, 0.9fr) minmax(360px, 1.1fr);
+        gap: 22px;
+        align-items: stretch;
+      }
+
+      .terminal {
+        overflow: hidden;
+        border: 1px solid rgba(15, 29, 46, 0.18);
+        border-radius: 22px;
+        background: var(--code);
+        color: #eef8ff;
+        box-shadow: var(--shadow);
+      }
+
+      .terminal-head {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 12px;
+        border-bottom: 1px solid rgba(255, 255, 255, 0.12);
+        padding: 12px 14px;
+      }
+
+      .terminal-title {
+        color: #b9cee2;
+        font-size: 13px;
+        font-weight: 900;
+      }
+
+      pre {
+        margin: 0;
+        overflow-x: auto;
+        padding: 18px;
+        font-family:
+          "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace;
         font-size: 14px;
-        font-weight: 750;
+        line-height: 1.7;
+      }
+
+      .copy-btn {
+        border: 1px solid rgba(255, 255, 255, 0.22);
+        border-radius: 999px;
+        background: rgba(255, 255, 255, 0.08);
+        color: #ffffff;
+        cursor: pointer;
+        font-size: 12px;
+        font-weight: 900;
+        padding: 7px 10px;
       }
 
       .feature-grid {
         display: grid;
-        grid-template-columns: repeat(3, minmax(0, 1fr));
+        grid-template-columns: repeat(4, minmax(0, 1fr));
         gap: 16px;
       }
 
-      .feature {
-        display: grid;
-        gap: 12px;
+      .feature-card {
         padding: 22px;
       }
 
       .icon {
         display: grid;
         place-items: center;
-        width: 44px;
-        height: 44px;
-        border-radius: 13px;
+        width: 46px;
+        height: 46px;
+        border-radius: 15px;
         background: var(--surface-soft);
-        color: var(--brand-strong);
+        color: var(--brand-dark);
       }
 
-      .icon svg {
-        width: 24px;
-        height: 24px;
-      }
-
-      .feature h3,
-      .module h3,
-      .step h3 {
-        margin-bottom: 6px;
+      .feature-card h3,
+      .module-card h3,
+      .step-card h3,
+      .roadmap-card h3 {
+        margin: 15px 0 7px;
         font-size: 20px;
       }
 
-      .feature p,
-      .module p,
-      .step p {
+      .feature-card p,
+      .module-card p,
+      .step-card p,
+      .roadmap-card p,
+      .faq p {
         margin-bottom: 0;
         color: var(--muted);
       }
 
-      .modules {
-        display: grid;
-        grid-template-columns: repeat(2, minmax(0, 1fr));
-        gap: 16px;
-      }
-
-      .module {
-        display: grid;
-        grid-template-columns: 150px minmax(0, 1fr);
-        min-height: 150px;
+      .video-card {
         overflow: hidden;
+        border: 1px solid var(--line);
+        border-radius: 26px;
+        background: var(--surface);
+        box-shadow: var(--shadow);
       }
 
-      .module img {
+      .video-frame {
         width: 100%;
-        height: 100%;
-        object-fit: cover;
-        object-position: left top;
+        aspect-ratio: 16 / 9;
+        background: var(--code);
       }
 
-      .module div {
-        padding: 20px;
+      .video-meta {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 16px;
+        border-top: 1px solid var(--line);
+        padding: 18px 20px;
       }
 
-      .steps {
+      .video-meta p {
+        margin-bottom: 0;
+        color: var(--muted);
+        font-weight: 750;
+      }
+
+      .modules {
         display: grid;
         grid-template-columns: repeat(3, minmax(0, 1fr));
         gap: 16px;
       }
 
-      .step {
-        padding: 22px;
+      .module-card {
+        overflow: hidden;
+        color: inherit;
+        cursor: zoom-in;
+        font: inherit;
+        text-align: left;
+        transition:
+          transform 0.18s ease,
+          box-shadow 0.18s ease,
+          border-color 0.18s ease;
       }
 
-      .step code,
-      pre {
-        font-family:
-          "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace;
+      button.module-card {
+        appearance: none;
+        width: 100%;
+        padding: 0;
       }
 
-      pre {
-        overflow-x: auto;
-        margin: 14px 0 0;
-        border: 1px solid var(--line);
-        border-radius: 14px;
-        background: #0f1d2e;
-        color: #ecf7ff;
-        padding: 16px;
-        font-size: 14px;
-        line-height: 1.65;
+      .module-card:hover,
+      .module-card:focus-visible {
+        transform: translateY(-3px);
+        border-color: rgba(7, 95, 145, 0.34);
+        box-shadow: 0 22px 46px rgba(18, 32, 51, 0.11);
+        outline: none;
       }
 
-      .cta {
+      .module-card img {
+        width: 100%;
+        aspect-ratio: 16 / 9;
+        object-fit: cover;
+        object-position: left top;
+        border-bottom: 1px solid var(--line);
+      }
+
+      .module-card div {
+        padding: 18px;
+      }
+
+      .contribute {
         display: grid;
-        grid-template-columns: minmax(0, 1fr) auto;
+        grid-template-columns: repeat(4, minmax(0, 1fr));
+        gap: 14px;
+      }
+
+      .step-card,
+      .roadmap-card {
+        padding: 20px;
+      }
+
+      .step-number {
+        display: inline-flex;
         align-items: center;
-        gap: 22px;
-        border: 1px solid color-mix(in srgb, var(--brand) 35%, var(--line));
-        border-radius: 26px;
+        justify-content: center;
+        width: 34px;
+        height: 34px;
+        border-radius: 999px;
+        background: var(--brand);
+        color: #ffffff;
+        font-weight: 950;
+      }
+
+      .roadmap {
+        display: grid;
+        grid-template-columns: repeat(4, minmax(0, 1fr));
+        gap: 14px;
+      }
+
+      .status-pill {
+        display: inline-flex;
+        border-radius: 999px;
+        background: rgba(201, 104, 24, 0.1);
+        color: var(--orange);
+        font-size: 12px;
+        font-weight: 950;
+        padding: 5px 9px;
+      }
+
+      .faq {
+        display: grid;
+        gap: 10px;
+        max-width: 860px;
+        margin: 0 auto;
+      }
+
+      .faq details {
+        padding: 18px 20px;
+      }
+
+      .faq summary {
+        cursor: pointer;
+        font-weight: 950;
+      }
+
+      .faq p {
+        margin-top: 10px;
+      }
+
+      .final-cta {
+        overflow: hidden;
+        border-radius: 30px;
         background:
-          linear-gradient(135deg, rgba(7, 95, 145, 0.12), rgba(19, 163, 139, 0.12)),
-          var(--surface);
-        padding: clamp(26px, 4vw, 42px);
+          linear-gradient(
+            135deg,
+            rgba(7, 95, 145, 0.96),
+            rgba(6, 63, 98, 0.98)
+          ),
+          var(--brand);
+        color: #ffffff;
+        padding: clamp(30px, 5vw, 52px);
+        position: relative;
       }
 
-      .cta h2 {
-        font-size: clamp(30px, 3.4vw, 48px);
+      .final-cta::after {
+        content: "";
+        position: absolute;
+        right: -80px;
+        top: -80px;
+        width: 220px;
+        height: 220px;
+        border-radius: 999px;
+        border: 34px solid rgba(255, 255, 255, 0.08);
       }
 
-      footer {
+      .final-cta h2 {
+        max-width: 760px;
+        margin: 0;
+        font-size: clamp(31px, 4vw, 56px);
+        line-height: 1.04;
+      }
+
+      .final-cta p {
+        max-width: 690px;
+        color: rgba(255, 255, 255, 0.82);
+        font-size: 17px;
+        margin: 14px 0 0;
+      }
+
+      .final-actions {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 12px;
+        margin-top: 26px;
+      }
+
+      .footer {
         border-top: 1px solid var(--line);
         color: var(--muted);
-        padding: 28px clamp(28px, 6vw, 86px);
+        padding: 30px 0;
       }
 
-      @media (max-width: 1120px) {
-        .shell {
-          grid-template-columns: 1fr;
+      .footer-inner {
+        display: flex;
+        flex-wrap: wrap;
+        justify-content: space-between;
+        gap: 16px;
+      }
+
+      .footer a {
+        font-weight: 850;
+        color: var(--brand-dark);
+      }
+
+      .footer button {
+        border: 0;
+        background: transparent;
+        color: var(--brand-dark);
+        cursor: pointer;
+        font: inherit;
+        font-weight: 850;
+        padding: 0;
+      }
+
+      body.gallery-open {
+        overflow: hidden;
+      }
+
+      .gallery-modal {
+        position: fixed;
+        inset: 0;
+        z-index: 100;
+        display: none;
+        place-items: center;
+        padding: 24px;
+      }
+
+      .gallery-modal.is-open {
+        display: grid;
+      }
+
+      .gallery-backdrop {
+        position: absolute;
+        inset: 0;
+        background: rgba(6, 18, 32, 0.72);
+        backdrop-filter: blur(10px);
+      }
+
+      .gallery-dialog {
+        position: relative;
+        z-index: 1;
+        display: grid;
+        grid-template-columns: minmax(0, 1fr);
+        width: min(1180px, 100%);
+        min-width: 0;
+        max-height: min(92dvh, 900px);
+        overflow: hidden;
+        border: 1px solid rgba(216, 228, 241, 0.28);
+        border-radius: 28px;
+        background: #ffffff;
+        box-shadow: 0 32px 90px rgba(0, 0, 0, 0.36);
+      }
+
+      .gallery-header,
+      .gallery-footer {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 16px;
+        padding: 14px 16px;
+      }
+
+      .gallery-header {
+        border-bottom: 1px solid var(--line);
+      }
+
+      .gallery-title {
+        margin: 0;
+        font-size: 20px;
+      }
+
+      .gallery-counter {
+        color: var(--muted);
+        font-size: 13px;
+        font-weight: 900;
+      }
+
+      .gallery-close,
+      .gallery-nav {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        border: 1px solid var(--line);
+        border-radius: 999px;
+        background: #ffffff;
+        color: var(--brand-dark);
+        cursor: pointer;
+        font-weight: 950;
+        line-height: 1;
+        padding: 0;
+      }
+
+      .gallery-close {
+        width: 40px;
+        height: 40px;
+        font-size: 24px;
+      }
+
+      .gallery-stage {
+        position: relative;
+        display: grid;
+        place-items: center;
+        min-width: 0;
+        min-height: 0;
+        background: #edf4f9;
+        padding: 16px 70px;
+      }
+
+      .gallery-stage img {
+        width: auto;
+        height: auto;
+        max-width: 100%;
+        max-height: 66dvh;
+        border: 1px solid var(--line);
+        border-radius: 18px;
+        background: #ffffff;
+        box-shadow: 0 18px 46px rgba(18, 32, 51, 0.13);
+      }
+
+      .gallery-nav {
+        position: absolute;
+        top: 50%;
+        width: 46px;
+        height: 46px;
+        transform: translateY(-50%);
+        font-size: 28px;
+        line-height: 46px;
+      }
+
+      .gallery-nav[data-gallery-prev] {
+        left: 14px;
+      }
+
+      .gallery-nav[data-gallery-next] {
+        right: 14px;
+      }
+
+      .gallery-footer {
+        border-top: 1px solid var(--line);
+      }
+
+      .gallery-thumbs {
+        display: flex;
+        min-width: 0;
+        gap: 8px;
+        overflow-x: auto;
+        padding-bottom: 2px;
+      }
+
+      .gallery-thumbs button {
+        flex: 0 0 auto;
+        border: 1px solid var(--line);
+        border-radius: 999px;
+        background: #ffffff;
+        color: var(--muted);
+        cursor: pointer;
+        font-size: 12px;
+        font-weight: 900;
+        padding: 8px 11px;
+      }
+
+      .gallery-thumbs button[aria-current="true"] {
+        border-color: var(--brand);
+        background: var(--brand);
+        color: #ffffff;
+      }
+
+      @keyframes word-in {
+        from {
+          transform: translateY(14px);
         }
 
-        .sidebar {
-          position: relative;
-          height: auto;
-          border-right: 0;
-          border-bottom: 1px solid var(--line);
+        to {
+          transform: translateY(0);
+        }
+      }
+
+      @media (max-width: 980px) {
+        .navbar {
+          align-items: flex-start;
+          flex-direction: column;
         }
 
-        .side-nav {
-          grid-template-columns: repeat(3, minmax(0, 1fr));
+        .nav-links,
+        .nav-actions {
+          width: 100%;
+          justify-content: flex-start;
         }
 
-        .hero,
-        .metric-grid,
+        .trust-grid,
         .feature-grid,
         .modules,
-        .steps,
-        .cta {
-          grid-template-columns: 1fr;
+        .contribute,
+        .roadmap,
+        .quickstart {
+          grid-template-columns: repeat(2, minmax(0, 1fr));
         }
       }
 
       @media (max-width: 680px) {
-        .topbar {
-          justify-content: stretch;
+        .container {
+          width: min(100% - 28px, var(--container));
+        }
+
+        .nav-shell {
+          padding: 10px 0;
+        }
+
+        .navbar {
+          border-radius: 18px;
+        }
+
+        .nav-links {
+          display: none;
+        }
+
+        .nav-actions {
           flex-direction: column;
-          padding: 12px;
+          align-items: stretch;
         }
 
         .btn {
           width: 100%;
         }
 
-        .side-nav {
-          grid-template-columns: 1fr 1fr;
-        }
-
-        .hero,
-        .section {
-          padding: 34px 18px;
+        .hero {
+          padding: 42px 0 34px;
         }
 
         h1 {
           font-size: 43px;
         }
 
-        .section-header {
-          align-items: start;
+        .rotating-word {
+          font-size: 0.78em;
+        }
+
+        .carousel-panel,
+        .video-meta,
+        .gallery-footer,
+        .footer-inner {
+          align-items: stretch;
           flex-direction: column;
         }
 
-        .module {
+        .gallery-modal {
+          padding: 10px;
+        }
+
+        .gallery-dialog {
+          border-radius: 20px;
+          max-height: 94dvh;
+        }
+
+        .gallery-stage {
+          padding: 12px 12px 64px;
+        }
+
+        .gallery-stage img {
+          max-height: 58dvh;
+        }
+
+        .gallery-nav {
+          top: auto;
+          bottom: 12px;
+          transform: none;
+        }
+
+        .gallery-nav[data-gallery-prev] {
+          left: calc(50% - 54px);
+        }
+
+        .gallery-nav[data-gallery-next] {
+          right: calc(50% - 54px);
+        }
+
+        .trust-grid,
+        .feature-grid,
+        .modules,
+        .contribute,
+        .roadmap,
+        .quickstart {
           grid-template-columns: 1fr;
         }
 
-        .module img {
-          aspect-ratio: 16 / 9;
+        .section {
+          padding: 52px 0;
         }
       }
     </style>
   </head>
   <body>
-    <div class="shell">
-      <aside class="sidebar" aria-label="Navegação principal">
-        <a class="brand" href="#inicio" aria-label="Hórus PDV">
-          <span class="mark" aria-hidden="true">
-            <svg viewBox="0 0 24 24" fill="none">
-              <path
-                d="M12 3.4 19 6v5.1c0 4.5-2.8 8.4-7 9.8-4.2-1.4-7-5.3-7-9.8V6l7-2.6Z"
-                stroke="currentColor"
-                stroke-width="1.8"
-              />
-              <path d="m8.8 12 2.1 2.1 4.4-4.7" stroke="currentColor" stroke-width="1.8" />
-            </svg>
-          </span>
-          Hórus PDV
-        </a>
+    <a class="skip-link" href="#conteudo">Pular para o conteúdo</a>
 
-        <div class="side-label">Introdução</div>
-        <nav class="side-nav">
-          <a href="#inicio">Visão geral</a>
-          <a href="#recursos">Recursos</a>
-          <a href="#modulos">Módulos</a>
-          <a href="#instalacao">Instalação</a>
-          <a href="#screenshots">Screenshots</a>
-          <a href="#status">Status</a>
+    <header class="nav-shell">
+      <div class="container">
+        <nav class="navbar" aria-label="Navegação principal">
+          <a class="brand" href="#inicio" aria-label="Hórus PDV"> Hórus PDV </a>
+
+          <div class="nav-links">
+            <a href="#demo">Demo</a>
+            <a href="#quickstart">Quick start</a>
+            <a href="#opensource">Open source</a>
+            <a href="#modulos">Módulos</a>
+            <a href="#contribuir">Contribuir</a>
+            <a href="#roadmap">Roadmap</a>
+          </div>
+
+          <div class="nav-actions">
+            <a
+              class="btn btn-primary"
+              href="https://github.com/flaviooliveira-code/horus_pdv"
+              >GitHub</a
+            >
+          </div>
         </nav>
+      </div>
+    </header>
 
-        <div class="side-label">Projeto</div>
-        <div class="sidebar-actions">
-          <a class="btn btn-primary" href="screenshots.html">Abrir galeria</a>
-          <a class="btn" href="https://github.com/flaviooliveira-code/horus_pdv">Ver no GitHub</a>
+    <main id="conteudo">
+      <section class="hero" id="inicio">
+        <div class="container hero-inner">
+          <span class="badge"
+            ><span class="badge-dot"></span>Frente de caixa open source</span
+          >
+          <h1>
+            PDV web para vender,
+            <span class="rotating-word" id="hero-word">gerenciar estoque</span>
+            e evoluir em comunidade.
+          </h1>
+          <p class="lead">
+            Hórus PDV reúne balcão, caixa, clientes, fornecedores, produtos,
+            relatórios e gestão avançada em uma base React + .NET aberta para
+            estudo, uso e contribuição.
+          </p>
+
+          <div class="hero-actions">
+            <a
+              class="btn btn-primary"
+              href="https://github.com/flaviooliveira-code/horus_pdv"
+              >Ver no GitHub</a
+            >
+            <a class="btn btn-accent" href="#demo">Assistir demonstração</a>
+          </div>
+
+          <div class="proof-strip" aria-label="Destaques do projeto">
+            <span>MIT License</span>
+            <span>React 19 + Vite</span>
+            <span>ASP.NET Core .NET 8</span>
+            <span>SQL Server</span>
+            <span>Smoke test E2E</span>
+          </div>
+
+          <div class="hero-showcase">
+            <div class="hero-shadow" aria-hidden="true"></div>
+            <div
+              class="window carousel"
+              aria-label="Prévia das telas do Hórus PDV"
+            >
+              <div class="window-bar">
+                <span class="traffic" aria-hidden="true"
+                  ><i></i><i></i><i></i
+                ></span>
+                <span class="window-title">docs/images/dashboard.png</span>
+              </div>
+
+              <button
+                class="slide is-active"
+                type="button"
+                data-slide
+                data-gallery-open
+                data-gallery-index="1"
+              >
+                <img src="images/dashboard.png" alt="Dashboard do Hórus PDV" />
+              </button>
+              <button
+                class="slide"
+                type="button"
+                data-slide
+                data-gallery-open
+                data-gallery-index="6"
+              >
+                <img
+                  src="images/frente-caixa.png"
+                  alt="Frente de caixa do Hórus PDV"
+                />
+              </button>
+              <button
+                class="slide"
+                type="button"
+                data-slide
+                data-gallery-open
+                data-gallery-index="4"
+              >
+                <img
+                  src="images/produtos.png"
+                  alt="Cadastro de produtos do Hórus PDV"
+                />
+              </button>
+              <button
+                class="slide"
+                type="button"
+                data-slide
+                data-gallery-open
+                data-gallery-index="7"
+              >
+                <img
+                  src="images/historico-vendas.png"
+                  alt="Histórico de vendas do Hórus PDV"
+                />
+              </button>
+
+              <div class="carousel-panel">
+                <div>
+                  <strong id="slide-title">Dashboard operacional</strong>
+                  <span id="slide-description"
+                    >Visão geral, atalhos de operação e módulos do PDV.</span
+                  >
+                </div>
+                <div class="carousel-controls">
+                  <button type="button" data-prev aria-label="Tela anterior">
+                    ‹
+                  </button>
+                  <div
+                    class="dots"
+                    data-dots
+                    aria-label="Selecionar tela"
+                  ></div>
+                  <button type="button" data-next aria-label="Próxima tela">
+                    ›
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
         </div>
-      </aside>
+      </section>
 
-      <main class="main">
-        <div class="topbar">
-          <a class="btn" href="#instalacao">Quick start</a>
-          <a class="btn btn-accent" href="screenshots.html">Ver telas</a>
+      <section class="section section-muted" aria-label="Stack e status">
+        <div class="container trust-grid">
+          <article class="trust-card">
+            <strong>MIT</strong>
+            <span>Licença aberta</span>
+          </article>
+          <article class="trust-card">
+            <strong>.NET 8</strong>
+            <span>API ASP.NET Core</span>
+          </article>
+          <article class="trust-card">
+            <strong>React</strong>
+            <span>Frontend Vite</span>
+          </article>
+          <article class="trust-card">
+            <strong>SQL</strong>
+            <span>SQL Server local</span>
+          </article>
+          <article class="trust-card">
+            <strong>E2E</strong>
+            <span>Playwright smoke</span>
+          </article>
+          <article class="trust-card">
+            <strong>Pages</strong>
+            <span>Site estático</span>
+          </article>
         </div>
+      </section>
 
-        <section class="hero" id="inicio">
+      <section class="section" id="quickstart">
+        <div class="container quickstart">
           <div>
-            <span class="eyebrow">Open source para operação de balcão</span>
-            <h1>Frente de caixa e gestão comercial em um fluxo único.</h1>
-            <p class="lead">
-              Hórus PDV conecta vendas, estoque, caixa, clientes, fornecedores, usuários e relatórios
-              em uma experiência web rápida para pequenos e médios comércios.
-            </p>
-            <div class="hero-actions">
-              <a class="btn btn-primary" href="screenshots.html">Explorar screenshots</a>
-              <a class="btn" href="#recursos">Conhecer recursos</a>
-            </div>
-          </div>
-
-          <a class="hero-shot" href="screenshots.html" aria-label="Abrir galeria de telas">
-            <img src="images/dashboard.png" alt="Dashboard do Hórus PDV com indicadores operacionais" />
-          </a>
-        </section>
-
-        <section class="section" id="status">
-          <div class="metric-grid" aria-label="Status do projeto">
-            <div class="metric">
-              <strong>React</strong>
-              <span>Frontend com Vite, TypeScript e Tailwind CSS</span>
-            </div>
-            <div class="metric">
-              <strong>.NET 8</strong>
-              <span>API ASP.NET Core com JWT e SQL Server</span>
-            </div>
-            <div class="metric">
-              <strong>E2E</strong>
-              <span>Smoke test com Playwright para fluxo completo</span>
-            </div>
-            <div class="metric">
-              <strong>MVP</strong>
-              <span>Base funcional para evolução fiscal e pagamentos</span>
-            </div>
-          </div>
-        </section>
-
-        <section class="section" id="recursos">
-          <div class="section-header">
-            <h2>Operação completa sem espalhar o trabalho em várias ferramentas.</h2>
+            <span class="eyebrow">Quick start</span>
+            <h2>Clone, suba o SQL Server e rode a aplicação local.</h2>
             <p class="section-copy">
-              O sistema foi estruturado para reduzir fricção no balcão: venda rápida, conferência de
-              caixa, cadastro assistido e gestão dos dados que alimentam o PDV.
+              O projeto foi organizado para ser auditável e simples de iniciar:
+              banco via Docker, API .NET e frontend Vite com variáveis de
+              ambiente por endpoint.
+            </p>
+            <div class="hero-actions" style="justify-content: flex-start">
+              <a
+                class="btn btn-primary"
+                href="https://github.com/flaviooliveira-code/horus_pdv"
+                >Clonar projeto</a
+              >
+              <a class="btn" href="#contribuir">Como contribuir</a>
+            </div>
+          </div>
+
+          <div class="terminal">
+            <div class="terminal-head">
+              <span class="traffic" aria-hidden="true"
+                ><i></i><i></i><i></i
+              ></span>
+              <span class="terminal-title">terminal</span>
+              <button
+                class="copy-btn"
+                type="button"
+                data-copy="#quickstart-code"
+              >
+                Copiar
+              </button>
+            </div>
+            <pre
+              id="quickstart-code"
+            ><code>git clone https://github.com/flaviooliveira-code/horus_pdv.git
+cd horus_pdv
+
+docker start sqlserver2025
+
+cd API/NETCORE
+dotnet run --urls http://localhost:5260
+
+cd ../../FRONTEND
+npm install
+npm run dev</code></pre>
+          </div>
+        </div>
+      </section>
+
+      <section class="section section-muted" id="opensource">
+        <div class="container">
+          <div class="section-header">
+            <span class="eyebrow">Open source</span>
+            <h2>Construído para ser lido, testado e melhorado.</h2>
+            <p class="section-copy">
+              A landing segue a tradição de projetos open source: documentação
+              direta, screenshots reais, comandos de instalação e convite claro
+              para contribuição.
             </p>
           </div>
 
           <div class="feature-grid">
-            <article class="feature">
+            <article class="feature-card">
               <span class="icon" aria-hidden="true">
                 <svg viewBox="0 0 24 24" fill="none">
-                  <path d="M5 7h14v13H5zM8 7V5h8v2M8 11h8M8 15h5" stroke="currentColor" stroke-width="1.8" />
+                  <path
+                    d="M4 7h16M4 12h16M4 17h10"
+                    stroke="currentColor"
+                    stroke-width="1.8"
+                  />
                 </svg>
               </span>
-              <div>
-                <h3>Venda com baixa de estoque</h3>
-                <p>Produtos vêm da API, entram no carrinho e baixam estoque ao confirmar a venda.</p>
-              </div>
+              <h3>Transparente</h3>
+              <p>
+                Código, estrutura, scripts e smoke test ficam no repositório.
+              </p>
             </article>
-
-            <article class="feature">
+            <article class="feature-card">
               <span class="icon" aria-hidden="true">
                 <svg viewBox="0 0 24 24" fill="none">
-                  <path d="M4 7h16M6 7v12h12V7M9 11h6M9 15h4" stroke="currentColor" stroke-width="1.8" />
+                  <path
+                    d="M12 3 20 7v5c0 4.8-3.2 7.5-8 9-4.8-1.5-8-4.2-8-9V7l8-4Z"
+                    stroke="currentColor"
+                    stroke-width="1.8"
+                  />
                 </svg>
               </span>
-              <div>
-                <h3>Caixa com regra operacional</h3>
-                <p>A venda só inicia com caixa aberto e sessões vencidas são tratadas no fluxo.</p>
-              </div>
+              <h3>Auditável</h3>
+              <p>
+                Fluxos críticos de caixa, venda e estoque podem ser verificados
+                ponta a ponta.
+              </p>
             </article>
-
-            <article class="feature">
+            <article class="feature-card">
               <span class="icon" aria-hidden="true">
                 <svg viewBox="0 0 24 24" fill="none">
-                  <path d="M5 12h14M12 5v14M7 7l10 10M17 7 7 17" stroke="currentColor" stroke-width="1.8" />
+                  <path
+                    d="M7 8h10M7 12h10M7 16h6M5 4h14v16H5z"
+                    stroke="currentColor"
+                    stroke-width="1.8"
+                  />
                 </svg>
               </span>
-              <div>
-                <h3>Cadastros conectados</h3>
-                <p>Clientes, fornecedores, produtos, empresa e usuários persistem no SQL Server.</p>
-              </div>
+              <h3>Documentado</h3>
+              <p>
+                README, screenshots, vídeo demo e comandos reduzem atrito para
+                novos usuários.
+              </p>
             </article>
-
-            <article class="feature">
+            <article class="feature-card">
               <span class="icon" aria-hidden="true">
                 <svg viewBox="0 0 24 24" fill="none">
-                  <path d="M5 19V5m0 14h15M9 16V9m4 7V7m4 9v-4" stroke="currentColor" stroke-width="1.8" />
+                  <path
+                    d="M12 5v14M5 12h14M7.5 7.5l9 9M16.5 7.5l-9 9"
+                    stroke="currentColor"
+                    stroke-width="1.8"
+                  />
                 </svg>
               </span>
-              <div>
-                <h3>Relatórios e histórico</h3>
-                <p>Histórico de vendas com valores, recibo e reimpressão da última venda.</p>
-              </div>
-            </article>
-
-            <article class="feature">
-              <span class="icon" aria-hidden="true">
-                <svg viewBox="0 0 24 24" fill="none">
-                  <path d="M12 3 20 7v5c0 4.8-3.2 7.5-8 9-4.8-1.5-8-4.2-8-9V7l8-4Z" stroke="currentColor" stroke-width="1.8" />
-                  <path d="M9 12.2 11.1 14 15.4 9.5" stroke="currentColor" stroke-width="1.8" />
-                </svg>
-              </span>
-              <div>
-                <h3>Segurança aplicada</h3>
-                <p>Login com JWT, recuperação de senha, reCAPTCHA opcional e limite de tentativas.</p>
-              </div>
-            </article>
-
-            <article class="feature">
-              <span class="icon" aria-hidden="true">
-                <svg viewBox="0 0 24 24" fill="none">
-                  <path d="M4 5h16v10H4zM8 19h8M10 15v4M14 15v4" stroke="currentColor" stroke-width="1.8" />
-                </svg>
-              </span>
-              <div>
-                <h3>Experiência de produto</h3>
-                <p>Temas light/dark, tour guiado, componentes reutilizáveis e layout responsivo.</p>
-              </div>
+              <h3>Extensível</h3>
+              <p>
+                Base preparada para módulos fiscais, pagamentos integrados e
+                instaladores.
+              </p>
             </article>
           </div>
-        </section>
+        </div>
+      </section>
 
-        <section class="section" id="modulos">
+      <section class="section" id="demo">
+        <div class="container">
           <div class="section-header">
-            <h2>Módulos preparados para a rotina de loja.</h2>
+            <span class="eyebrow">Demonstração</span>
+            <h2>Veja o sistema operando com API real.</h2>
             <p class="section-copy">
-              As telas principais já estão conectadas com API e banco. Fiscal e pagamento integrado
-              aparecem como módulos em desenvolvimento.
+              A gravação percorre cadastro, login, CRUDs, gestão avançada,
+              abertura de caixa, venda, cupom, histórico e relatórios.
+            </p>
+          </div>
+
+          <div class="video-card">
+            <video
+              class="video-frame"
+              controls
+              preload="metadata"
+              poster="images/dashboard.png"
+            >
+              <source src="videos/horus-pdv-demo.webm" type="video/webm" />
+              Seu navegador não suporta vídeo HTML5.
+            </video>
+            <div class="video-meta">
+              <a class="btn btn-primary" href="videos/horus-pdv-demo.webm"
+                >Abrir vídeo</a
+              >
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section class="section section-muted" id="modulos">
+        <div class="container">
+          <div class="section-header">
+            <span class="eyebrow">Módulos</span>
+            <h2>Fluxos essenciais para operação de balcão.</h2>
+            <p class="section-copy">
+              Clique nos cards para abrir a galeria em slides sem sair da
+              página.
             </p>
           </div>
 
           <div class="modules">
-            <a class="module" href="screenshots.html">
-              <img src="images/frente-caixa.png" alt="Tela de frente de caixa" />
+            <button
+              class="module-card"
+              type="button"
+              data-gallery-open
+              data-gallery-index="6"
+            >
+              <img src="images/frente-caixa.png" alt="Frente de caixa" />
               <div>
                 <h3>Frente de Caixa</h3>
-                <p>Carrinho, pagamentos, impressão prévia e baixa de estoque.</p>
+                <p>Carrinho, pagamento, recibo e baixa de estoque.</p>
               </div>
-            </a>
-            <a class="module" href="screenshots.html">
-              <img src="images/produtos.png" alt="Tela de produtos" />
+            </button>
+            <button
+              class="module-card"
+              type="button"
+              data-gallery-open
+              data-gallery-index="4"
+            >
+              <img src="images/produtos.png" alt="Cadastro de produtos" />
               <div>
-                <h3>Produtos e Fornecedores</h3>
-                <p>Cadastro, edição, exclusão e criação rápida de fornecedor.</p>
+                <h3>Produtos</h3>
+                <p>Cadastro, fornecedores, preços e estoque.</p>
               </div>
-            </a>
-            <a class="module" href="screenshots.html">
-              <img src="images/abertura-fechamento.png" alt="Tela de abertura e fechamento" />
+            </button>
+            <button
+              class="module-card"
+              type="button"
+              data-gallery-open
+              data-gallery-index="12"
+            >
+              <img
+                src="images/abertura-fechamento.png"
+                alt="Abertura de caixa"
+              />
               <div>
                 <h3>Caixa</h3>
-                <p>Abertura, fechamento e validação antes de iniciar venda.</p>
+                <p>Abertura, fechamento e regra de bloqueio de venda.</p>
               </div>
-            </a>
-            <a class="module" href="screenshots.html">
-              <img src="images/minha-empresa.png" alt="Tela Minha Empresa" />
+            </button>
+            <button
+              class="module-card"
+              type="button"
+              data-gallery-open
+              data-gallery-index="7"
+            >
+              <img
+                src="images/historico-vendas.png"
+                alt="Histórico de vendas"
+              />
+              <div>
+                <h3>Histórico</h3>
+                <p>Consulta, valores, recibo e reimpressão.</p>
+              </div>
+            </button>
+            <button
+              class="module-card"
+              type="button"
+              data-gallery-open
+              data-gallery-index="17"
+            >
+              <img src="images/minha-empresa.png" alt="Minha empresa" />
               <div>
                 <h3>Minha Empresa</h3>
-                <p>Dados comerciais, endereço e configuração de e-mail por empresa.</p>
+                <p>Dados comerciais e configuração de e-mail.</p>
               </div>
-            </a>
-            <a class="module" href="screenshots.html">
-              <img src="images/crm-fidelidade.png" alt="Tela de CRM e fidelidade" />
+            </button>
+            <button
+              class="module-card"
+              type="button"
+              data-gallery-open
+              data-gallery-index="15"
+            >
+              <img src="images/crm-fidelidade.png" alt="CRM e fidelidade" />
               <div>
                 <h3>Gestão Avançada</h3>
-                <p>Estoque, compras, trocas, CRM, fidelidade e omnichannel.</p>
+                <p>Compras, trocas, CRM, fidelidade e omnichannel.</p>
               </div>
-            </a>
-            <a class="module" href="screenshots.html">
-              <img src="images/relatorios.png" alt="Tela de relatórios" />
-              <div>
-                <h3>Relatórios</h3>
-                <p>Indicadores operacionais para acompanhar vendas e movimentações.</p>
-              </div>
-            </a>
+            </button>
           </div>
-        </section>
+        </div>
+      </section>
 
-        <section class="section" id="instalacao">
+      <section class="section" id="contribuir">
+        <div class="container">
           <div class="section-header">
-            <h2>Suba o ambiente local com SQL Server, API e frontend.</h2>
+            <span class="eyebrow">Contribuir</span>
+            <h2>Um fluxo simples para colaborar com o projeto.</h2>
             <p class="section-copy">
-              O projeto usa SQL Server em Docker, API ASP.NET Core e frontend React com Vite.
+              Antes de abrir PR, rode o smoke test para validar cadastro, login,
+              navegação, CRUDs, caixa e venda.
             </p>
           </div>
 
-          <div class="steps">
-            <article class="step">
-              <h3>1. Banco</h3>
-              <p>Inicie o SQL Server local.</p>
-              <pre><code>docker start sqlserver2025</code></pre>
+          <div class="contribute">
+            <article class="step-card">
+              <span class="step-number">1</span>
+              <h3>Fork</h3>
+              <p>Crie um fork do repositório e uma branch focada na mudança.</p>
             </article>
-            <article class="step">
-              <h3>2. API</h3>
-              <p>Execute a API .NET.</p>
-              <pre><code>cd API/NETCORE
-dotnet run</code></pre>
+            <article class="step-card">
+              <span class="step-number">2</span>
+              <h3>Instale</h3>
+              <p>Suba SQL Server, API .NET e frontend React localmente.</p>
             </article>
-            <article class="step">
-              <h3>3. Frontend</h3>
-              <p>Abra a interface web.</p>
-              <pre><code>cd FRONTEND
-npm install
-npm run dev</code></pre>
+            <article class="step-card">
+              <span class="step-number">3</span>
+              <h3>Teste</h3>
+              <p>Execute `npm run smoke` no frontend antes de enviar.</p>
+            </article>
+            <article class="step-card">
+              <span class="step-number">4</span>
+              <h3>PR</h3>
+              <p>Abra pull request com resumo, prints e escopo bem definido.</p>
             </article>
           </div>
-        </section>
+        </div>
+      </section>
 
-        <section class="section" id="screenshots">
-          <div class="cta">
-            <div>
-              <span class="eyebrow">Galeria navegável</span>
-              <h2>Veja o sistema rodando tela por tela.</h2>
-              <p class="section-copy">
-                A galeria mostra login, dashboard, frente de caixa, histórico, cadastros, gestão
-                avançada, empresa, configurações e módulos em desenvolvimento.
+      <section class="section section-muted" id="roadmap">
+        <div class="container">
+          <div class="section-header">
+            <span class="eyebrow">Roadmap</span>
+            <h2>Próximos passos do MVP open source.</h2>
+          </div>
+
+          <div class="roadmap">
+            <article class="roadmap-card">
+              <span class="status-pill">Em desenvolvimento</span>
+              <h3>Fiscal NFC-e / NF-e</h3>
+              <p>
+                Camada fiscal, emissão, contingência e integração com
+                certificados.
               </p>
-            </div>
-            <a class="btn btn-primary" href="screenshots.html">Abrir slides</a>
+            </article>
+            <article class="roadmap-card">
+              <span class="status-pill">Em desenvolvimento</span>
+              <h3>Pagamentos integrados</h3>
+              <p>TEF, adquirentes, conciliação e retorno de transação.</p>
+            </article>
+            <article class="roadmap-card">
+              <span class="status-pill">Planejado</span>
+              <h3>Instalador</h3>
+              <p>
+                Pacote de setup local para simplificar uso em pequenas lojas.
+              </p>
+            </article>
+            <article class="roadmap-card">
+              <span class="status-pill">Planejado</span>
+              <h3>Docs técnicas</h3>
+              <p>Guias de arquitetura, endpoints, banco e contribuição.</p>
+            </article>
           </div>
-        </section>
+        </div>
+      </section>
 
-        <footer>
-          Hórus PDV - Projeto open source mantido por
-          <a href="https://github.com/flaviooliveira-code">flaviooliveira-code</a>.
+      <section class="section" id="faq">
+        <div class="container">
+          <div class="section-header">
+            <span class="eyebrow">FAQ</span>
+            <h2>Perguntas rápidas sobre o projeto.</h2>
+          </div>
+
+          <div class="faq">
+            <details open>
+              <summary>O Hórus PDV é gratuito?</summary>
+              <p>
+                O código está publicado como projeto open source sob licença MIT
+                no repositório.
+              </p>
+            </details>
+            <details>
+              <summary>Precisa de banco para rodar local?</summary>
+              <p>
+                Sim. O ambiente local usa SQL Server, e o README traz o comando
+                Docker usado no desenvolvimento.
+              </p>
+            </details>
+            <details>
+              <summary>Fiscal e pagamento integrado já estão prontos?</summary>
+              <p>
+                Esses módulos aparecem na interface como em desenvolvimento e
+                fazem parte do roadmap.
+              </p>
+            </details>
+            <details>
+              <summary>Como eu vejo as telas sem instalar?</summary>
+              <p>
+                Clique nos screenshots desta landing para abrir a galeria em
+                slides, ou assista ao vídeo demo.
+              </p>
+            </details>
+          </div>
+        </div>
+      </section>
+
+      <section class="section">
+        <div class="container">
+          <div class="final-cta">
+            <h2>Autoria técnica e evolução aberta.</h2>
+            <p>
+              O Hórus PDV é mantido por Flávio Oliveira como projeto open
+              source, com foco em arquitetura web, operação de varejo, testes
+              automatizados e documentação pública.
+            </p>
+            <div class="final-actions">
+              <a
+                class="btn btn-accent"
+                href="https://github.com/flaviooliveira-code"
+                >Perfil no GitHub</a
+              >
+              <a
+                class="btn"
+                href="https://github.com/flaviooliveira-code/horus_pdv"
+                >Código-fonte</a
+              >
+            </div>
+          </div>
+        </div>
+      </section>
+    </main>
+
+    <footer class="footer">
+      <div class="container footer-inner">
+        <span>Hórus PDV - Projeto open source para frente de caixa.</span>
+        <span>
+          <a href="https://github.com/flaviooliveira-code/horus_pdv">GitHub</a>
+          ·
+          <a href="videos/horus-pdv-demo.webm">Vídeo</a>
+        </span>
+      </div>
+    </footer>
+
+    <div
+      class="gallery-modal"
+      data-gallery-modal
+      aria-hidden="true"
+      role="dialog"
+      aria-modal="true"
+      aria-label="Galeria de screenshots do Hórus PDV"
+    >
+      <div class="gallery-backdrop" data-gallery-close></div>
+      <section
+        class="gallery-dialog"
+        aria-label="Galeria de screenshots do Hórus PDV"
+      >
+        <header class="gallery-header">
+          <div>
+            <h2 class="gallery-title" id="gallery-title">Dashboard</h2>
+            <span class="gallery-counter" data-gallery-counter>1 / 22</span>
+          </div>
+          <button
+            class="gallery-close"
+            type="button"
+            data-gallery-close
+            aria-label="Fechar galeria"
+          >
+            ×
+          </button>
+        </header>
+        <div class="gallery-stage">
+          <button
+            class="gallery-nav"
+            type="button"
+            data-gallery-prev
+            aria-label="Screenshot anterior"
+          >
+            ‹
+          </button>
+          <img
+            data-gallery-image
+            src="images/dashboard.png"
+            alt="Dashboard do Hórus PDV"
+          />
+          <button
+            class="gallery-nav"
+            type="button"
+            data-gallery-next
+            aria-label="Próximo screenshot"
+          >
+            ›
+          </button>
+        </div>
+        <footer class="gallery-footer">
+          <div
+            class="gallery-thumbs"
+            data-gallery-thumbs
+            aria-label="Selecionar screenshot"
+          ></div>
         </footer>
-      </main>
+      </section>
     </div>
+
+    <script>
+      const rotatingWords = [
+        "gerenciar estoque",
+        "abrir caixa",
+        "registrar vendas",
+        "evoluir em comunidade",
+      ];
+      const heroWord = document.getElementById("hero-word");
+      let wordIndex = 0;
+      window.setInterval(() => {
+        wordIndex = (wordIndex + 1) % rotatingWords.length;
+        heroWord.textContent = rotatingWords[wordIndex];
+        heroWord.style.animation = "none";
+        window.requestAnimationFrame(() => {
+          heroWord.style.animation = "";
+        });
+      }, 2800);
+
+      const slides = Array.from(document.querySelectorAll("[data-slide]"));
+      const dots = document.querySelector("[data-dots]");
+      const title = document.getElementById("slide-title");
+      const description = document.getElementById("slide-description");
+      const slideContent = [
+        [
+          "Dashboard operacional",
+          "Visão geral, atalhos de operação e módulos do PDV.",
+        ],
+        [
+          "Frente de caixa",
+          "Carrinho, pagamento, impressão prévia e baixa de estoque.",
+        ],
+        [
+          "Produtos",
+          "Cadastro conectado com fornecedor, estoque e preço de venda.",
+        ],
+        [
+          "Histórico de vendas",
+          "Consulta de vendas, valores, recibos e reimpressão.",
+        ],
+      ];
+      let slideIndex = 0;
+      let slideTimer;
+
+      function setSlide(nextIndex) {
+        slideIndex = (nextIndex + slides.length) % slides.length;
+        slides.forEach((slide, index) =>
+          slide.classList.toggle("is-active", index === slideIndex),
+        );
+        Array.from(dots.children).forEach((dot, index) => {
+          dot.setAttribute("aria-current", String(index === slideIndex));
+        });
+        title.textContent = slideContent[slideIndex][0];
+        description.textContent = slideContent[slideIndex][1];
+      }
+
+      function restartSlideTimer() {
+        window.clearInterval(slideTimer);
+        slideTimer = window.setInterval(() => setSlide(slideIndex + 1), 5200);
+      }
+
+      slides.forEach((_, index) => {
+        const dot = document.createElement("button");
+        dot.type = "button";
+        dot.setAttribute("aria-label", `Mostrar tela ${index + 1}`);
+        dot.addEventListener("click", () => {
+          setSlide(index);
+          restartSlideTimer();
+        });
+        dots.appendChild(dot);
+      });
+
+      document.querySelector("[data-prev]").addEventListener("click", () => {
+        setSlide(slideIndex - 1);
+        restartSlideTimer();
+      });
+
+      document.querySelector("[data-next]").addEventListener("click", () => {
+        setSlide(slideIndex + 1);
+        restartSlideTimer();
+      });
+
+      const galleryItems = [
+        ["Login", "images/login.png", "Tela de login do Hórus PDV"],
+        ["Dashboard", "images/dashboard.png", "Dashboard do Hórus PDV"],
+        [
+          "Clientes",
+          "images/clientes.png",
+          "Cadastro de clientes no Hórus PDV",
+        ],
+        [
+          "Fornecedores",
+          "images/fornecedores.png",
+          "Cadastro de fornecedores no Hórus PDV",
+        ],
+        [
+          "Produtos",
+          "images/produtos.png",
+          "Cadastro de produtos no Hórus PDV",
+        ],
+        ["Usuários", "images/usuarios.png", "Gestão de usuários no Hórus PDV"],
+        [
+          "Frente de Caixa",
+          "images/frente-caixa.png",
+          "Frente de caixa do Hórus PDV",
+        ],
+        [
+          "Histórico de Vendas",
+          "images/historico-vendas.png",
+          "Histórico de vendas do Hórus PDV",
+        ],
+        ["Relatórios", "images/relatorios.png", "Relatórios do Hórus PDV"],
+        ["Fiscal", "images/fiscal.png", "Módulo fiscal do Hórus PDV"],
+        [
+          "Pagamentos",
+          "images/pagamentos.png",
+          "Pagamentos integrados do Hórus PDV",
+        ],
+        [
+          "Estoque",
+          "images/estoque-inventario.png",
+          "Estoque e inventário do Hórus PDV",
+        ],
+        [
+          "Caixa",
+          "images/abertura-fechamento.png",
+          "Abertura e fechamento de caixa no Hórus PDV",
+        ],
+        [
+          "Compras",
+          "images/compras-reposicao.png",
+          "Compras e reposição no Hórus PDV",
+        ],
+        [
+          "Trocas",
+          "images/trocas-devolucoes.png",
+          "Trocas e devoluções no Hórus PDV",
+        ],
+        ["CRM", "images/crm-fidelidade.png", "CRM e fidelidade no Hórus PDV"],
+        ["Omnichannel", "images/omnichannel.png", "Omnichannel no Hórus PDV"],
+        [
+          "Minha Empresa",
+          "images/minha-empresa.png",
+          "Página Minha Empresa do Hórus PDV",
+        ],
+        [
+          "Licença",
+          "images/detalhes-licenca.png",
+          "Detalhes da licença do Hórus PDV",
+        ],
+        ["Sobre PDV", "images/sobre-pdv.png", "Página Sobre PDV do Hórus PDV"],
+        [
+          "Configurações",
+          "images/configuracoes.png",
+          "Configurações do Hórus PDV",
+        ],
+        [
+          "Perfil",
+          "images/editar-perfil.png",
+          "Perfil do usuário no Hórus PDV",
+        ],
+      ];
+      const galleryModal = document.querySelector("[data-gallery-modal]");
+      const galleryImage = document.querySelector("[data-gallery-image]");
+      const galleryTitle = document.getElementById("gallery-title");
+      const galleryCounter = document.querySelector("[data-gallery-counter]");
+      const galleryThumbs = document.querySelector("[data-gallery-thumbs]");
+      let galleryIndex = 0;
+      let galleryLastFocus = null;
+
+      function setGallery(nextIndex) {
+        galleryIndex = (nextIndex + galleryItems.length) % galleryItems.length;
+        const [label, src, alt] = galleryItems[galleryIndex];
+        galleryTitle.textContent = label;
+        galleryImage.src = src;
+        galleryImage.alt = alt;
+        galleryCounter.textContent = `${galleryIndex + 1} / ${galleryItems.length}`;
+        Array.from(galleryThumbs.children).forEach((button, index) => {
+          button.setAttribute("aria-current", String(index === galleryIndex));
+        });
+      }
+
+      function openGallery(index = 1) {
+        galleryLastFocus = document.activeElement;
+        setGallery(index);
+        galleryModal.classList.add("is-open");
+        galleryModal.setAttribute("aria-hidden", "false");
+        document.body.classList.add("gallery-open");
+        document.querySelector(".gallery-close").focus();
+      }
+
+      function closeGallery() {
+        galleryModal.classList.remove("is-open");
+        galleryModal.setAttribute("aria-hidden", "true");
+        document.body.classList.remove("gallery-open");
+        galleryLastFocus?.focus?.();
+      }
+
+      galleryItems.forEach((item, index) => {
+        const button = document.createElement("button");
+        button.type = "button";
+        button.textContent = item[0];
+        button.addEventListener("click", () => setGallery(index));
+        galleryThumbs.appendChild(button);
+      });
+
+      document.querySelectorAll("[data-gallery-open]").forEach((button) => {
+        button.addEventListener("click", () => {
+          const index = Number(
+            button.getAttribute("data-gallery-index") ?? slideIndex,
+          );
+          openGallery(Number.isFinite(index) ? index : 0);
+        });
+      });
+
+      document.querySelectorAll("[data-gallery-close]").forEach((button) => {
+        button.addEventListener("click", closeGallery);
+      });
+
+      document
+        .querySelector("[data-gallery-prev]")
+        .addEventListener("click", () => setGallery(galleryIndex - 1));
+      document
+        .querySelector("[data-gallery-next]")
+        .addEventListener("click", () => setGallery(galleryIndex + 1));
+
+      document.querySelectorAll("[data-copy]").forEach((button) => {
+        button.addEventListener("click", async () => {
+          const target = document.querySelector(
+            button.getAttribute("data-copy"),
+          );
+          const text = target?.innerText || "";
+          try {
+            await navigator.clipboard.writeText(text);
+            button.textContent = "Copiado";
+            window.setTimeout(() => {
+              button.textContent = "Copiar";
+            }, 1600);
+          } catch {
+            button.textContent = "Selecione o texto";
+          }
+        });
+      });
+
+      document.addEventListener("keydown", (event) => {
+        if (!galleryModal.classList.contains("is-open")) return;
+        if (event.key === "Escape") closeGallery();
+        if (event.key === "ArrowLeft") setGallery(galleryIndex - 1);
+        if (event.key === "ArrowRight") setGallery(galleryIndex + 1);
+      });
+
+      setSlide(0);
+      restartSlideTimer();
+    </script>
   </body>
 </html>

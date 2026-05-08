@@ -15,7 +15,8 @@
     "smoke": "playwright test --config playwright.config.ts",
     "smoke:headed": "playwright test --config playwright.config.ts --headed",
     "smoke:keep": "SMOKE_RUN_ID=SMOKE_CONFERE SMOKE_KEEP_DATA=1 playwright test --config playwright.config.ts --headed",
-    "smoke:install": "playwright install chromium"
+    "smoke:install": "playwright install chromium",
+    "demo:video": "playwright test --config playwright.demo.config.ts"
   },
   "dependencies": {
     "date-fns": "^4.1.0",
