@@ -485,13 +485,20 @@ async function validateCashAndSales(
   productCode: string,
   productName: string,
 ) {
-  const status = await api<{ state: string; currentSession?: { operatorName: string } | null }>(
-    request,
-    authToken,
-    "/Caixa/status",
-  );
+  const status = await api<{
+    state: string;
+    canSell?: boolean;
+    currentSession?: { operatorName: string } | null;
+  }>(request, authToken, "/Caixa/status");
 
-  if (status.state !== "aberto") {
+  if (status.currentSession && !status.canSell) {
+    await api(request, authToken, "/Caixa/fechar", {
+      method: "POST",
+      body: { closingAmount: "0,00", note: `${RUN_ID} fechamento de caixa expirado` },
+    });
+  }
+
+  if (status.state !== "aberto" || !status.canSell) {
     await api(request, authToken, "/Caixa/abrir", {
       method: "POST",
       body: { openingAmount: "100,00" },

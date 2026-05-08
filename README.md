@@ -19,6 +19,7 @@ O projeto está em evolução ativa, com frontend em React, API em ASP.NET Core 
 - [Variáveis de Ambiente](#variáveis-de-ambiente)
 - [Scripts](#scripts)
 - [Smoke Test](#smoke-test)
+- [Validação Local](#validação-local)
 - [Autenticação e Segurança](#autenticação-e-segurança)
 - [Padrões de Interface](#padrões-de-interface)
 - [Módulos em Desenvolvimento](#módulos-em-desenvolvimento)
@@ -38,6 +39,7 @@ Este repositório está em fase de desenvolvimento. O frontend já conversa com 
 | Autenticação JWT | Implementada |
 | reCAPTCHA v3 | Implementado, opcional por configuração |
 | Banco de dados | SQL Server conectado |
+| Smoke test E2E | Implementado |
 | Fiscal NFC-e / NF-e | Em desenvolvimento |
 | Pagamentos integrados | Em desenvolvimento |
 | Sistema legado | Mantido como referência histórica |
@@ -71,10 +73,13 @@ Este repositório está em fase de desenvolvimento. O frontend já conversa com 
 - Gestão de clientes, fornecedores e produtos.
 - Frente de caixa com carrinho, pagamento e baixa de estoque.
 - Abertura e fechamento de caixa.
-- Histórico de vendas.
+- Histórico de vendas com valores, reimpressão e prévia de cupom não fiscal.
 - Relatórios.
 - Minha empresa, licença, perfil e configurações.
 - Gestão de usuários.
+- Gestão avançada: estoque, abertura/fechamento, compras, trocas/devoluções, CRM/fidelidade e omnichannel.
+- Configuração SMTP por empresa.
+- Tour guiado por tela.
 - Temas light/dark.
 
 ## Estrutura
@@ -114,11 +119,16 @@ npm install
 O projeto espera um SQL Server local na porta `1433`. Exemplo com Docker:
 
 <pre><code class="language-bash">docker run -d \
-  --name sqlserver \
+  --name sqlserver2025 \
   -e ACCEPT_EULA=Y \
   -e SA_PASSWORD='Senha@12345' \
   -p 1433:1433 \
   mcr.microsoft.com/mssql/server:2022-latest
+</code></pre>
+
+Se o container já existir e estiver parado:
+
+<pre><code class="language-bash">docker start sqlserver2025
 </code></pre>
 
 Em outro terminal:
@@ -155,6 +165,8 @@ VITE_PRODUTO_API_URL=http://localhost:5260/api/Produto
 VITE_CLIENTE_API_URL=http://localhost:5260/api/Cliente
 VITE_FORNECEDOR_API_URL=http://localhost:5260/api/Fornecedor
 VITE_EMPRESA_API_URL=http://localhost:5260/api/Empresa
+VITE_CAIXA_API_URL=http://localhost:5260/api/Caixa
+VITE_HISTORICO_VENDAS_API_URL=http://localhost:5260/api/HistoricoVendas
 VITE_RECAPTCHA_SITE_KEY=
 </code></pre>
 
@@ -195,6 +207,8 @@ dotnet run --urls http://localhost:5260
 
 O smoke test sobe a API e o frontend automaticamente, cria uma conta pública, autentica, valida navegação, executa operações principais via API e limpa os dados criados com prefixo `SMOKE_`.
 
+Pré-requisito: Docker Desktop e SQL Server local precisam estar rodando antes da execução.
+
 Primeiro uso na máquina:
 
 <pre><code class="language-bash">cd FRONTEND
@@ -224,6 +238,12 @@ Variáveis opcionais:
 
 O SQL Server Docker precisa estar rodando. O teste desativa temporariamente o disparo real de e-mail da empresa durante a execução e restaura a configuração ao final.
 
+Se o smoke falhar com erro de conexão no SQL Server, suba o Docker Desktop e inicie o container:
+
+<pre><code class="language-bash">open -a Docker
+docker start sqlserver2025
+</code></pre>
+
 O script `smoke:keep` usa `SMOKE_RUN_ID=SMOKE_CONFERE` e `SMOKE_KEEP_DATA=1`.
 Se quiser outro prefixo manualmente:
 
@@ -232,6 +252,22 @@ SMOKE_RUN_ID=SMOKE_CONFERE SMOKE_KEEP_DATA=1 npm run smoke
 </code></pre>
 
 Depois procure no banco por `SMOKE_CONFERE%` em `Usuarios`, `Clientes`, `Fornecedores`, `Produtos`, `Vendas`, `CaixaSessoes` e `ModuloMercadoRegistros`.
+
+## Validação Local
+
+Última validação local executada em **08/05/2026**:
+
+<pre><code class="language-bash">dotnet build API/NETCORE/HORUSPDV-API.sln
+cd FRONTEND
+npm run lint
+npx tsc --noEmit --project tsconfig.app.json
+npm run build
+npm run smoke
+</code></pre>
+
+Resultado: build da API, lint, TypeScript, build do frontend e smoke test completo passaram.
+
+Observação: durante a validação, o smoke encontrou um caixa antigo aberto fora do período permitido. O teste foi ajustado para fechar caixa expirado antes de abrir o caixa da execução atual, preservando a regra de negócio da API.
 
 ## Autenticação e Segurança
 
@@ -282,6 +318,8 @@ Essas páginas mostram estado visual de "Em desenvolvimento" até as integraçõ
 ## Dados e Persistência
 
 A API usa SQL Server com scripts manuais, seguindo o padrão de `DataBase/Resumo.sql`. No start, a aplicação executa esse script para criar o banco, tabelas, relacionamentos e dados iniciais quando ainda não existirem.
+
+O script também aplica ajustes seguros de schema já existentes e faz backfill de valores de vendas antigas quando `VendaItens.UnitPrice` ou `VendaItens.ItemTotal` ainda estiverem vazios/zerados.
 
 Banco padrão:
 
