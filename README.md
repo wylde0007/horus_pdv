@@ -85,115 +85,120 @@ Este repositório está em fase de desenvolvimento. O frontend já conversa com 
 
 ## Screenshots
 
+Para visualizar em formato de slides, abra:
+
+<pre><code class="language-text">docs/screenshots.html
+</code></pre>
+
 <table>
   <tr>
     <td width="50%">
       <strong>Login</strong><br />
-      <img src="docs/images/login.png" alt="Tela de login do Hórus PDV" />
+      <a href="docs/screenshots.html"><img src="docs/images/login.png" alt="Tela de login do Hórus PDV" /></a>
     </td>
     <td width="50%">
       <strong>Dashboard</strong><br />
-      <img src="docs/images/dashboard.png" alt="Dashboard do Hórus PDV" />
+      <a href="docs/screenshots.html"><img src="docs/images/dashboard.png" alt="Dashboard do Hórus PDV" /></a>
     </td>
   </tr>
   <tr>
     <td width="50%">
       <strong>Clientes</strong><br />
-      <img src="docs/images/clientes.png" alt="Cadastro de clientes no Hórus PDV" />
+      <a href="docs/screenshots.html"><img src="docs/images/clientes.png" alt="Cadastro de clientes no Hórus PDV" /></a>
     </td>
     <td width="50%">
       <strong>Fornecedores</strong><br />
-      <img src="docs/images/fornecedores.png" alt="Cadastro de fornecedores no Hórus PDV" />
+      <a href="docs/screenshots.html"><img src="docs/images/fornecedores.png" alt="Cadastro de fornecedores no Hórus PDV" /></a>
     </td>
   </tr>
   <tr>
     <td width="50%">
       <strong>Produtos</strong><br />
-      <img src="docs/images/produtos.png" alt="Cadastro de produtos no Hórus PDV" />
+      <a href="docs/screenshots.html"><img src="docs/images/produtos.png" alt="Cadastro de produtos no Hórus PDV" /></a>
     </td>
     <td width="50%">
       <strong>Usuários</strong><br />
-      <img src="docs/images/usuarios.png" alt="Gestão de usuários no Hórus PDV" />
+      <a href="docs/screenshots.html"><img src="docs/images/usuarios.png" alt="Gestão de usuários no Hórus PDV" /></a>
     </td>
   </tr>
   <tr>
     <td width="50%">
       <strong>Frente de Caixa</strong><br />
-      <img src="docs/images/frente-caixa.png" alt="Frente de caixa do Hórus PDV" />
+      <a href="docs/screenshots.html"><img src="docs/images/frente-caixa.png" alt="Frente de caixa do Hórus PDV" /></a>
     </td>
     <td width="50%">
       <strong>Histórico de Vendas</strong><br />
-      <img src="docs/images/historico-vendas.png" alt="Histórico de vendas do Hórus PDV" />
+      <a href="docs/screenshots.html"><img src="docs/images/historico-vendas.png" alt="Histórico de vendas do Hórus PDV" /></a>
     </td>
   </tr>
   <tr>
     <td width="50%">
       <strong>Relatórios</strong><br />
-      <img src="docs/images/relatorios.png" alt="Relatórios do Hórus PDV" />
+      <a href="docs/screenshots.html"><img src="docs/images/relatorios.png" alt="Relatórios do Hórus PDV" /></a>
     </td>
     <td width="50%">
       <strong>Fiscal</strong><br />
-      <img src="docs/images/fiscal.png" alt="Módulo fiscal do Hórus PDV" />
+      <a href="docs/screenshots.html"><img src="docs/images/fiscal.png" alt="Módulo fiscal do Hórus PDV" /></a>
     </td>
   </tr>
   <tr>
     <td width="50%">
       <strong>Pagamentos Integrados</strong><br />
-      <img src="docs/images/pagamentos.png" alt="Pagamentos integrados do Hórus PDV" />
+      <a href="docs/screenshots.html"><img src="docs/images/pagamentos.png" alt="Pagamentos integrados do Hórus PDV" /></a>
     </td>
     <td width="50%">
       <strong>Estoque e Inventário</strong><br />
-      <img src="docs/images/estoque-inventario.png" alt="Estoque e inventário do Hórus PDV" />
+      <a href="docs/screenshots.html"><img src="docs/images/estoque-inventario.png" alt="Estoque e inventário do Hórus PDV" /></a>
     </td>
   </tr>
   <tr>
     <td width="50%">
       <strong>Abertura e Fechamento</strong><br />
-      <img src="docs/images/abertura-fechamento.png" alt="Abertura e fechamento de caixa no Hórus PDV" />
+      <a href="docs/screenshots.html"><img src="docs/images/abertura-fechamento.png" alt="Abertura e fechamento de caixa no Hórus PDV" /></a>
     </td>
     <td width="50%">
       <strong>Compras e Reposição</strong><br />
-      <img src="docs/images/compras-reposicao.png" alt="Compras e reposição no Hórus PDV" />
+      <a href="docs/screenshots.html"><img src="docs/images/compras-reposicao.png" alt="Compras e reposição no Hórus PDV" /></a>
     </td>
   </tr>
   <tr>
     <td width="50%">
       <strong>Trocas e Devoluções</strong><br />
-      <img src="docs/images/trocas-devolucoes.png" alt="Trocas e devoluções no Hórus PDV" />
+      <a href="docs/screenshots.html"><img src="docs/images/trocas-devolucoes.png" alt="Trocas e devoluções no Hórus PDV" /></a>
     </td>
     <td width="50%">
       <strong>CRM e Fidelidade</strong><br />
-      <img src="docs/images/crm-fidelidade.png" alt="CRM e fidelidade no Hórus PDV" />
+      <a href="docs/screenshots.html"><img src="docs/images/crm-fidelidade.png" alt="CRM e fidelidade no Hórus PDV" /></a>
     </td>
   </tr>
   <tr>
     <td width="50%">
       <strong>Omnichannel</strong><br />
-      <img src="docs/images/omnichannel.png" alt="Omnichannel no Hórus PDV" />
+      <a href="docs/screenshots.html"><img src="docs/images/omnichannel.png" alt="Omnichannel no Hórus PDV" /></a>
     </td>
     <td width="50%">
       <strong>Minha Empresa</strong><br />
-      <img src="docs/images/minha-empresa.png" alt="Página Minha Empresa do Hórus PDV" />
+      <a href="docs/screenshots.html"><img src="docs/images/minha-empresa.png" alt="Página Minha Empresa do Hórus PDV" /></a>
     </td>
   </tr>
   <tr>
     <td width="50%">
       <strong>Detalhes da Licença</strong><br />
-      <img src="docs/images/detalhes-licenca.png" alt="Detalhes da licença do Hórus PDV" />
+      <a href="docs/screenshots.html"><img src="docs/images/detalhes-licenca.png" alt="Detalhes da licença do Hórus PDV" /></a>
     </td>
     <td width="50%">
       <strong>Sobre PDV</strong><br />
-      <img src="docs/images/sobre-pdv.png" alt="Página Sobre PDV do Hórus PDV" />
+      <a href="docs/screenshots.html"><img src="docs/images/sobre-pdv.png" alt="Página Sobre PDV do Hórus PDV" /></a>
     </td>
   </tr>
   <tr>
     <td width="50%">
       <strong>Configurações</strong><br />
-      <img src="docs/images/configuracoes.png" alt="Configurações do Hórus PDV" />
+      <a href="docs/screenshots.html"><img src="docs/images/configuracoes.png" alt="Configurações do Hórus PDV" /></a>
     </td>
     <td width="50%">
       <strong>Perfil</strong><br />
-      <img src="docs/images/editar-perfil.png" alt="Perfil do usuário no Hórus PDV" />
+      <a href="docs/screenshots.html"><img src="docs/images/editar-perfil.png" alt="Perfil do usuário no Hórus PDV" /></a>
     </td>
   </tr>
 </table>
