@@ -90,10 +90,6 @@ Para visualizar em formato de slides, abra:
 <pre><code class="language-text">https://flaviooliveira-code.github.io/horus_pdv/screenshots.html
 </code></pre>
 
-No GitHub, arquivos `.html` dentro do repositório abrem como código. A galeria acima é publicada pelo workflow `Deploy Docs` usando GitHub Pages.
-
-Na primeira publicação, habilite uma vez em `Settings > Pages > Build and deployment > Source > GitHub Actions`. Depois disso, novos pushes em `docs/**` publicam automaticamente.
-
 <table>
   <tr>
     <td width="50%">
