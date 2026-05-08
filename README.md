@@ -92,6 +92,8 @@ Para visualizar em formato de slides, abra:
 
 No GitHub, arquivos `.html` dentro do repositório abrem como código. A galeria acima é publicada pelo workflow `Deploy Docs` usando GitHub Pages.
 
+Na primeira publicação, habilite uma vez em `Settings > Pages > Build and deployment > Source > GitHub Actions`. Depois disso, novos pushes em `docs/**` publicam automaticamente.
+
 <table>
   <tr>
     <td width="50%">
