@@ -773,6 +773,11 @@
         position: relative;
       }
 
+      .final-cta > * {
+        position: relative;
+        z-index: 1;
+      }
+
       .final-cta::after {
         content: "";
         position: absolute;
@@ -782,6 +787,20 @@
         height: 220px;
         border-radius: 999px;
         border: 34px solid rgba(255, 255, 255, 0.08);
+      }
+
+      .final-cta::before {
+        content: "";
+        position: absolute;
+        inset: auto 42px 36px auto;
+        width: min(42vw, 420px);
+        height: 1px;
+        background: linear-gradient(
+          90deg,
+          transparent,
+          rgba(255, 255, 255, 0.35),
+          transparent
+        );
       }
 
       .final-cta h2 {
@@ -803,6 +822,40 @@
         flex-wrap: wrap;
         gap: 12px;
         margin-top: 26px;
+      }
+
+      .portfolio-jump {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+        margin-top: 28px;
+      }
+
+      .jump-node,
+      .jump-arrow {
+        display: inline-flex;
+        min-height: 34px;
+        align-items: center;
+        border-radius: 999px;
+        font-size: 13px;
+        font-weight: 950;
+      }
+
+      .jump-node {
+        border: 1px solid rgba(255, 255, 255, 0.18);
+        background: rgba(255, 255, 255, 0.1);
+        color: #ffffff;
+        padding: 7px 11px;
+      }
+
+      .jump-arrow {
+        color: rgba(255, 255, 255, 0.72);
+      }
+
+      .btn-portfolio {
+        border-color: rgba(255, 255, 255, 0.42);
+        background: #ffffff;
+        color: var(--brand-dark);
       }
 
       .footer {
@@ -1059,9 +1112,16 @@
         .carousel-panel,
         .video-meta,
         .gallery-footer,
+        .portfolio-jump,
         .footer-inner {
           align-items: stretch;
           flex-direction: column;
+        }
+
+        .jump-arrow {
+          justify-content: center;
+          min-height: 20px;
+          transform: rotate(90deg);
         }
 
         .gallery-modal {
@@ -1131,7 +1191,7 @@
             <a
               class="btn btn-primary"
               href="https://github.com/flaviooliveira-code/horus_pdv"
-              >GitHub</a
+              >Ir no GitHub</a
             >
           </div>
         </nav>
@@ -1608,23 +1668,42 @@ npm run dev</code></pre>
       <section class="section">
         <div class="container">
           <div class="final-cta">
-            <h2>Autoria técnica e evolução aberta.</h2>
+            <h2>Conheça o desenvolvedor por trás do Hórus PDV.</h2>
             <p>
-              O Hórus PDV é mantido por Flávio Oliveira como projeto open
-              source, com foco em arquitetura web, operação de varejo, testes
-              automatizados e documentação pública.
+              O Hórus PDV faz parte do meu portfólio de projetos open source,
+              estudos técnicos e produtos em evolução. No meu site pessoal você
+              encontra outros sistemas, artigos sobre arquitetura, automação,
+              React, APIs e bastidores da construção desses projetos.
             </p>
             <div class="final-actions">
               <a
+                class="btn btn-portfolio"
+                href="https://flaviooliveira-code.github.io"
+                target="_blank"
+                rel="noopener noreferrer"
+                >Abrir portfólio</a
+              >
+              <a
                 class="btn btn-accent"
-                href="https://github.com/flaviooliveira-code"
-                >Perfil no GitHub</a
+                href="https://flaviooliveira-code.github.io/#projects"
+                target="_blank"
+                rel="noopener noreferrer"
+                >Ver outros projetos</a
               >
               <a
                 class="btn"
                 href="https://github.com/flaviooliveira-code/horus_pdv"
+                target="_blank"
+                rel="noopener noreferrer"
                 >Código-fonte</a
               >
+            </div>
+            <div class="portfolio-jump" aria-label="Caminho sugerido">
+              <span class="jump-node">Hórus PDV</span>
+              <span class="jump-arrow" aria-hidden="true">→</span>
+              <span class="jump-node">Portfólio</span>
+              <span class="jump-arrow" aria-hidden="true">→</span>
+              <span class="jump-node">Projetos e artigos</span>
             </div>
           </div>
         </div>
@@ -1635,9 +1714,19 @@ npm run dev</code></pre>
       <div class="container footer-inner">
         <span>Hórus PDV - Projeto open source para frente de caixa.</span>
         <span>
-          <a href="https://github.com/flaviooliveira-code/horus_pdv">GitHub</a>
+          <a
+            href="https://github.com/flaviooliveira-code/horus_pdv"
+            target="_blank"
+            rel="noopener noreferrer"
+            >Código-fonte</a
+          >
           ·
-          <a href="videos/horus-pdv-demo.webm">Vídeo</a>
+          <a
+            href="https://flaviooliveira-code.github.io"
+            target="_blank"
+            rel="noopener noreferrer"
+            >Portfólio</a
+          >
         </span>
       </div>
     </footer>
