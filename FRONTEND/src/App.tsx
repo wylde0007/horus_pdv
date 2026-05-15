@@ -546,10 +546,10 @@ export default function App() {
 
   useEffect(() => {
     if (activePage === "vendas" && isStandalonePos) {
-      document.title = "Hórus PDV - Frente de Caixa";
+      document.title = "Hórus PDV - Frente de caixa grátis";
       return;
     }
-    document.title = "Hórus PDV";
+    document.title = "Hórus PDV - PDV grátis e frente de caixa";
   }, [activePage, isStandalonePos]);
 
   if (!isAuthenticated) {

@@ -5,9 +5,9 @@
 ![Backend](https://img.shields.io/badge/backend-.NET%208-512bd4)
 ![License](https://img.shields.io/badge/license-MIT-16a34a)
 
-Hórus PDV é um projeto open source de frente de caixa e gestão operacional para pequenos e médios comércios.
+Hórus PDV é um PDV grátis para frente de caixa e gestão operacional de pequenos e médios comércios.
 
-O projeto está em evolução ativa, com frontend em React, API em ASP.NET Core e persistência em SQL Server para os dados operacionais principais.
+O projeto está em evolução ativa, com sistema de cadastro grátis para clientes, fornecedores e produtos, controle de estoque, vendas, caixa e relatórios. A base usa frontend em React, API em ASP.NET Core e persistência em SQL Server para os dados operacionais principais.
 
 Página inicial do projeto: https://flaviooliveira-code.github.io/horus_pdv/
 
