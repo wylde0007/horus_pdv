@@ -17,20 +17,30 @@ public class SessaoController(HorusSecurityStore securityStore) : ControllerBase
     [HttpGet]
     public IActionResult Listar()
     {
-        var currentSessionId = GetCurrentSessionId();
+        var currentUser = GetCurrentUser();
+        if (currentUser is null)
+        {
+            return Unauthorized(new ApiResponse<object> { Success = false, Message = "Sessão não encontrada." });
+        }
+
         return Ok(new ApiResponse<object>
         {
             Success = true,
             Message = "Sessoes obtidas com sucesso.",
-            Data = securityStore.ListSessions(currentSessionId)
+            Data = securityStore.ListSessions(currentUser.Id, currentUser.SessionId)
         });
     }
 
     [HttpDelete("{id}")]
     public IActionResult Encerrar(string id)
     {
-        var currentSessionId = GetCurrentSessionId();
-        if (id == currentSessionId)
+        var currentUser = GetCurrentUser();
+        if (currentUser is null)
+        {
+            return Unauthorized(new ApiResponse<object> { Success = false, Message = "Sessão não encontrada." });
+        }
+
+        if (id == currentUser.SessionId)
         {
             return BadRequest(new ApiResponse<object>
             {
@@ -39,7 +49,7 @@ public class SessaoController(HorusSecurityStore securityStore) : ControllerBase
             });
         }
 
-        if (!securityStore.TerminateSession(id, currentSessionId))
+        if (!securityStore.TerminateSession(currentUser.Id, id, currentUser.SessionId))
         {
             return NotFound(new ApiResponse<object> { Success = false, Message = "Sessão não encontrada." });
         }
@@ -48,25 +58,28 @@ public class SessaoController(HorusSecurityStore securityStore) : ControllerBase
         {
             Success = true,
             Message = "Sessao encerrada com sucesso.",
-            Data = securityStore.ListSessions(currentSessionId)
+            Data = securityStore.ListSessions(currentUser.Id, currentUser.SessionId)
         });
     }
 
     [HttpDelete("outras")]
     public IActionResult EncerrarOutras()
     {
-        var currentSessionId = GetCurrentSessionId();
-        securityStore.TerminateOtherSessions(currentSessionId);
+        var currentUser = GetCurrentUser();
+        if (currentUser is null)
+        {
+            return Unauthorized(new ApiResponse<object> { Success = false, Message = "Sessão não encontrada." });
+        }
+
+        securityStore.TerminateOtherSessions(currentUser.Id, currentUser.SessionId);
         return Ok(new ApiResponse<object>
         {
             Success = true,
             Message = "Outras sessoes encerradas com sucesso.",
-            Data = securityStore.ListSessions(currentSessionId)
+            Data = securityStore.ListSessions(currentUser.Id, currentUser.SessionId)
         });
     }
 
-    private string GetCurrentSessionId()
-        => HttpContext.Items["CurrentUser"] is AuthenticatedUser currentUser
-            ? currentUser.SessionId
-            : "";
+    private AuthenticatedUser? GetCurrentUser()
+        => HttpContext.Items["CurrentUser"] as AuthenticatedUser;
 }
