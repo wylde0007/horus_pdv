@@ -4,39 +4,37 @@
  * Entradas esperadas: recebe requisições REST, valida dados básicos e delega regras para serviços/repositórios.
  */
 using HORUSPDV_API.Models.Response;
+using HORUSPDV_API.Repositories.DatabaseAccess;
 using Microsoft.AspNetCore.Mvc;
+using System.Text.Json;
 
 namespace HORUSPDV_API.Controllers.Relatorio;
 
 [ApiController]
 [Route("api/[controller]")]
-public class RelatorioController : ControllerBase
+public class RelatorioController(RelatorioAB relatorioAB) : ControllerBase
 {
     [HttpPost("Gerar")]
-    public IActionResult Gerar([FromBody] RelatorioGerarRequest request)
-        => Ok(new ApiResponse<object>
+    public async Task<IActionResult> Gerar([FromBody] RelatorioGerarRequest request)
+    {
+        try
         {
-            Success = true,
-            Message = "Relatório gerado com sucesso.",
-            Data = new
+            return Ok(new ApiResponse<object>
             {
-                columns = new[]
-                {
-                    new { key = "indicador", label = "Indicador" },
-                    new { key = "valor", label = "Valor" },
-                    new { key = "status", label = "Status" }
-                },
-                rows = new[]
-                {
-                    new Dictionary<string, object> { ["indicador"] = request.ReportId, ["valor"] = "R$ 18.420,00", ["status"] = "Consolidado" },
-                    new Dictionary<string, object> { ["indicador"] = "Filtros aplicados", ["valor"] = request.Filters.Count, ["status"] = "Processado" }
-                }
-            }
-        });
+                Success = true,
+                Message = "Relatório gerado com sucesso.",
+                Data = await relatorioAB.GerarAsync(request.ReportId, request.Filters)
+            });
+        }
+        catch (InvalidOperationException ex)
+        {
+            return BadRequest(new ApiResponse<object> { Success = false, Message = ex.Message });
+        }
+    }
 }
 
 public class RelatorioGerarRequest
 {
     public string ReportId { get; set; } = string.Empty;
-    public Dictionary<string, object> Filters { get; set; } = [];
+    public Dictionary<string, JsonElement> Filters { get; set; } = [];
 }

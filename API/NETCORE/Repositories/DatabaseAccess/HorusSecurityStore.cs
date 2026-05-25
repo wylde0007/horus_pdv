@@ -208,16 +208,18 @@ public class HorusSecurityStore(Connection connection, HorusSecurityOptions secu
         return user is null || user.Status != "ativo" ? null : ToDto(user);
     }
 
-    public List<SecuritySessionDto> ListSessions(string currentSessionId)
+    public List<SecuritySessionDto> ListSessions(string userId, string currentSessionId)
     {
         using var db = connection.OpenConnection();
         using var command = new SqlCommand(
             """
             SELECT Id, UserId, Device, Location, Ip, LastActive, Platform, CreatedAt
             FROM Sessoes
+            WHERE UserId = @UserId
             ORDER BY CreatedAt DESC;
             """,
             db);
+        command.Parameters.AddWithValue("@UserId", userId);
         using var reader = command.ExecuteReader();
         var rows = new List<SecuritySessionDto>();
         while (reader.Read())
@@ -228,20 +230,22 @@ public class HorusSecurityStore(Connection connection, HorusSecurityOptions secu
         return rows;
     }
 
-    public bool TerminateSession(string id, string currentSessionId)
+    public bool TerminateSession(string userId, string id, string currentSessionId)
     {
         if (id == currentSessionId) return false;
 
         using var db = connection.OpenConnection();
-        using var command = new SqlCommand("DELETE FROM Sessoes WHERE Id = @Id;", db);
+        using var command = new SqlCommand("DELETE FROM Sessoes WHERE Id = @Id AND UserId = @UserId;", db);
         command.Parameters.AddWithValue("@Id", id);
+        command.Parameters.AddWithValue("@UserId", userId);
         return command.ExecuteNonQuery() > 0;
     }
 
-    public void TerminateOtherSessions(string currentSessionId)
+    public void TerminateOtherSessions(string userId, string currentSessionId)
     {
         using var db = connection.OpenConnection();
-        using var command = new SqlCommand("DELETE FROM Sessoes WHERE Id <> @Id;", db);
+        using var command = new SqlCommand("DELETE FROM Sessoes WHERE UserId = @UserId AND Id <> @Id;", db);
+        command.Parameters.AddWithValue("@UserId", userId);
         command.Parameters.AddWithValue("@Id", currentSessionId);
         command.ExecuteNonQuery();
     }
