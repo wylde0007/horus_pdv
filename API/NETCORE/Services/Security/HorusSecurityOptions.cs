@@ -7,8 +7,7 @@ namespace HORUSPDV_API.Services.Security;
 
 public class HorusSecurityOptions(IConfiguration configuration, IWebHostEnvironment environment)
 {
-    public string JwtSecret { get; } = configuration["Auth:JwtSecret"]
-        ?? "horus-pdv-development-secret-change-before-production-2026";
+    public string JwtSecret { get; } = configuration["Auth:JwtSecret"] ?? "";
 
     public string EncryptionKey { get; } = configuration["Security:EncryptionKey"] ?? "";
 
@@ -51,12 +50,15 @@ public class HorusSecurityOptions(IConfiguration configuration, IWebHostEnvironm
             ? Math.Clamp(maxBodyBytes, 32_768, 25_000_000)
             : 2_000_000;
 
+    public bool TrustForwardedHeaders { get; } =
+        bool.TryParse(configuration["Security:TrustForwardedHeaders"], out var trustForwardedHeaders) &&
+        trustForwardedHeaders;
+
     public void Validate()
     {
         if (!environment.IsProduction()) return;
 
-        var usingDefault = JwtSecret == "horus-pdv-development-secret-change-before-production-2026";
-        if (usingDefault || JwtSecret.Length < 32)
+        if (string.IsNullOrWhiteSpace(JwtSecret) || JwtSecret.Length < 32)
         {
             throw new InvalidOperationException(
                 "Auth:JwtSecret invalido em producao. Defina um segredo forte com pelo menos 32 caracteres.");

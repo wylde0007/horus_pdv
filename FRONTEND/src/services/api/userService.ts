@@ -37,7 +37,13 @@ export const userService = {
     return response.data;
   },
   async resetPassword(id: string) {
-    const response = await apiRequest<{ user: AdminUser; password: string }>(
+    const response = await apiRequest<{
+      user: AdminUser;
+      accepted: boolean;
+      maskedEmail?: string;
+      resetToken?: string;
+      expiresAt?: string;
+    }>(
       `${USUARIOS_API_URL}/${id}/resetar-senha`,
       { method: "POST" },
     );

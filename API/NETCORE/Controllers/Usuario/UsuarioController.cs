@@ -6,6 +6,7 @@
 using HORUSPDV_API.Models.Requests;
 using HORUSPDV_API.Models.Response;
 using HORUSPDV_API.Repositories.DatabaseAccess;
+using HORUSPDV_API.Services.Email;
 using HORUSPDV_API.Services.Security;
 using Microsoft.AspNetCore.Mvc;
 
@@ -14,7 +15,11 @@ namespace HORUSPDV_API.Controllers.Usuario;
 [ApiController]
 [Route("api/[controller]")]
 [HorusAuthorizeRoles("administrador", "gerente")]
-public class UsuarioController(HorusSecurityStore securityStore) : ControllerBase
+public class UsuarioController(
+    HorusSecurityStore securityStore,
+    HorusEmailService emailService,
+    IWebHostEnvironment environment,
+    ILogger<UsuarioController> logger) : ControllerBase
 {
     [HttpGet]
     public IActionResult Listar()
@@ -112,7 +117,7 @@ public class UsuarioController(HorusSecurityStore securityStore) : ControllerBas
     }
 
     [HttpPost("{id}/resetar-senha")]
-    public IActionResult ResetarSenha(string id)
+    public async Task<IActionResult> ResetarSenha(string id)
     {
         var currentUser = GetCurrentUser();
         if (currentUser is null)
@@ -120,17 +125,68 @@ public class UsuarioController(HorusSecurityStore securityStore) : ControllerBas
             return Unauthorized(new ApiResponse<object> { Success = false, Message = "Sessão não encontrada." });
         }
 
-        var result = securityStore.ResetPassword(id, currentUser.CompanyId);
+        var emailEnabled = await emailService.IsEnabledAsync();
+        if (!emailEnabled && !environment.IsDevelopment())
+        {
+            return StatusCode(StatusCodes.Status503ServiceUnavailable, new ApiResponse<object>
+            {
+                Success = false,
+                Message = "Reset de senha indisponível. Configure o envio de e-mail."
+            });
+        }
+
+        var result = securityStore.CreateAdminPasswordResetToken(
+            id,
+            currentUser.CompanyId,
+            GetClientIp(),
+            Request.Headers.UserAgent.ToString());
         if (result is null)
         {
             return NotFound(new ApiResponse<object> { Success = false, Message = "Usuário não encontrado." });
         }
 
+        if (!string.IsNullOrWhiteSpace(result.ResetToken) && result.ExpiresAt is not null && emailEnabled)
+        {
+            var resetUrl = emailService.BuildPasswordResetUrl(result.ResetToken);
+            try
+            {
+                await emailService.SendPasswordResetEmailAsync(
+                    result.User.Email,
+                    "Hórus PDV",
+                    resetUrl,
+                    result.ExpiresAt.Value,
+                    HttpContext.RequestAborted);
+            }
+            catch (Exception ex)
+            {
+                securityStore.ConsumePasswordResetToken(
+                    result.ResetToken,
+                    GetClientIp(),
+                    Request.Headers.UserAgent.ToString());
+                logger.LogWarning(ex, "Não foi possível enviar e-mail de reset administrativo para {Email}.", result.User.Email);
+                return StatusCode(StatusCodes.Status502BadGateway, new ApiResponse<object>
+                {
+                    Success = false,
+                    Message = "Não foi possível enviar o e-mail de redefinição de senha."
+                });
+            }
+        }
+
+        object responseData = emailEnabled || !environment.IsDevelopment()
+            ? new
+            {
+                result.User,
+                result.Accepted,
+                result.MaskedEmail,
+                result.ExpiresAt
+            }
+            : result;
+
         return Ok(new ApiResponse<object>
         {
             Success = true,
-            Message = "Senha resetada com sucesso.",
-            Data = new { user = result.User, password = result.Password }
+            Message = "Redefinição de senha gerada com sucesso.",
+            Data = responseData
         });
     }
 
@@ -141,4 +197,10 @@ public class UsuarioController(HorusSecurityStore securityStore) : ControllerBas
 
     private AuthenticatedUser? GetCurrentUser()
         => HttpContext.Items["CurrentUser"] as AuthenticatedUser;
+
+    private string GetClientIp()
+    {
+        var securityOptions = HttpContext.RequestServices.GetRequiredService<HorusSecurityOptions>();
+        return HorusClientIpResolver.Resolve(HttpContext, securityOptions, "0.0.0.0");
+    }
 }

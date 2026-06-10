@@ -1,6 +1,6 @@
 import { defineConfig, devices } from "@playwright/test";
 
-const appUrl = process.env.SMOKE_APP_URL ?? "http://127.0.0.1:5173";
+const appUrl = process.env.SMOKE_APP_URL ?? "http://localhost:5173";
 
 export default defineConfig({
   testDir: "./tests/smoke",
@@ -32,7 +32,7 @@ export default defineConfig({
       timeout: 120_000,
     },
     {
-      command: "vite --mode development --host 127.0.0.1 --port 5173",
+      command: "vite --mode development --host localhost --port 5173",
       url: appUrl,
       reuseExistingServer: true,
       timeout: 120_000,

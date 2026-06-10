@@ -19,9 +19,7 @@ import { authService } from "@/services/api/authService";
 import { cashRegisterService } from "@/services/api/cashRegisterService";
 import {
   clearAuthSession,
-  getAuthToken,
   getStoredAuthUser,
-  isTokenExpired,
   setAuthSession,
   type AuthenticatedUser,
 } from "@/utils/authStorage";
@@ -152,8 +150,12 @@ export default function App() {
   });
   const [isAuthenticated, setIsAuthenticated] = useState(() => {
     if (typeof window === "undefined") return false;
-    const token = getAuthToken();
-    return Boolean(token && !isTokenExpired(token) && getStoredAuthUser());
+    return Boolean(getStoredAuthUser());
+  });
+  const [isCheckingAuth, setIsCheckingAuth] = useState(() => {
+    if (typeof window === "undefined") return false;
+    const params = new URLSearchParams(window.location.search);
+    return !(params.get("resetToken") || params.get("token"));
   });
 
   const [currentUser, setCurrentUser] = useState<CurrentUser>(() => {
@@ -312,8 +314,7 @@ export default function App() {
         return { success: false, message: "A API não retornou o perfil atualizado." };
       }
 
-      const token = getAuthToken();
-      if (token) setAuthSession(token, user);
+      setAuthSession(user);
       setCurrentUser(toCurrentUser(user));
       return { success: true, message: "Perfil atualizado com sucesso." };
     } catch (error) {
@@ -409,7 +410,7 @@ export default function App() {
         };
       }
 
-      setAuthSession(result.token, result.user, remember);
+      setAuthSession(result.user, remember);
       setCurrentUser(toCurrentUser(result.user));
       setIsAuthenticated(true);
       setActivePage(isStandalonePos ? "vendas" : "home");
@@ -506,34 +507,36 @@ export default function App() {
   };
 
   useEffect(() => {
-    if (!isAuthenticated) return;
     authService
       .me()
       .then((user) => {
-        if (!user) return;
-        const token = getAuthToken();
-        if (token) setAuthSession(token, user);
+        if (!user) {
+          clearAuthSession();
+          setIsAuthenticated(false);
+          return;
+        }
+
+        setAuthSession(user);
         setCurrentUser(toCurrentUser(user));
+        setIsAuthenticated(true);
       })
       .catch(() => {
         clearAuthSession();
         setIsAuthenticated(false);
+      })
+      .finally(() => {
+        setIsCheckingAuth(false);
       });
-  }, [isAuthenticated]);
+  }, []);
 
   useEffect(() => {
     const syncAuthState = () => {
-      const token = getAuthToken();
-      if (!token || isTokenExpired(token)) {
-        clearAuthSession();
-        setIsAuthenticated(false);
-        return;
-      }
-
       const user = getStoredAuthUser();
       if (user) {
         setCurrentUser(toCurrentUser(user));
         setIsAuthenticated(true);
+      } else {
+        setIsAuthenticated(false);
       }
     };
 
@@ -573,6 +576,14 @@ export default function App() {
     }
     document.title = "Hórus PDV - PDV grátis e frente de caixa";
   }, [activePage, isStandalonePos]);
+
+  if (isCheckingAuth) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-bg-primary text-text-secondary">
+        <LoadingBar />
+      </div>
+    );
+  }
 
   if (!isAuthenticated) {
     if (publicAuthPage === "forgot-password") {

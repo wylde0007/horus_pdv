@@ -9,7 +9,7 @@ namespace HORUSPDV_API.Middlewares;
 
 public class HorusRequestTelemetryMiddleware(RequestDelegate next, ILogger<HorusRequestTelemetryMiddleware> logger)
 {
-    public async Task InvokeAsync(HttpContext context)
+    public async Task InvokeAsync(HttpContext context, HorusSecurityOptions securityOptions)
     {
         var requestId = Guid.NewGuid().ToString("N");
         var startedAt = DateTimeOffset.UtcNow;
@@ -33,18 +33,7 @@ public class HorusRequestTelemetryMiddleware(RequestDelegate next, ILogger<Horus
                 Math.Round(durationMs),
                 currentUser?.Id,
                 currentUser?.SessionId,
-                ResolveClientIp(context));
+                HorusClientIpResolver.Resolve(context, securityOptions));
         }
-    }
-
-    private static string ResolveClientIp(HttpContext context)
-    {
-        var forwarded = context.Request.Headers["X-Forwarded-For"].FirstOrDefault();
-        if (!string.IsNullOrWhiteSpace(forwarded))
-        {
-            return forwarded.Split(',')[0].Trim();
-        }
-
-        return context.Connection.RemoteIpAddress?.ToString() ?? "unknown";
     }
 }

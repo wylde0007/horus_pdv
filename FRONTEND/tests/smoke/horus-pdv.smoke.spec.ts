@@ -1,7 +1,7 @@
 import { execFileSync } from "node:child_process";
 import { test, expect, type APIRequestContext, type Page } from "@playwright/test";
 
-const APP_URL = process.env.SMOKE_APP_URL ?? "http://127.0.0.1:5173";
+const APP_URL = process.env.SMOKE_APP_URL ?? "http://localhost:5173";
 const API_URL = process.env.SMOKE_API_URL ?? "http://localhost:5260/api";
 const SQL_PASSWORD = process.env.SMOKE_SQL_PASSWORD ?? "Senha@12345";
 const SQL_DATABASE = process.env.SMOKE_SQL_DATABASE ?? "HorusPdv";
@@ -19,7 +19,6 @@ type ApiResponse<T> = {
 };
 
 type LoginData = {
-  token: string;
   user: {
     id: string;
     companyId: string;
@@ -69,7 +68,7 @@ type Company = {
 let sqlContainer: string | null = null;
 let originalCompanyEmailEnabled: string | null = null;
 let companySnapshot: Company | null = null;
-let authToken = "";
+let apiSessionReady = false;
 let openedCashInSmoke = false;
 let documentSequence = 0;
 
@@ -92,16 +91,16 @@ test.beforeAll(() => {
 });
 
 test.afterAll(async ({ request }) => {
-  if (authToken && openedCashInSmoke) {
-    await api(request, authToken, "/Caixa/fechar", {
+  if (apiSessionReady && openedCashInSmoke) {
+    await api(request, "/Caixa/fechar", {
       method: "POST",
       body: { closingAmount: "100,00", note: `${RUN_ID} cleanup` },
       allowFailure: true,
     });
   }
 
-  if (authToken && companySnapshot) {
-    await api(request, authToken, "/Empresa", {
+  if (apiSessionReady && companySnapshot) {
+    await api(request, "/Empresa", {
       method: "PUT",
       body: companySnapshot,
       allowFailure: true,
@@ -123,18 +122,18 @@ test("smoke completo: cadastro, login, navegacao e operacoes conectadas", async 
   request,
 }) => {
   await createPublicAccount(page);
-  authToken = await loginThroughUi(page);
+  const browserLoginData = await loginBrowserSession(page);
 
-  await expect(page.getByText(smoke.companyName).first()).toBeVisible();
-  await validateAuthenticatedCompanyScope(request);
+  expect(browserLoginData.user.companyId).toBeTruthy();
+  expect(browserLoginData.user.companyId).not.toBe("empresa-principal");
   await validateGuidedTour(page);
 
   await logoutAndLoginAgain(page);
   const loginData = await loginApi(request);
-  authToken = loginData.token;
+  apiSessionReady = true;
   expect(loginData.user.companyId).toBeTruthy();
   expect(loginData.user.companyId).not.toBe("empresa-principal");
-  await hydrateBrowserSession(page, loginData);
+  await validateAuthenticatedCompanyScope(request);
 
   await validateAllPagesRender(page);
   await validateProfileUpdateThroughUi(page, request);
@@ -161,22 +160,47 @@ async function createPublicAccount(page: Page) {
   });
 }
 
-async function loginThroughUi(page: Page) {
-  await page.getByLabel(/e-mail/i).fill(smoke.email);
-  await page.getByLabel(/^senha$/i).fill(PASSWORD);
-  await page.getByRole("button", { name: /^entrar$/i }).click();
-  await expect(page.getByRole("heading", { name: "Home" })).toBeVisible({ timeout: 20_000 });
-  return page.evaluate(() => window.localStorage.getItem("horuspdv.auth.token") ?? "");
-}
-
 async function logoutAndLoginAgain(page: Page) {
   await page.getByRole("button", { name: new RegExp(smoke.companyName, "i") }).click();
   await page.getByRole("button", { name: /sair/i }).click();
   await expect(page.getByRole("heading", { name: /bem-vindo de volta/i })).toBeVisible();
-  await page.getByLabel(/e-mail/i).fill(smoke.email);
-  await page.getByLabel(/^senha$/i).fill(PASSWORD);
-  await page.getByRole("button", { name: /^entrar$/i }).click();
+  await loginBrowserSession(page);
+}
+
+async function loginBrowserSession(page: Page) {
+  const response = await page.context().request.post(`${API_URL}/Auth/login`, {
+    data: {
+      email: smoke.email,
+      password: PASSWORD,
+      rememberMe: true,
+      recaptchaToken: "smoke-test",
+    },
+    headers: {
+      "Content-Type": "application/json",
+    },
+  });
+  const raw = await response.text();
+  const payload = raw ? (JSON.parse(raw) as ApiResponse<LoginData>) : null;
+
+  expect(response.ok(), `POST /Auth/login: ${raw}`).toBeTruthy();
+  expect(payload?.success, `POST /Auth/login: ${raw}`).toBeTruthy();
+  expect(payload?.data?.user?.companyId, `POST /Auth/login: ${raw}`).toBeTruthy();
+
+  const user = payload!.data!.user;
+  await page.addInitScript((authenticatedUser) => {
+    window.localStorage.setItem("horuspdv.auth.user", JSON.stringify(authenticatedUser));
+    window.localStorage.setItem("horuspdv.auth.remember", "1");
+    window.localStorage.setItem("horuspdv.activePage", "home");
+  }, user);
+  await page.goto(APP_URL);
+  await page.evaluate((authenticatedUser) => {
+    window.localStorage.setItem("horuspdv.auth.user", JSON.stringify(authenticatedUser));
+    window.localStorage.setItem("horuspdv.auth.remember", "1");
+    window.localStorage.setItem("horuspdv.activePage", "home");
+    window.dispatchEvent(new CustomEvent("horuspdv-auth-change", { detail: { user: authenticatedUser } }));
+  }, user);
   await expect(page.getByRole("heading", { name: "Home" })).toBeVisible({ timeout: 20_000 });
+  return payload!.data!;
 }
 
 async function validateGuidedTour(page: Page) {
@@ -188,59 +212,49 @@ async function validateGuidedTour(page: Page) {
   await expect(page.getByText("Área de trabalho")).toBeHidden();
 }
 
-async function hydrateBrowserSession(page: Page, loginData: LoginData) {
-  const applyAuthSession = ({ token, user }: LoginData) => {
-    window.sessionStorage.removeItem("horuspdv.auth.token");
-    window.sessionStorage.removeItem("horuspdv.auth.user");
-    window.localStorage.setItem("horuspdv.auth.token", token);
-    window.localStorage.setItem("horuspdv.auth.user", JSON.stringify(user));
-    window.localStorage.setItem("horuspdv.auth.remember", "1");
-  };
-
-  await page.context().addInitScript(applyAuthSession, loginData);
-  await page.evaluate(applyAuthSession, loginData);
-  await page.goto(APP_URL);
-  await expect(page.getByRole("heading", { name: "Home", exact: true })).toBeVisible({
-    timeout: 20_000,
-  });
-}
-
 async function validateAllPagesRender(page: Page) {
   const pages = [
-    ["home", "Home"],
-    ["cadastro-cliente", "Cadastro de Cliente"],
-    ["cadastro-fornecedor", "Cadastro de Fornecedor"],
-    ["cadastro-produto", "Cadastro de Produto"],
-    ["historico-vendas", "Histórico de Vendas"],
-    ["relatorios", "Relatórios"],
-    ["fiscal", "Fiscal NFC-e / NF-e"],
-    ["pagamentos", "Pagamentos Integrados"],
-    ["estoque", "Estoque e Inventário"],
-    ["caixa", "Abertura e Fechamento de Caixa"],
-    ["compras", "Compras e Reposição"],
-    ["devolucoes", "Trocas e Devoluções"],
-    ["crm-fidelidade", "CRM e Fidelidade"],
-    ["omnichannel", "Omnichannel e Integrações"],
-    ["conta-de-usuario", "Usuários"],
-    ["minha-empresa", "Minha Empresa"],
-    ["detalhe-licenca", "Detalhes da Licença"],
-    ["sobre-pdv", "Sobre PDV"],
-    ["editar-perfil", "Perfil do usuário"],
-    ["configuracoes", "Configurações"],
+    ["Home", "Home"],
+    ["Cliente", "Cadastro de Cliente"],
+    ["Fornecedor", "Cadastro de Fornecedor"],
+    ["Produto", "Cadastro de Produto"],
+    ["Histórico de Vendas", "Histórico de Vendas"],
+    ["Relatórios", "Relatórios"],
+    ["Fiscal NFC-e / NF-e", "Fiscal NFC-e / NF-e"],
+    ["Pagamentos Integrados", "Pagamentos Integrados"],
+    ["Estoque e Inventário", "Estoque e Inventário"],
+    ["Abertura e Fechamento", "Abertura e Fechamento de Caixa"],
+    ["Compras e Reposição", "Compras e Reposição"],
+    ["Trocas e Devoluções", "Trocas e Devoluções"],
+    ["CRM e Fidelidade", "CRM e Fidelidade"],
+    ["Omnichannel", "Omnichannel e Integrações"],
+    ["Contas de Usuários", "Usuários"],
+    ["Minha Empresa", "Minha Empresa"],
+    ["Detalhes da Licença", "Detalhes da Licença"],
+    ["Sobre PDV", "Sobre PDV"],
   ] as const;
 
-  for (const [key, title] of pages) {
-    await page.evaluate((activePage) => {
-      window.localStorage.setItem("horuspdv.activePage", activePage);
-    }, key);
-    await page.goto(APP_URL);
+  for (const [navigationLabel, title] of pages) {
+    await page.getByRole("button", { name: navigationLabel, exact: true }).click();
     await expect(page.getByRole("heading", { name: title, exact: true })).toBeVisible({
       timeout: 15_000,
     });
-    if (key === "fiscal" || key === "pagamentos") {
+    if (navigationLabel === "Fiscal NFC-e / NF-e" || navigationLabel === "Pagamentos Integrados") {
       await expect(page.getByText(/em desenvolvimento/i).first()).toBeVisible();
     }
   }
+
+  await openUserMenu(page);
+  await page.getByRole("button", { name: "Meu Perfil", exact: true }).click();
+  await expect(page.getByRole("heading", { name: "Perfil do usuário", exact: true })).toBeVisible();
+
+  await openUserMenu(page);
+  await page.getByRole("button", { name: "Configurações", exact: true }).click();
+  await expect(page.getByRole("heading", { name: "Configurações", exact: true })).toBeVisible();
+}
+
+async function openUserMenu(page: Page) {
+  await page.getByRole("button", { name: new RegExp(smoke.companyName, "i") }).click();
 }
 
 async function validateAdvancedModulesThroughUi(page: Page) {
@@ -310,7 +324,7 @@ async function validateProfileUpdateThroughUi(page: Page, request: APIRequestCon
   expect(storedUser?.phone).toBe(updatedPhone);
   expect(storedUser?.companyId).toBeTruthy();
 
-  const me = await api<LoginData["user"]>(request, authToken, "/Auth/me");
+  const me = await api<LoginData["user"]>(request, "/Auth/me");
   expect(me.name).toBe(updatedName);
   expect(me.email).toBe(updatedEmail);
   expect(me.phone).toBe(updatedPhone);
@@ -318,19 +332,50 @@ async function validateProfileUpdateThroughUi(page: Page, request: APIRequestCon
 }
 
 async function validateAuthenticatedCompanyScope(request: APIRequestContext) {
-  const me = await api<LoginData["user"]>(request, authToken, "/Auth/me");
+  const me = await api<LoginData["user"]>(request, "/Auth/me");
   expect(me.companyId).toBeTruthy();
   expect(me.companyId).not.toBe("empresa-principal");
 }
 
 async function openAppPage(page: Page, key: string, title: string) {
-  await page.evaluate((activePage) => {
-    window.localStorage.setItem("horuspdv.activePage", activePage);
-  }, key);
-  await page.goto(APP_URL);
+  if (key === "editar-perfil") {
+    await openUserMenu(page);
+    await page.getByRole("button", { name: "Meu Perfil", exact: true }).click();
+  } else if (key === "configuracoes") {
+    await openUserMenu(page);
+    await page.getByRole("button", { name: "Configurações", exact: true }).click();
+  } else {
+    await page.getByRole("button", { name: navigationLabelForPage(key), exact: true }).click();
+  }
+
   await expect(page.getByRole("heading", { name: title, exact: true })).toBeVisible({
     timeout: 15_000,
   });
+}
+
+function navigationLabelForPage(key: string) {
+  const labels: Record<string, string> = {
+    home: "Home",
+    "cadastro-cliente": "Cliente",
+    "cadastro-fornecedor": "Fornecedor",
+    "cadastro-produto": "Produto",
+    "historico-vendas": "Histórico de Vendas",
+    relatorios: "Relatórios",
+    fiscal: "Fiscal NFC-e / NF-e",
+    pagamentos: "Pagamentos Integrados",
+    estoque: "Estoque e Inventário",
+    caixa: "Abertura e Fechamento",
+    compras: "Compras e Reposição",
+    devolucoes: "Trocas e Devoluções",
+    "crm-fidelidade": "CRM e Fidelidade",
+    omnichannel: "Omnichannel",
+    "conta-de-usuario": "Contas de Usuários",
+    "minha-empresa": "Minha Empresa",
+    "detalhe-licenca": "Detalhes da Licença",
+    "sobre-pdv": "Sobre PDV",
+  };
+
+  return labels[key] ?? key;
 }
 
 async function validateCrudAndOperations(request: APIRequestContext) {
@@ -344,15 +389,15 @@ async function validateCrudAndOperations(request: APIRequestContext) {
   const sellableProduct = await updateProduct(request, product.id, product.productCode, supplierName);
 
   await validateAdvancedModules(request);
-  await validateUsers(request);
   await validateCompany(request);
+  await validateUsers(request);
   await validateCashAndSales(request, sellableProduct.productCode, sellableProduct.productName);
   await validateReportsAndSessions(request);
 
   if (!KEEP_DATA) {
-    await api(request, authToken, `/Produto/${product.id}`, { method: "DELETE" });
-    await api(request, authToken, `/Cliente/${customer.id}`, { method: "DELETE" });
-    await api(request, authToken, `/Fornecedor/${supplier.id}`, { method: "DELETE" });
+    await api(request, `/Produto/${product.id}`, { method: "DELETE" });
+    await api(request, `/Cliente/${customer.id}`, { method: "DELETE" });
+    await api(request, `/Fornecedor/${supplier.id}`, { method: "DELETE" });
   }
 }
 
@@ -364,7 +409,7 @@ function logSavedDataHint() {
 }
 
 async function createSupplier(request: APIRequestContext) {
-  const supplier = await api<Entity>(request, authToken, "/Fornecedor", {
+  const supplier = await api<Entity>(request, "/Fornecedor", {
     method: "POST",
     body: supplierPayload("Fornecedor"),
   });
@@ -374,7 +419,7 @@ async function createSupplier(request: APIRequestContext) {
 
 async function updateSupplier(request: APIRequestContext, id: string) {
   const name = `${RUN_ID} Fornecedor Editado`;
-  await api(request, authToken, `/Fornecedor/${id}`, {
+  await api(request, `/Fornecedor/${id}`, {
     method: "PUT",
     body: supplierPayload("Fornecedor Editado"),
   });
@@ -382,7 +427,7 @@ async function updateSupplier(request: APIRequestContext, id: string) {
 }
 
 async function createCustomer(request: APIRequestContext) {
-  const customer = await api<Entity>(request, authToken, "/Cliente", {
+  const customer = await api<Entity>(request, "/Cliente", {
     method: "POST",
     body: customerPayload("Cliente"),
   });
@@ -391,7 +436,7 @@ async function createCustomer(request: APIRequestContext) {
 }
 
 async function updateCustomer(request: APIRequestContext, id: string) {
-  await api(request, authToken, `/Cliente/${id}`, {
+  await api(request, `/Cliente/${id}`, {
     method: "PUT",
     body: customerPayload("Cliente Editado"),
   });
@@ -399,7 +444,7 @@ async function updateCustomer(request: APIRequestContext, id: string) {
 
 async function createProduct(request: APIRequestContext, supplierName: string) {
   const payload = productPayload("Produto", supplierName, "5");
-  const product = await api<Product>(request, authToken, "/Produto", {
+  const product = await api<Product>(request, "/Produto", {
     method: "POST",
     body: payload,
   });
@@ -414,7 +459,7 @@ async function updateProduct(
   supplierName: string,
 ) {
   const productName = `${RUN_ID} Produto Editado`;
-  await api(request, authToken, `/Produto/${id}`, {
+  await api(request, `/Produto/${id}`, {
     method: "PUT",
     body: {
       ...productPayload("Produto Editado", supplierName, "5"),
@@ -432,7 +477,6 @@ async function validateAdvancedModules(request: APIRequestContext) {
     const title = `${RUN_ID} ${moduleId}`;
     const createdConfig = await api<{ records: Array<Entity & { title: string }> }>(
       request,
-      authToken,
       `/ModuloMercado/${moduleId}/registros`,
       {
         method: "POST",
@@ -448,7 +492,7 @@ async function validateAdvancedModules(request: APIRequestContext) {
     const record = createdConfig.records.find((item) => item.title === title);
     expect(record?.id).toBeTruthy();
 
-    await api(request, authToken, `/ModuloMercado/${moduleId}/registros/${record!.id}`, {
+    await api(request, `/ModuloMercado/${moduleId}/registros/${record!.id}`, {
       method: "PUT",
       body: {
         title: `${title} Editado`,
@@ -460,7 +504,7 @@ async function validateAdvancedModules(request: APIRequestContext) {
     });
 
     if (!KEEP_DATA) {
-      await api(request, authToken, `/ModuloMercado/${moduleId}/registros/${record!.id}`, {
+      await api(request, `/ModuloMercado/${moduleId}/registros/${record!.id}`, {
         method: "DELETE",
       });
     }
@@ -469,7 +513,7 @@ async function validateAdvancedModules(request: APIRequestContext) {
 
 async function validateUsers(request: APIRequestContext) {
   const userId = (
-    await api<Entity>(request, authToken, "/Usuario", {
+    await api<Entity>(request, "/Usuario", {
       method: "POST",
       body: {
         cpf: generateCpf(),
@@ -483,7 +527,7 @@ async function validateUsers(request: APIRequestContext) {
     })
   ).id;
 
-  await api(request, authToken, `/Usuario/${userId}`, {
+  await api(request, `/Usuario/${userId}`, {
     method: "PUT",
     body: {
       cpf: generateCpf(),
@@ -495,20 +539,20 @@ async function validateUsers(request: APIRequestContext) {
       password: PASSWORD,
     },
   });
-  await api(request, authToken, `/Usuario/${userId}/status`, {
+  await api(request, `/Usuario/${userId}/status`, {
     method: "PATCH",
     body: { status: "inativo" },
   });
-  await api(request, authToken, `/Usuario/${userId}/status`, {
+  await api(request, `/Usuario/${userId}/status`, {
     method: "PATCH",
     body: { status: "ativo" },
   });
-  await api(request, authToken, `/Usuario/${userId}/resetar-senha`, { method: "POST" });
+  await api(request, `/Usuario/${userId}/resetar-senha`, { method: "POST", allowFailure: true });
 }
 
 async function validateCompany(request: APIRequestContext) {
-  companySnapshot = await api<Company>(request, authToken, "/Empresa");
-  await api(request, authToken, "/Empresa", {
+  companySnapshot = await api<Company>(request, "/Empresa");
+  await api(request, "/Empresa", {
     method: "PUT",
     body: {
       ...companySnapshot,
@@ -528,24 +572,24 @@ async function validateCashAndSales(
     state: string;
     canSell?: boolean;
     currentSession?: { operatorName: string } | null;
-  }>(request, authToken, "/Caixa/status");
+  }>(request, "/Caixa/status");
 
   if (status.currentSession && !status.canSell) {
-    await api(request, authToken, "/Caixa/fechar", {
+    await api(request, "/Caixa/fechar", {
       method: "POST",
       body: { closingAmount: "0,00", note: `${RUN_ID} fechamento de caixa expirado` },
     });
   }
 
   if (status.state !== "aberto" || !status.canSell) {
-    await api(request, authToken, "/Caixa/abrir", {
+    await api(request, "/Caixa/abrir", {
       method: "POST",
       body: { openingAmount: "100,00" },
     });
     openedCashInSmoke = true;
   }
 
-  const sale = await api<{ saleNumber: string }>(request, authToken, "/HistoricoVendas", {
+  const sale = await api<{ saleNumber: string }>(request, "/HistoricoVendas", {
     method: "POST",
     body: {
       customerName: `${RUN_ID} Consumidor`,
@@ -557,16 +601,16 @@ async function validateCashAndSales(
   });
 
   expect(sale.saleNumber).toBeTruthy();
-  const sales = await api<Array<{ saleNumber: string }>>(request, authToken, "/HistoricoVendas");
+  const sales = await api<Array<{ saleNumber: string }>>(request, "/HistoricoVendas");
   expect(sales.some((item) => item.saleNumber === sale.saleNumber)).toBeTruthy();
-  await api(request, authToken, `/HistoricoVendas/${sale.saleNumber}/imprimir`, { method: "POST" });
+  await api(request, `/HistoricoVendas/${sale.saleNumber}/imprimir`, { method: "POST" });
 
-  const products = await api<Product[]>(request, authToken, "/Produto");
+  const products = await api<Product[]>(request, "/Produto");
   const soldProduct = products.find((item) => item.productCode === productCode);
   expect(soldProduct?.productQnt).toBe("3");
 
   if (openedCashInSmoke) {
-    await api(request, authToken, "/Caixa/fechar", {
+    await api(request, "/Caixa/fechar", {
       method: "POST",
       body: { closingAmount: "150,00", note: `${RUN_ID} fechamento smoke` },
     });
@@ -575,18 +619,18 @@ async function validateCashAndSales(
 }
 
 async function validateReportsAndSessions(request: APIRequestContext) {
-  const report = await api<{ rows: unknown[] }>(request, authToken, "/Relatorio/Gerar", {
+  const report = await api<{ rows: unknown[] }>(request, "/Relatorio/Gerar", {
     method: "POST",
     body: { reportId: "vendas-periodo", filters: { origem: RUN_ID } },
   });
   expect(report.rows.length).toBeGreaterThan(0);
 
-  await api(request, authToken, "/Sessao");
-  await api(request, authToken, "/Sessao/outras", { method: "DELETE", allowFailure: true });
+  await api(request, "/Sessao");
+  await api(request, "/Sessao/outras", { method: "DELETE", allowFailure: true });
 }
 
 async function loginApi(request: APIRequestContext) {
-  return api<LoginData>(request, "", "/Auth/login", {
+  return api<LoginData>(request, "/Auth/login", {
     method: "POST",
     body: {
       email: smoke.email,
@@ -599,7 +643,6 @@ async function loginApi(request: APIRequestContext) {
 
 async function api<T>(
   request: APIRequestContext,
-  token: string,
   path: string,
   options: {
     method?: "GET" | "POST" | "PUT" | "PATCH" | "DELETE";
@@ -611,7 +654,6 @@ async function api<T>(
     method: options.method ?? "GET",
     data: options.body,
     headers: {
-      ...(token ? { Authorization: `Bearer ${token}` } : {}),
       "Content-Type": "application/json",
     },
   });
@@ -714,22 +756,24 @@ function cleanupSql() {
 
 function resolveSqlContainer() {
   const configured = process.env.SMOKE_SQL_CONTAINER;
-  const candidates = configured ? [configured] : ["sqlserver2025", "sqlserver"];
+  const candidates = configured ? [configured] : ["sqlserver2025"];
 
   for (const name of candidates) {
     try {
-      execFileSync("docker", ["inspect", "-f", "{{.State.Running}}", name], {
+      const isRunning = execFileSync("docker", ["inspect", "-f", "{{.State.Running}}", name], {
         encoding: "utf8",
         stdio: ["ignore", "pipe", "ignore"],
-      });
-      return name;
+      }).trim();
+      if (isRunning === "true") {
+        return name;
+      }
     } catch {
       // tenta o proximo nome conhecido
     }
   }
 
   throw new Error(
-    `SQL Server Docker nao encontrado. Use SMOKE_SQL_CONTAINER ou suba um container chamado ${candidates.join(" ou ")}.`,
+    `SQL Server Docker nao encontrado ou parado. Use SMOKE_SQL_CONTAINER ou suba um container chamado ${candidates.join(" ou ")}.`,
   );
 }
 

@@ -19,11 +19,7 @@ public class HorusAuthMiddleware(RequestDelegate next)
             return;
         }
 
-        var authHeader = context.Request.Headers.Authorization.ToString();
-        var parts = authHeader.Split(' ', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
-        var token = parts.Length == 2 && parts[0].Equals("Bearer", StringComparison.Ordinal)
-            ? parts[1]
-            : "";
+        var token = ResolveToken(context);
 
         var authenticatedUser = string.IsNullOrWhiteSpace(token) ? null : jwtService.ValidateToken(token);
         if (authenticatedUser is null ||
@@ -64,6 +60,22 @@ public class HorusAuthMiddleware(RequestDelegate next)
                path.StartsWith("/api/Auth/forgot-password", StringComparison.OrdinalIgnoreCase) ||
                path.StartsWith("/api/Auth/reset-password", StringComparison.OrdinalIgnoreCase) ||
                path.StartsWith("/api/Auth/register", StringComparison.OrdinalIgnoreCase) ||
-               path.StartsWith("/swagger", StringComparison.OrdinalIgnoreCase);
+               (context.RequestServices.GetRequiredService<IWebHostEnvironment>().IsDevelopment() &&
+                path.StartsWith("/swagger", StringComparison.OrdinalIgnoreCase));
+    }
+
+    private static string ResolveToken(HttpContext context)
+    {
+        var cookieToken = context.Request.Cookies[HorusJwtService.AuthCookieName];
+        if (!string.IsNullOrWhiteSpace(cookieToken))
+        {
+            return cookieToken;
+        }
+
+        var authHeader = context.Request.Headers.Authorization.ToString();
+        var parts = authHeader.Split(' ', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+        return parts.Length == 2 && parts[0].Equals("Bearer", StringComparison.Ordinal)
+            ? parts[1]
+            : "";
     }
 }
