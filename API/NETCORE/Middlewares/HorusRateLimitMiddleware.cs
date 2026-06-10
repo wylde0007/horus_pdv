@@ -22,7 +22,7 @@ public class HorusRateLimitMiddleware(RequestDelegate next)
         }
 
         var now = DateTimeOffset.UtcNow;
-        var key = ResolveClientIp(context);
+        var key = HorusClientIpResolver.Resolve(context, securityOptions);
         var window = TimeSpan.FromSeconds(securityOptions.RequestRateLimitWindowSeconds);
         var bucket = Buckets.AddOrUpdate(
             key,
@@ -61,17 +61,6 @@ public class HorusRateLimitMiddleware(RequestDelegate next)
 
     private static bool IsSwagger(string? path)
         => !string.IsNullOrWhiteSpace(path) && path.StartsWith("/swagger", StringComparison.OrdinalIgnoreCase);
-
-    private static string ResolveClientIp(HttpContext context)
-    {
-        var forwarded = context.Request.Headers["X-Forwarded-For"].FirstOrDefault();
-        if (!string.IsNullOrWhiteSpace(forwarded))
-        {
-            return forwarded.Split(',')[0].Trim();
-        }
-
-        return context.Connection.RemoteIpAddress?.ToString() ?? "unknown";
-    }
 
     private static void CleanupExpired(DateTimeOffset now)
     {

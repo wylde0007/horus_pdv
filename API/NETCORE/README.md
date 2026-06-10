@@ -23,11 +23,15 @@ Suba o SQL Server via Docker:
   mcr.microsoft.com/mssql/server:2022-latest
 </code></pre>
 
-Connection string padrão:
+Connection string local de desenvolvimento:
 
 <pre><code class="language-json">"ConnectionStrings": {
   "HorusPdv": "Server=localhost,1433;Database=HorusPdv;User Id=sa;Password=Senha@12345;TrustServerCertificate=True;Encrypt=True;MultipleActiveResultSets=True"
 }</code></pre>
+
+Se seu container estiver publicado em outra porta, ajuste o host da connection string local. Exemplo: `docker ps` mostrando `0.0.0.0:1434->1433/tcp` exige `Server=localhost,1434`.
+
+Não use essa senha em produção. Para ambientes publicados, configure a conexão fora do repositório, por exemplo com `HORUSPDV_CONNECTION_STRING` ou o secret manager da hospedagem.
 
 Ao iniciar, a API executa `DataBase/Resumo.sql` para criar o banco `HorusPdv`, criar tabelas/relacionamentos e inserir os dados iniciais quando ainda não existirem.
 
@@ -50,14 +54,14 @@ dotnet user-secrets set "Email:Enabled" "true"
 dotnet user-secrets set "Email:Password" "SUA_SENHA_DE_APP_AQUI"
 </code></pre>
 
-Configurações padrão em `appsettings.json`:
+Configurações de exemplo:
 
 <pre><code class="language-json">"Email": {
   "Host": "smtp-mail.outlook.com",
   "Port": 587,
   "User": "naoresponderhoruspdv@outlook.com",
   "FromEmail": "naoresponderhoruspdv@outlook.com",
-  "FrontendBaseUrl": "http://localhost:5173"
+  "FrontendBaseUrl": "https://seu-frontend.example.com"
 }</code></pre>
 
 Para conta `@outlook.com`, o host padrão é `smtp-mail.outlook.com`, porta `587`, com STARTTLS. Para conta Microsoft 365 corporativa, use `smtp.office365.com`.
@@ -66,9 +70,9 @@ Se o envio SMTP retornar `SmtpClientAuthentication is disabled for the Mailbox`,
 
 Em operação, a configuração principal fica em `Minha Empresa > Configuração de e-mail`, salva na tabela `Empresas`. Quando ela estiver ativa, os disparos usam o SMTP da empresa; quando estiver desativada, a API usa o fallback de `appsettings`/User Secrets para desenvolvimento. A senha SMTP não é devolvida pela API, apenas o indicador de senha configurada.
 
-A senha SMTP é gravada criptografada no banco. Em produção, configure uma chave forte:
+A senha SMTP é gravada criptografada no banco. Em produção, configure uma chave forte por variável de ambiente ou secret manager:
 
-<pre><code class="language-bash">dotnet user-secrets set "Security:EncryptionKey" "UMA_CHAVE_FORTE_COM_PELO_MENOS_32_CARACTERES"
+<pre><code class="language-bash">Security__EncryptionKey="UMA_CHAVE_FORTE_COM_PELO_MENOS_32_CARACTERES"
 </code></pre>
 
 Exemplo para Gmail, se você decidir usar uma caixa Gmail no futuro:
@@ -93,7 +97,7 @@ dotnet build
 dotnet run --urls http://localhost:5260
 </code></pre>
 
-Swagger:
+Swagger fica disponível apenas em ambiente `Development`:
 
 <pre><code class="language-text">http://localhost:5260/swagger
 </code></pre>

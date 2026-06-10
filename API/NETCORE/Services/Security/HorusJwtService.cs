@@ -12,6 +12,8 @@ namespace HORUSPDV_API.Services.Security;
 
 public class HorusJwtService(HorusSecurityOptions securityOptions)
 {
+    public const string AuthCookieName = "horuspdv.auth";
+
     public int SessionHours => securityOptions.SessionHours;
 
     public string CreateToken(SecurityUserDto user, SecuritySession session, string ip)

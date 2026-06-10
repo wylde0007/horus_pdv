@@ -31,7 +31,8 @@ builder.Services.AddCors(options =>
         policyBuilder
             .WithOrigins(corsOrigins)
             .AllowAnyHeader()
-            .AllowAnyMethod();
+            .AllowAnyMethod()
+            .AllowCredentials();
     });
 });
 
@@ -96,8 +97,11 @@ app.UseMiddleware<HorusRateLimitMiddleware>();
 app.UseMiddleware<HorusAuthMiddleware>();
 app.UseAuthorization();
 
-app.UseSwagger();
-app.UseSwaggerUI();
+if (app.Environment.IsDevelopment())
+{
+    app.UseSwagger();
+    app.UseSwaggerUI();
+}
 
 app.MapControllers();
 

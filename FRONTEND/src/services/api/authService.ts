@@ -16,7 +16,6 @@ export type LoginPayload = {
 };
 
 export type LoginResponse = {
-  token: string;
   tokenType: "Bearer";
   expiresInSeconds: number;
   sessionId: string;

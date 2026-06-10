@@ -152,41 +152,6 @@ public class HorusSecurityStore(Connection connection, HorusSecurityOptions secu
         return ToDto(updated);
     }
 
-    public ResetPasswordResult? ResetPassword(string id, string companyId)
-    {
-        var user = FindUserById(id, companyId);
-        if (user is null) return null;
-
-        var password = $"Tmp@{Random.Shared.Next(100000, 999999)}9";
-        using var db = connection.OpenConnection();
-        using var transaction = db.BeginTransaction();
-        try
-        {
-            using var command = new SqlCommand(
-                """
-                UPDATE Usuarios
-                   SET PasswordHash = @PasswordHash,
-                       MustChangePassword = 1
-                 WHERE Id = @Id;
-                DELETE FROM Sessoes WHERE UserId = @Id;
-                """,
-                db,
-                transaction);
-            command.Parameters.AddWithValue("@PasswordHash", PasswordHasher.Hash(password));
-            command.Parameters.AddWithValue("@Id", user.Id);
-            command.ExecuteNonQuery();
-            transaction.Commit();
-        }
-        catch
-        {
-            transaction.Rollback();
-            throw;
-        }
-
-        user.MustChangePassword = true;
-        return new ResetPasswordResult(ToDto(user), password);
-    }
-
     public LoginResult Authenticate(string email, string password, string ip, string userAgent)
     {
         var normalizedEmail = email.Trim().ToLowerInvariant();
@@ -411,6 +376,106 @@ public class HorusSecurityStore(Connection connection, HorusSecurityOptions secu
 
             transaction.Commit();
             return PasswordResetRequestResult.Create(MaskEmail(user.Email), token, expiresAt);
+        }
+        catch
+        {
+            transaction.Rollback();
+            throw;
+        }
+    }
+
+    public AdminPasswordResetResult? CreateAdminPasswordResetToken(
+        string userId,
+        string companyId,
+        string ip,
+        string userAgent)
+    {
+        var now = DateTimeOffset.UtcNow;
+        var expiresAt = now.AddMinutes(securityOptions.PasswordResetTokenMinutes);
+        var requestedDevice = BuildDeviceLabel(userAgent);
+
+        using var db = connection.OpenConnection();
+        using var transaction = db.BeginTransaction();
+        try
+        {
+            var user = FindUserById(db, transaction, userId, companyId);
+            if (user is null) return null;
+
+            var cnpj = FindCompanyCnpj(db, transaction, companyId);
+
+            using (var cleanup = new SqlCommand(
+                       "DELETE FROM PasswordResetTokens WHERE ExpiresAt <= @RetentionCutoff;",
+                       db,
+                       transaction))
+            {
+                cleanup.Parameters.AddWithValue("@RetentionCutoff", now.AddDays(-7));
+                cleanup.ExecuteNonQuery();
+            }
+
+            using (var deleteTokens = new SqlCommand(
+                       """
+                       UPDATE PasswordResetTokens
+                          SET ConsumedAt = @Now,
+                              UpdatedAt = @Now
+                        WHERE UserId = @UserId
+                          AND ConsumedAt IS NULL;
+                       """,
+                       db,
+                       transaction))
+            {
+                deleteTokens.Parameters.AddWithValue("@UserId", user.Id);
+                deleteTokens.Parameters.AddWithValue("@Now", now);
+                deleteTokens.ExecuteNonQuery();
+            }
+
+            var token = GenerateSecureToken();
+            var tokenHash = HashPasswordResetToken(token);
+            using (var insert = new SqlCommand(
+                       """
+                       INSERT INTO PasswordResetTokens
+                           (Id, UserId, Email, Cnpj, TokenHash, CreatedAt, RequestedAt, ExpiresAt, ConsumedAt,
+                            RequestedIp, RequestedUserAgent, RequestedDevice, ResetIp, ResetUserAgent, ResetDevice, UpdatedAt)
+                       VALUES
+                           (@Id, @UserId, @Email, @Cnpj, @TokenHash, @CreatedAt, @RequestedAt, @ExpiresAt, NULL,
+                            @RequestedIp, @RequestedUserAgent, @RequestedDevice, NULL, NULL, NULL, @UpdatedAt);
+                       """,
+                       db,
+                       transaction))
+            {
+                insert.Parameters.AddWithValue("@Id", $"prt-{Guid.NewGuid():N}");
+                insert.Parameters.AddWithValue("@UserId", user.Id);
+                insert.Parameters.AddWithValue("@Email", user.Email);
+                insert.Parameters.AddWithValue("@Cnpj", cnpj);
+                insert.Parameters.AddWithValue("@TokenHash", tokenHash);
+                insert.Parameters.AddWithValue("@CreatedAt", now);
+                insert.Parameters.AddWithValue("@RequestedAt", now);
+                insert.Parameters.AddWithValue("@ExpiresAt", expiresAt);
+                insert.Parameters.AddWithValue("@RequestedIp", NullIfEmpty(ip));
+                insert.Parameters.AddWithValue("@RequestedUserAgent", NullIfEmpty(userAgent));
+                insert.Parameters.AddWithValue("@RequestedDevice", NullIfEmpty(requestedDevice));
+                insert.Parameters.AddWithValue("@UpdatedAt", now);
+                insert.ExecuteNonQuery();
+            }
+
+            using (var updateUser = new SqlCommand(
+                       "UPDATE Usuarios SET MustChangePassword = 1 WHERE Id = @UserId AND CompanyId = @CompanyId;",
+                       db,
+                       transaction))
+            {
+                updateUser.Parameters.AddWithValue("@UserId", user.Id);
+                updateUser.Parameters.AddWithValue("@CompanyId", companyId);
+                updateUser.ExecuteNonQuery();
+            }
+
+            using (var deleteSessions = new SqlCommand("DELETE FROM Sessoes WHERE UserId = @UserId;", db, transaction))
+            {
+                deleteSessions.Parameters.AddWithValue("@UserId", user.Id);
+                deleteSessions.ExecuteNonQuery();
+            }
+
+            transaction.Commit();
+            user.MustChangePassword = true;
+            return AdminPasswordResetResult.Create(ToDto(user), MaskEmail(user.Email), token, expiresAt);
         }
         catch
         {
@@ -678,8 +743,7 @@ public class HorusSecurityStore(Connection connection, HorusSecurityOptions secu
     private SecurityUserRecord? FindUserById(string id, string companyId)
     {
         using var db = connection.OpenConnection();
-        var user = FindUserById(db, null, id);
-        return user is not null && user.CompanyId == companyId ? user : null;
+        return FindUserById(db, null, id, companyId);
     }
 
     private SecurityUserRecord? FindUserByEmail(string email)
@@ -710,6 +774,34 @@ public class HorusSecurityStore(Connection connection, HorusSecurityOptions secu
         command.Parameters.AddWithValue("@Id", id);
         using var reader = command.ExecuteReader();
         return reader.Read() ? ReadUser(reader) : null;
+    }
+
+    private static SecurityUserRecord? FindUserById(
+        SqlConnection db,
+        SqlTransaction? transaction,
+        string id,
+        string companyId)
+    {
+        using var command = new SqlCommand(
+            """
+            SELECT Id, CompanyId, Cpf, Name, Email, Phone, Role, Status, CreatedAt, LastLoginAt, PasswordHash, MustChangePassword
+            FROM Usuarios
+            WHERE Id = @Id AND CompanyId = @CompanyId;
+            """,
+            db,
+            transaction);
+        command.Parameters.AddWithValue("@Id", id);
+        command.Parameters.AddWithValue("@CompanyId", companyId);
+        using var reader = command.ExecuteReader();
+        return reader.Read() ? ReadUser(reader) : null;
+    }
+
+    private static string FindCompanyCnpj(SqlConnection db, SqlTransaction transaction, string companyId)
+    {
+        using var command = new SqlCommand("SELECT Cnpj FROM Empresas WHERE Id = @CompanyId;", db, transaction);
+        command.Parameters.AddWithValue("@CompanyId", companyId);
+        var result = command.ExecuteScalar()?.ToString() ?? "";
+        return OnlyDigits(result);
     }
 
     private static SecurityUserRecord? FindUserForPasswordReset(
@@ -944,11 +1036,25 @@ public class SecuritySessionDto
     public string Platform { get; set; } = "desktop";
 }
 
-public record ResetPasswordResult(SecurityUserDto User, string Password);
 public record PasswordResetRequestResult(bool Accepted, string? MaskedEmail, string? ResetToken, DateTimeOffset? ExpiresAt)
 {
     public static PasswordResetRequestResult Create(string? maskedEmail = null, string? resetToken = null, DateTimeOffset? expiresAt = null)
         => new(true, maskedEmail, resetToken, expiresAt);
+}
+
+public record AdminPasswordResetResult(
+    SecurityUserDto User,
+    bool Accepted,
+    string? MaskedEmail,
+    string? ResetToken,
+    DateTimeOffset? ExpiresAt)
+{
+    public static AdminPasswordResetResult Create(
+        SecurityUserDto user,
+        string? maskedEmail,
+        string? resetToken,
+        DateTimeOffset? expiresAt)
+        => new(user, true, maskedEmail, resetToken, expiresAt);
 }
 
 public record LoginResult(bool Success, string Message, SecurityUserDto? User, SecuritySession? Session, DateTimeOffset? LockedUntil)

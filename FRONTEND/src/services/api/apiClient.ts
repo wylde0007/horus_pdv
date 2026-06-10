@@ -3,7 +3,7 @@
  * Objetivo: centralizar chamadas HTTP para a API .NET do Hórus PDV.
   * Entradas esperadas: recebe caminho, método e payload opcional para executar requisições autenticadas.
 */
-import { clearAuthSession, getAuthToken } from "@/utils/authStorage";
+import { clearAuthSession } from "@/utils/authStorage";
 
 export type ApiResponse<T> = {
   success: boolean;
@@ -20,12 +20,11 @@ export async function apiRequest<T>(
   endpointUrl: string,
   options: ApiRequestOptions = {},
 ): Promise<ApiResponse<T>> {
-  const { skipAuth, headers, ...requestOptions } = options;
-  const token = skipAuth ? null : getAuthToken();
+  const { skipAuth: _skipAuth, headers, ...requestOptions } = options;
   const response = await fetch(endpointUrl, {
+    credentials: "include",
     headers: {
       "Content-Type": "application/json",
-      ...(token ? { Authorization: `Bearer ${token}` } : {}),
       ...headers,
     },
     ...requestOptions,

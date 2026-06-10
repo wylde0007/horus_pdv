@@ -165,7 +165,7 @@ export default function UserAccountsPage() {
 
   const resetPassword = async (user: AdminUser) => {
     const confirmed = await statusDialog.confirm(
-      `Resetar senha de ${user.name} para uma senha provisória?`,
+      `Gerar redefinição de senha para ${user.name}?`,
     );
     if (!confirmed) return;
 
@@ -174,7 +174,11 @@ export default function UserAccountsPage() {
       const result = await userService.resetPassword(user.id);
       if (!result) return;
       setUsers((current) => current.map((item) => (item.id === user.id ? result.user : item)));
-      statusDialog.success(`Senha de ${user.name} resetada. Senha provisória: ${result.password}`);
+      statusDialog.success(
+        result.resetToken
+          ? `Redefinição gerada para ${user.name}. Token de desenvolvimento: ${result.resetToken}`
+          : `Redefinição enviada para ${result.maskedEmail ?? user.email}.`,
+      );
     } catch (error) {
       statusDialog.error(error instanceof Error ? error.message : "Erro ao resetar senha.");
     } finally {

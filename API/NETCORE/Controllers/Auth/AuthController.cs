@@ -19,6 +19,8 @@ public class AuthController(
     HorusJwtService jwtService,
     HorusRecaptchaService recaptchaService,
     HorusEmailService emailService,
+    HorusSecurityOptions securityOptions,
+    IWebHostEnvironment environment,
     ILogger<AuthController> logger) : ControllerBase
 {
     [HttpPost("login")]
@@ -62,13 +64,13 @@ public class AuthController(
         }
 
         var token = jwtService.CreateToken(result.User, result.Session, ip);
+        AppendAuthCookie(token, request.RememberMe);
         return Ok(new ApiResponse<object>
         {
             Success = true,
             Message = "Login realizado com sucesso.",
             Data = new
             {
-                token,
                 tokenType = "Bearer",
                 expiresInSeconds = jwtService.SessionHours * 60 * 60,
                 sessionId = result.Session.Id,
@@ -113,6 +115,16 @@ public class AuthController(
             });
         }
 
+        var emailEnabled = await emailService.IsEnabledAsync();
+        if (!emailEnabled && !environment.IsDevelopment())
+        {
+            return StatusCode(StatusCodes.Status503ServiceUnavailable, new ApiResponse<object>
+            {
+                Success = false,
+                Message = "Recuperação de senha indisponível. Configure o envio de e-mail."
+            });
+        }
+
         var ip = GetClientIp();
         var userAgent = Request.Headers.UserAgent.ToString();
         var resetRequest = securityStore.CreatePasswordResetToken(request.Cnpj, request.Email, ip, userAgent);
@@ -144,7 +156,7 @@ public class AuthController(
         {
             Success = true,
             Message = "Se o e-mail estiver cadastrado, enviaremos as instruções de recuperação.",
-            Data = await emailService.IsEnabledAsync()
+            Data = emailEnabled || !environment.IsDevelopment()
                 ? new
                 {
                     resetRequest.Accepted,
@@ -181,6 +193,7 @@ public class AuthController(
                 request.ConfirmPassword,
                 GetClientIp(),
                 Request.Headers.UserAgent.ToString());
+            DeleteAuthCookie();
             return Ok(new ApiResponse<object>
             {
                 Success = true,
@@ -303,6 +316,7 @@ public class AuthController(
             securityStore.TerminateCurrentSession(currentUser.SessionId);
         }
 
+        DeleteAuthCookie();
         return Ok(new ApiResponse<object>
         {
             Success = true,
@@ -343,15 +357,31 @@ public class AuthController(
     }
 
     private string GetClientIp()
+        => HorusClientIpResolver.Resolve(HttpContext, securityOptions, "0.0.0.0");
+
+    private void AppendAuthCookie(string token, bool rememberMe)
     {
-        var forwarded = Request.Headers["X-Forwarded-For"].FirstOrDefault();
-        if (!string.IsNullOrWhiteSpace(forwarded))
+        var options = BuildAuthCookieOptions();
+        if (rememberMe)
         {
-            return forwarded.Split(',')[0].Trim();
+            options.Expires = DateTimeOffset.UtcNow.AddHours(jwtService.SessionHours);
         }
 
-        return HttpContext.Connection.RemoteIpAddress?.ToString() ?? "0.0.0.0";
+        Response.Cookies.Append(HorusJwtService.AuthCookieName, token, options);
     }
+
+    private void DeleteAuthCookie()
+    {
+        Response.Cookies.Delete(HorusJwtService.AuthCookieName, BuildAuthCookieOptions());
+    }
+
+    private CookieOptions BuildAuthCookieOptions() => new()
+    {
+        HttpOnly = true,
+        Secure = !environment.IsDevelopment(),
+        SameSite = environment.IsDevelopment() ? SameSiteMode.Lax : SameSiteMode.Strict,
+        Path = "/"
+    };
 
     public class UpdateProfileRequest
     {
