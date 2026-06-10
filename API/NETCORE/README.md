@@ -9,18 +9,18 @@ API ASP.NET Core do Hórus PDV.
 - Microsoft.Data.SqlClient
 - SQL Server
 - Swagger
-- JWT
+- JWT em cookie HttpOnly
 
 ## Banco Local
 
 Suba o SQL Server via Docker:
 
 <pre><code class="language-bash">docker run -d \
-  --name sqlserver \
+  --name sqlserver2025 \
   -e ACCEPT_EULA=Y \
   -e SA_PASSWORD='Senha@12345' \
   -p 1433:1433 \
-  mcr.microsoft.com/mssql/server:2022-latest
+  mcr.microsoft.com/mssql/server:2025-latest
 </code></pre>
 
 Connection string local de desenvolvimento:
@@ -31,7 +31,7 @@ Connection string local de desenvolvimento:
 
 Se seu container estiver publicado em outra porta, ajuste o host da connection string local. Exemplo: `docker ps` mostrando `0.0.0.0:1434->1433/tcp` exige `Server=localhost,1434`.
 
-Não use essa senha em produção. Para ambientes publicados, configure a conexão fora do repositório, por exemplo com `HORUSPDV_CONNECTION_STRING` ou o secret manager da hospedagem.
+Não use essa senha em produção. Para ambientes publicados, configure a conexão fora do repositório, por exemplo com `HORUSPDV_CONNECTION_STRING` ou o secret manager da hospedagem. O `appsettings.json` versionado não deve conter connection string, segredo JWT ou chave de criptografia reais.
 
 Ao iniciar, a API executa `DataBase/Resumo.sql` para criar o banco `HorusPdv`, criar tabelas/relacionamentos e inserir os dados iniciais quando ainda não existirem.
 
@@ -101,6 +101,14 @@ Swagger fica disponível apenas em ambiente `Development`:
 
 <pre><code class="language-text">http://localhost:5260/swagger
 </code></pre>
+
+## Autenticação
+
+O login emite JWT assinado e grava a sessão em cookie HttpOnly (`horuspdv.auth`). O frontend usa `credentials: "include"` nas chamadas HTTP e não armazena o token JWT em `localStorage`.
+
+Em desenvolvimento, o cookie não exige HTTPS e usa `SameSite=Lax`. Em produção, o cookie é `Secure` e a API valida `Auth:JwtSecret` e `Security:EncryptionKey`; configure esses valores por variável de ambiente ou secret manager.
+
+O middleware ainda aceita `Authorization: Bearer` para compatibilidade, mas o fluxo principal do frontend é por cookie.
 
 ## Tabelas
 

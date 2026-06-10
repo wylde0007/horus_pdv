@@ -39,13 +39,13 @@ Este repositório está em fase de desenvolvimento. O frontend já conversa com 
 | --------------------- | --------------------------------------- |
 | Frontend React        | Em desenvolvimento ativo                |
 | API .NET              | Em desenvolvimento ativo                |
-| Autenticação JWT      | Implementada                            |
+| Autenticação          | JWT em cookie HttpOnly                  |
 | reCAPTCHA v3          | Implementado, opcional por configuração |
 | Banco de dados        | SQL Server conectado                    |
 | Smoke test E2E        | Implementado                            |
 | Fiscal NFC-e / NF-e   | Em desenvolvimento                      |
 | Pagamentos integrados | Em desenvolvimento                      |
-| Sistema legado        | Mantido como referência histórica       |
+| Sistema legado (branch legacy) | Mantido como referência histórica       |
 
 ## Stack
 
@@ -63,14 +63,14 @@ Este repositório está em fase de desenvolvimento. O frontend já conversa com 
 - .NET 8
 - ASP.NET Core Web API
 - Swagger
-- JWT
+- JWT em cookie HttpOnly
 - Rate limit local
 - Acesso manual ao SQL Server com `Microsoft.Data.SqlClient`
 - SQL Server
 
 ## Funcionalidades
 
-- Login com JWT.
+- Login com sessão JWT em cookie HttpOnly.
 - Cadastro público por CNPJ.
 - Recuperação e redefinição de senha.
 - Gestão de clientes, fornecedores e produtos.
@@ -211,7 +211,6 @@ Para visualizar em formato de slides, abra a página inicial e clique em qualque
 ├── API/
 │   └── NETCORE/          # API ASP.NET Core
 ├── FRONTEND/             # Aplicação React + Vite
-├── SYSTEM-LEGACY/        # Base legada para consulta/migração
 ├── LICENSE
 └── README.md
 </code></pre>
@@ -246,7 +245,7 @@ O projeto espera um SQL Server local na porta `1433`. Exemplo com Docker:
   -e ACCEPT_EULA=Y \
   -e SA_PASSWORD='Senha@12345' \
   -p 1433:1433 \
-  mcr.microsoft.com/mssql/server:2022-latest
+  mcr.microsoft.com/mssql/server:2025-latest
 </code></pre>
 
 Se o container já existir e estiver parado:
@@ -299,7 +298,7 @@ Arquivos disponíveis:
 - `FRONTEND/.env.development`
 - `FRONTEND/.env.prod`
 
-Na API, configurações sensíveis como JWT, CORS e reCAPTCHA ficam em `API/NETCORE/appsettings.json` durante o desenvolvimento local.
+Na API, `API/NETCORE/appsettings.json` fica sem segredos reais. Para desenvolvimento local, use `API/NETCORE/appsettings.Development.json`, variáveis de ambiente ou User Secrets. Em produção, configure connection string, `Auth:JwtSecret`, `Security:EncryptionKey`, CORS, reCAPTCHA e SMTP fora do repositório.
 
 ## Scripts
 
@@ -334,7 +333,7 @@ dotnet run --urls http://localhost:5260
 
 ## Smoke Test
 
-O smoke test sobe a API e o frontend automaticamente, cria uma conta pública, autentica, valida navegação, executa operações principais via API e limpa os dados criados com prefixo `SMOKE_`.
+O smoke test sobe a API e o frontend automaticamente, cria uma conta pública, autentica com cookie HttpOnly, valida navegação, executa operações principais via API e limpa os dados criados com prefixo `SMOKE_`.
 
 Pré-requisito: Docker Desktop e SQL Server local precisam estar rodando antes da execução.
 
@@ -359,13 +358,13 @@ npm run smoke:keep
 
 Variáveis opcionais:
 
-- `SMOKE_APP_URL`, padrão `http://127.0.0.1:5173`.
+- `SMOKE_APP_URL`, padrão `http://localhost:5173`.
 - `SMOKE_API_URL`, padrão `http://localhost:5260/api`.
-- `SMOKE_SQL_CONTAINER`, padrão tenta `sqlserver2025` e depois `sqlserver`.
+- `SMOKE_SQL_CONTAINER`, padrão `sqlserver2025`.
 - `SMOKE_SQL_PASSWORD`, padrão `Senha@12345`.
 - `SMOKE_KEEP_DATA=1`, mantém os dados criados no banco para conferência manual.
 
-O SQL Server Docker precisa estar rodando. O teste desativa temporariamente o disparo real de e-mail da empresa durante a execução e restaura a configuração ao final.
+O SQL Server Docker precisa estar rodando. O teste exige que o container configurado esteja com estado `running`; se ele estiver parado, o smoke falha antes de tentar `docker exec`. O teste desativa temporariamente o disparo real de e-mail da empresa durante a execução e restaura a configuração ao final. A validação de reset de senha não depende de SMTP externo.
 
 Se o smoke falhar com erro de conexão no SQL Server, suba o Docker Desktop e inicie o container:
 
@@ -384,17 +383,15 @@ Depois procure no banco por `SMOKE_CONFERE%` em `Usuarios`, `Clientes`, `Fornece
 
 ## Validação Local
 
-Última validação local executada em **08/05/2026**:
+Última validação local executada em **10/06/2026**:
 
 <pre><code class="language-bash">dotnet build API/NETCORE/HORUSPDV-API.sln
 cd FRONTEND
-npm run lint
-npx tsc --noEmit --project tsconfig.app.json
 npm run build
 npm run smoke
 </code></pre>
 
-Resultado: build da API, lint, TypeScript, build do frontend e smoke test completo passaram.
+Resultado: build da API, build do frontend e smoke test completo passaram.
 
 Observação: durante a validação, o smoke encontrou um caixa antigo aberto fora do período permitido. O teste foi ajustado para fechar caixa expirado antes de abrir o caixa da execução atual, preservando a regra de negócio da API.
 
@@ -402,16 +399,18 @@ Observação: durante a validação, o smoke encontrou um caixa antigo aberto fo
 
 O projeto já possui uma base de segurança para desenvolvimento:
 
-- JWT com sessão.
-- Middleware de autenticação.
+- JWT assinado com sessão persistida.
+- Cookie HttpOnly para sessão autenticada; o frontend não armazena token JWT em `localStorage`.
+- Middleware de autenticação com suporte a cookie e Bearer token legado.
 - Controle de sessão ativa.
 - Rate limit local.
 - Bloqueio por tentativas inválidas de login.
 - Recuperação de senha por token temporário.
 - reCAPTCHA v3 opcional para login, cadastro e recuperação de senha.
-- CORS configurado para ambientes locais do frontend.
+- CORS configurado para ambientes locais do frontend com credenciais.
+- Swagger disponível apenas em ambiente `Development`.
 
-> Importante: antes de produção, altere `Auth:JwtSecret`, habilite armazenamento persistente e configure chaves reais de reCAPTCHA quando necessário.
+> Importante: antes de produção, defina `Auth:JwtSecret`, `Security:EncryptionKey`, connection string, CORS e reCAPTCHA por variável de ambiente ou secret manager. Não versionar segredos reais.
 
 ## Padrões de Interface
 
