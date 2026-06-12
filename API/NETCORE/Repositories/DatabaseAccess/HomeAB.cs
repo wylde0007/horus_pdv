@@ -3,7 +3,7 @@
  * Objetivo: consolidar indicadores reais da home a partir das tabelas operacionais.
  * Entradas esperadas: recebe conexão configurada e retorna dados agregados para o dashboard.
  */
-using Microsoft.Data.SqlClient;
+using Npgsql;
 using System.Globalization;
 
 namespace HORUSPDV_API.Repositories.DatabaseAccess;
@@ -79,7 +79,7 @@ public class HomeAB(Connection connection)
             """;
 
         await using var db = await connection.OpenConnectionAsync();
-        await using var command = new SqlCommand(sql, db);
+        await using var command = new NpgsqlCommand(sql, db);
         command.Parameters.AddWithValue("@CompanyId", companyId);
         await using var reader = await command.ExecuteReaderAsync();
         var rows = new List<HomeSaleRow>();
@@ -103,7 +103,7 @@ public class HomeAB(Connection connection)
             """;
 
         await using var db = await connection.OpenConnectionAsync();
-        await using var command = new SqlCommand(sql, db);
+        await using var command = new NpgsqlCommand(sql, db);
         command.Parameters.AddWithValue("@CompanyId", companyId);
         await using var reader = await command.ExecuteReaderAsync();
         var rows = new List<HomeProductRow>();
@@ -124,7 +124,7 @@ public class HomeAB(Connection connection)
             .ToArray();
     }
 
-    private static string ReadString(SqlDataReader reader, string name)
+    private static string ReadString(NpgsqlDataReader reader, string name)
     {
         var ordinal = reader.GetOrdinal(name);
         return reader.IsDBNull(ordinal) ? string.Empty : reader.GetString(ordinal);

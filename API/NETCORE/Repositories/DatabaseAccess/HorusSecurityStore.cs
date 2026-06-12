@@ -6,7 +6,7 @@
 using HORUSPDV_API.Models.Requests;
 using HORUSPDV_API.Repositories;
 using HORUSPDV_API.Services.Security;
-using Microsoft.Data.SqlClient;
+using Npgsql;
 using System.Security.Cryptography;
 using System.Text;
 
@@ -23,7 +23,7 @@ public class HorusSecurityStore(Connection connection, HorusSecurityOptions secu
     public List<SecurityUserDto> ListUsers(string companyId)
     {
         using var db = connection.OpenConnection();
-        using var command = new SqlCommand(
+        using var command = new NpgsqlCommand(
             """
             SELECT Id, CompanyId, Cpf, Name, Email, Phone, Role, Status, CreatedAt, LastLoginAt, PasswordHash, MustChangePassword
             FROM Usuarios
@@ -111,7 +111,7 @@ public class HorusSecurityStore(Connection connection, HorusSecurityOptions secu
 
         user.Status = status == "inativo" ? "inativo" : "ativo";
         using var db = connection.OpenConnection();
-        using var command = new SqlCommand("UPDATE Usuarios SET Status = @Status WHERE Id = @Id AND CompanyId = @CompanyId;", db);
+        using var command = new NpgsqlCommand("UPDATE Usuarios SET Status = @Status WHERE Id = @Id AND CompanyId = @CompanyId;", db);
         command.Parameters.AddWithValue("@Status", user.Status);
         command.Parameters.AddWithValue("@Id", user.Id);
         command.Parameters.AddWithValue("@CompanyId", companyId);
@@ -181,7 +181,7 @@ public class HorusSecurityStore(Connection connection, HorusSecurityOptions secu
             using var transaction = db.BeginTransaction();
             try
             {
-                using var updateUser = new SqlCommand(
+                using var updateUser = new NpgsqlCommand(
                     "UPDATE Usuarios SET LastLoginAt = @LastLoginAt WHERE Id = @Id;",
                     db,
                     transaction);
@@ -211,7 +211,7 @@ public class HorusSecurityStore(Connection connection, HorusSecurityOptions secu
     public List<SecuritySessionDto> ListSessions(string userId, string currentSessionId)
     {
         using var db = connection.OpenConnection();
-        using var command = new SqlCommand(
+        using var command = new NpgsqlCommand(
             """
             SELECT Id, UserId, Device, Location, Ip, LastActive, Platform, CreatedAt
             FROM Sessoes
@@ -235,7 +235,7 @@ public class HorusSecurityStore(Connection connection, HorusSecurityOptions secu
         if (id == currentSessionId) return false;
 
         using var db = connection.OpenConnection();
-        using var command = new SqlCommand("DELETE FROM Sessoes WHERE Id = @Id AND UserId = @UserId;", db);
+        using var command = new NpgsqlCommand("DELETE FROM Sessoes WHERE Id = @Id AND UserId = @UserId;", db);
         command.Parameters.AddWithValue("@Id", id);
         command.Parameters.AddWithValue("@UserId", userId);
         return command.ExecuteNonQuery() > 0;
@@ -244,7 +244,7 @@ public class HorusSecurityStore(Connection connection, HorusSecurityOptions secu
     public void TerminateOtherSessions(string userId, string currentSessionId)
     {
         using var db = connection.OpenConnection();
-        using var command = new SqlCommand("DELETE FROM Sessoes WHERE UserId = @UserId AND Id <> @Id;", db);
+        using var command = new NpgsqlCommand("DELETE FROM Sessoes WHERE UserId = @UserId AND Id <> @Id;", db);
         command.Parameters.AddWithValue("@UserId", userId);
         command.Parameters.AddWithValue("@Id", currentSessionId);
         command.ExecuteNonQuery();
@@ -253,7 +253,7 @@ public class HorusSecurityStore(Connection connection, HorusSecurityOptions secu
     public void TerminateCurrentSession(string currentSessionId)
     {
         using var db = connection.OpenConnection();
-        using var command = new SqlCommand("DELETE FROM Sessoes WHERE Id = @Id;", db);
+        using var command = new NpgsqlCommand("DELETE FROM Sessoes WHERE Id = @Id;", db);
         command.Parameters.AddWithValue("@Id", currentSessionId);
         command.ExecuteNonQuery();
     }
@@ -270,7 +270,7 @@ public class HorusSecurityStore(Connection connection, HorusSecurityOptions secu
         using var transaction = db.BeginTransaction();
         try
         {
-            using var command = new SqlCommand(
+            using var command = new NpgsqlCommand(
                 """
                 UPDATE Usuarios
                    SET PasswordHash = @PasswordHash,
@@ -296,7 +296,7 @@ public class HorusSecurityStore(Connection connection, HorusSecurityOptions secu
     public bool IsSessionActive(string sessionId)
     {
         using var db = connection.OpenConnection();
-        using var command = new SqlCommand("SELECT COUNT(1) FROM Sessoes WHERE Id = @Id;", db);
+        using var command = new NpgsqlCommand("SELECT COUNT(1) FROM Sessoes WHERE Id = @Id;", db);
         command.Parameters.AddWithValue("@Id", sessionId);
         return Convert.ToInt32(command.ExecuteScalar()) > 0;
     }
@@ -313,7 +313,7 @@ public class HorusSecurityStore(Connection connection, HorusSecurityOptions secu
         using var transaction = db.BeginTransaction();
         try
         {
-            using (var cleanup = new SqlCommand(
+            using (var cleanup = new NpgsqlCommand(
                        "DELETE FROM PasswordResetTokens WHERE ExpiresAt <= @RetentionCutoff;",
                        db,
                        transaction))
@@ -329,7 +329,7 @@ public class HorusSecurityStore(Connection connection, HorusSecurityOptions secu
                 return PasswordResetRequestResult.Create();
             }
 
-            using (var deleteTokens = new SqlCommand(
+            using (var deleteTokens = new NpgsqlCommand(
                        """
                        UPDATE PasswordResetTokens
                           SET ConsumedAt = @Now,
@@ -347,7 +347,7 @@ public class HorusSecurityStore(Connection connection, HorusSecurityOptions secu
 
             var token = GenerateSecureToken();
             var tokenHash = HashPasswordResetToken(token);
-            using (var insert = new SqlCommand(
+            using (var insert = new NpgsqlCommand(
                        """
                        INSERT INTO PasswordResetTokens
                            (Id, UserId, Email, Cnpj, TokenHash, CreatedAt, RequestedAt, ExpiresAt, ConsumedAt,
@@ -403,7 +403,7 @@ public class HorusSecurityStore(Connection connection, HorusSecurityOptions secu
 
             var cnpj = FindCompanyCnpj(db, transaction, companyId);
 
-            using (var cleanup = new SqlCommand(
+            using (var cleanup = new NpgsqlCommand(
                        "DELETE FROM PasswordResetTokens WHERE ExpiresAt <= @RetentionCutoff;",
                        db,
                        transaction))
@@ -412,7 +412,7 @@ public class HorusSecurityStore(Connection connection, HorusSecurityOptions secu
                 cleanup.ExecuteNonQuery();
             }
 
-            using (var deleteTokens = new SqlCommand(
+            using (var deleteTokens = new NpgsqlCommand(
                        """
                        UPDATE PasswordResetTokens
                           SET ConsumedAt = @Now,
@@ -430,7 +430,7 @@ public class HorusSecurityStore(Connection connection, HorusSecurityOptions secu
 
             var token = GenerateSecureToken();
             var tokenHash = HashPasswordResetToken(token);
-            using (var insert = new SqlCommand(
+            using (var insert = new NpgsqlCommand(
                        """
                        INSERT INTO PasswordResetTokens
                            (Id, UserId, Email, Cnpj, TokenHash, CreatedAt, RequestedAt, ExpiresAt, ConsumedAt,
@@ -457,7 +457,7 @@ public class HorusSecurityStore(Connection connection, HorusSecurityOptions secu
                 insert.ExecuteNonQuery();
             }
 
-            using (var updateUser = new SqlCommand(
+            using (var updateUser = new NpgsqlCommand(
                        "UPDATE Usuarios SET MustChangePassword = 1 WHERE Id = @UserId AND CompanyId = @CompanyId;",
                        db,
                        transaction))
@@ -467,7 +467,7 @@ public class HorusSecurityStore(Connection connection, HorusSecurityOptions secu
                 updateUser.ExecuteNonQuery();
             }
 
-            using (var deleteSessions = new SqlCommand("DELETE FROM Sessoes WHERE UserId = @UserId;", db, transaction))
+            using (var deleteSessions = new NpgsqlCommand("DELETE FROM Sessoes WHERE UserId = @UserId;", db, transaction))
             {
                 deleteSessions.Parameters.AddWithValue("@UserId", user.Id);
                 deleteSessions.ExecuteNonQuery();
@@ -490,7 +490,7 @@ public class HorusSecurityStore(Connection connection, HorusSecurityOptions secu
 
         var now = DateTimeOffset.UtcNow;
         using var db = connection.OpenConnection();
-        using var command = new SqlCommand(
+        using var command = new NpgsqlCommand(
             """
             UPDATE PasswordResetTokens
                SET ConsumedAt = COALESCE(ConsumedAt, @Now),
@@ -537,7 +537,7 @@ public class HorusSecurityStore(Connection connection, HorusSecurityOptions secu
                 throw new InvalidOperationException("Usuário inativo ou inexistente.");
             }
 
-            using var command = new SqlCommand(
+            using var command = new NpgsqlCommand(
                 """
                 UPDATE Usuarios
                    SET PasswordHash = @PasswordHash,
@@ -650,7 +650,7 @@ public class HorusSecurityStore(Connection connection, HorusSecurityOptions secu
     private void ValidateDuplicates(SecurityUserRecord user, string? currentId, string companyId)
     {
         using var db = connection.OpenConnection();
-        using var command = new SqlCommand(
+        using var command = new NpgsqlCommand(
             """
             SELECT COUNT(1)
             FROM Usuarios
@@ -673,7 +673,7 @@ public class HorusSecurityStore(Connection connection, HorusSecurityOptions secu
     private void InsertUser(SecurityUserRecord user)
     {
         using var db = connection.OpenConnection();
-        using var command = new SqlCommand(
+        using var command = new NpgsqlCommand(
             """
             INSERT INTO Usuarios (Id, CompanyId, Cpf, Name, Email, Phone, Role, Status, CreatedAt, LastLoginAt, PasswordHash, MustChangePassword)
             VALUES (@Id, @CompanyId, @Cpf, @Name, @Email, @Phone, @Role, @Status, @CreatedAt, @LastLoginAt, @PasswordHash, @MustChangePassword);
@@ -686,7 +686,7 @@ public class HorusSecurityStore(Connection connection, HorusSecurityOptions secu
     private void EnsureCompanyForPublicRegistration(string companyId, AuthRegisterRequest request)
     {
         using var db = connection.OpenConnection();
-        using var command = new SqlCommand(
+        using var command = new NpgsqlCommand(
             """
             IF NOT EXISTS (SELECT 1 FROM Empresas WHERE Id = @Id)
             BEGIN
@@ -714,7 +714,7 @@ public class HorusSecurityStore(Connection connection, HorusSecurityOptions secu
     private void UpdateUserRecord(SecurityUserRecord user)
     {
         using var db = connection.OpenConnection();
-        using var command = new SqlCommand(
+        using var command = new NpgsqlCommand(
             """
             UPDATE Usuarios
                SET Cpf = @Cpf,
@@ -749,7 +749,7 @@ public class HorusSecurityStore(Connection connection, HorusSecurityOptions secu
     private SecurityUserRecord? FindUserByEmail(string email)
     {
         using var db = connection.OpenConnection();
-        using var command = new SqlCommand(
+        using var command = new NpgsqlCommand(
             """
             SELECT Id, CompanyId, Cpf, Name, Email, Phone, Role, Status, CreatedAt, LastLoginAt, PasswordHash, MustChangePassword
             FROM Usuarios
@@ -761,9 +761,9 @@ public class HorusSecurityStore(Connection connection, HorusSecurityOptions secu
         return reader.Read() ? ReadUser(reader) : null;
     }
 
-    private static SecurityUserRecord? FindUserById(SqlConnection db, SqlTransaction? transaction, string id)
+    private static SecurityUserRecord? FindUserById(NpgsqlConnection db, NpgsqlTransaction? transaction, string id)
     {
-        using var command = new SqlCommand(
+        using var command = new NpgsqlCommand(
             """
             SELECT Id, CompanyId, Cpf, Name, Email, Phone, Role, Status, CreatedAt, LastLoginAt, PasswordHash, MustChangePassword
             FROM Usuarios
@@ -777,12 +777,12 @@ public class HorusSecurityStore(Connection connection, HorusSecurityOptions secu
     }
 
     private static SecurityUserRecord? FindUserById(
-        SqlConnection db,
-        SqlTransaction? transaction,
+        NpgsqlConnection db,
+        NpgsqlTransaction? transaction,
         string id,
         string companyId)
     {
-        using var command = new SqlCommand(
+        using var command = new NpgsqlCommand(
             """
             SELECT Id, CompanyId, Cpf, Name, Email, Phone, Role, Status, CreatedAt, LastLoginAt, PasswordHash, MustChangePassword
             FROM Usuarios
@@ -796,21 +796,21 @@ public class HorusSecurityStore(Connection connection, HorusSecurityOptions secu
         return reader.Read() ? ReadUser(reader) : null;
     }
 
-    private static string FindCompanyCnpj(SqlConnection db, SqlTransaction transaction, string companyId)
+    private static string FindCompanyCnpj(NpgsqlConnection db, NpgsqlTransaction transaction, string companyId)
     {
-        using var command = new SqlCommand("SELECT Cnpj FROM Empresas WHERE Id = @CompanyId;", db, transaction);
+        using var command = new NpgsqlCommand("SELECT Cnpj FROM Empresas WHERE Id = @CompanyId;", db, transaction);
         command.Parameters.AddWithValue("@CompanyId", companyId);
         var result = command.ExecuteScalar()?.ToString() ?? "";
         return OnlyDigits(result);
     }
 
     private static SecurityUserRecord? FindUserForPasswordReset(
-        SqlConnection db,
-        SqlTransaction transaction,
+        NpgsqlConnection db,
+        NpgsqlTransaction transaction,
         string cnpj,
         string email)
     {
-        using var command = new SqlCommand(
+        using var command = new NpgsqlCommand(
             """
             SELECT Id, CompanyId, Cpf, Name, Email, Phone, Role, Status, CreatedAt, LastLoginAt, PasswordHash, MustChangePassword
             FROM Usuarios
@@ -826,10 +826,10 @@ public class HorusSecurityStore(Connection connection, HorusSecurityOptions secu
         return reader.Read() ? ReadUser(reader) : null;
     }
 
-    private PasswordResetTokenRecord? FindResetToken(SqlConnection db, SqlTransaction transaction, string token)
+    private PasswordResetTokenRecord? FindResetToken(NpgsqlConnection db, NpgsqlTransaction transaction, string token)
     {
         var tokenHash = HashPasswordResetToken(token);
-        using var command = new SqlCommand(
+        using var command = new NpgsqlCommand(
             """
             SELECT Id, UserId, Email, Cnpj, TokenHash, CreatedAt, RequestedAt, ExpiresAt, ConsumedAt
             FROM PasswordResetTokens
@@ -852,9 +852,9 @@ public class HorusSecurityStore(Connection connection, HorusSecurityOptions secu
             : null;
     }
 
-    private static void InsertSession(SqlConnection db, SqlTransaction transaction, SecuritySession session)
+    private static void InsertSession(NpgsqlConnection db, NpgsqlTransaction transaction, SecuritySession session)
     {
-        using var command = new SqlCommand(
+        using var command = new NpgsqlCommand(
             """
             INSERT INTO Sessoes (Id, UserId, Device, Location, Ip, LastActive, Platform, CreatedAt)
             VALUES (@Id, @UserId, @Device, @Location, @Ip, @LastActive, @Platform, @CreatedAt);
@@ -875,12 +875,12 @@ public class HorusSecurityStore(Connection connection, HorusSecurityOptions secu
     private void DeleteSessionsByUser(string userId)
     {
         using var db = connection.OpenConnection();
-        using var command = new SqlCommand("DELETE FROM Sessoes WHERE UserId = @UserId;", db);
+        using var command = new NpgsqlCommand("DELETE FROM Sessoes WHERE UserId = @UserId;", db);
         command.Parameters.AddWithValue("@UserId", userId);
         command.ExecuteNonQuery();
     }
 
-    private static void AddUserParameters(SqlCommand command, SecurityUserRecord user)
+    private static void AddUserParameters(NpgsqlCommand command, SecurityUserRecord user)
     {
         command.Parameters.AddWithValue("@Id", user.Id);
         command.Parameters.AddWithValue("@CompanyId", user.CompanyId);
@@ -949,7 +949,7 @@ public class HorusSecurityStore(Connection connection, HorusSecurityOptions secu
         return $"{prefix}@{parts[1]}";
     }
 
-    private static SecurityUserRecord ReadUser(SqlDataReader reader) => new()
+    private static SecurityUserRecord ReadUser(NpgsqlDataReader reader) => new()
     {
         Id = ReadString(reader, "Id"),
         CompanyId = ReadString(reader, "CompanyId"),
@@ -965,7 +965,7 @@ public class HorusSecurityStore(Connection connection, HorusSecurityOptions secu
         MustChangePassword = reader.GetBoolean(reader.GetOrdinal("MustChangePassword"))
     };
 
-    private static SecuritySession ReadSession(SqlDataReader reader) => new()
+    private static SecuritySession ReadSession(NpgsqlDataReader reader) => new()
     {
         Id = ReadString(reader, "Id"),
         UserId = ReadString(reader, "UserId"),
@@ -977,7 +977,7 @@ public class HorusSecurityStore(Connection connection, HorusSecurityOptions secu
         CreatedAt = reader.GetDateTimeOffset(reader.GetOrdinal("CreatedAt"))
     };
 
-    private static string ReadString(SqlDataReader reader, string name)
+    private static string ReadString(NpgsqlDataReader reader, string name)
     {
         var ordinal = reader.GetOrdinal(name);
         return reader.IsDBNull(ordinal) ? string.Empty : reader.GetString(ordinal);

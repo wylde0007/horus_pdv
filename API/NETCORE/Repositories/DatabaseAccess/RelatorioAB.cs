@@ -3,7 +3,7 @@
  * Objetivo: gerar relatórios operacionais reais a partir das tabelas atuais do PDV.
  * Entradas esperadas: recebe identificador do relatório, filtros serializados e retorna colunas/linhas para o frontend.
  */
-using Microsoft.Data.SqlClient;
+using Npgsql;
 using System.Globalization;
 using System.Text;
 using System.Text.Json;
@@ -198,7 +198,7 @@ public class RelatorioAB(Connection connection)
             """;
 
         await using var db = await connection.OpenConnectionAsync();
-        await using var command = new SqlCommand(sql, db);
+        await using var command = new NpgsqlCommand(sql, db);
         command.Parameters.AddWithValue("@CompanyId", companyId);
         await using var reader = await command.ExecuteReaderAsync();
         var rows = new List<ReportSaleRow>();
@@ -231,7 +231,7 @@ public class RelatorioAB(Connection connection)
             """;
 
         await using var db = await connection.OpenConnectionAsync();
-        await using var command = new SqlCommand(sql, db);
+        await using var command = new NpgsqlCommand(sql, db);
         command.Parameters.AddWithValue("@CompanyId", companyId);
         await using var reader = await command.ExecuteReaderAsync();
         var rows = new List<ReportProductRow>();
@@ -259,7 +259,7 @@ public class RelatorioAB(Connection connection)
             """;
 
         await using var db = await connection.OpenConnectionAsync();
-        await using var command = new SqlCommand(sql, db);
+        await using var command = new NpgsqlCommand(sql, db);
         command.Parameters.AddWithValue("@CompanyId", companyId);
         await using var reader = await command.ExecuteReaderAsync();
         var rows = new List<ReportCashRow>();
@@ -336,13 +336,13 @@ public class RelatorioAB(Connection connection)
     private static Dictionary<string, object> Row(params (string Key, object Value)[] values)
         => values.ToDictionary(item => item.Key, item => item.Value);
 
-    private static string ReadString(SqlDataReader reader, string name)
+    private static string ReadString(NpgsqlDataReader reader, string name)
     {
         var ordinal = reader.GetOrdinal(name);
         return reader.IsDBNull(ordinal) ? string.Empty : reader.GetString(ordinal);
     }
 
-    private static int ReadInt(SqlDataReader reader, string name)
+    private static int ReadInt(NpgsqlDataReader reader, string name)
     {
         var ordinal = reader.GetOrdinal(name);
         return reader.IsDBNull(ordinal) ? 0 : reader.GetInt32(ordinal);

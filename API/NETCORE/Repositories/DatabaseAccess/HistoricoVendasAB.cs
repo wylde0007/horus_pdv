@@ -5,7 +5,7 @@
  */
 using HORUSPDV_API.Models.Requests;
 using HORUSPDV_API.Repositories.DataAccess;
-using Microsoft.Data.SqlClient;
+using Npgsql;
 
 namespace HORUSPDV_API.Repositories.DatabaseAccess;
 
@@ -26,7 +26,7 @@ public class HistoricoVendasAB(Connection connection)
 
         await using var db = await connection.OpenConnectionAsync();
         await EnsurePrintColumnsAsync(db);
-        await using var command = new SqlCommand(sql, db);
+        await using var command = new NpgsqlCommand(sql, db);
         command.Parameters.AddWithValue("@CompanyId", companyId);
         command.Parameters.AddWithValue("@SaleNumber", string.IsNullOrWhiteSpace(saleNumber) ? DBNull.Value : saleNumber);
         await using var reader = await command.ExecuteReaderAsync();
@@ -43,7 +43,7 @@ public class HistoricoVendasAB(Connection connection)
     {
         await using var db = await connection.OpenConnectionAsync();
         await EnsurePrintColumnsAsync(db);
-        await using var transaction = (SqlTransaction)await db.BeginTransactionAsync();
+        await using var transaction = (NpgsqlTransaction)await db.BeginTransactionAsync();
 
         try
         {
@@ -58,7 +58,7 @@ public class HistoricoVendasAB(Connection connection)
             // A venda e a baixa de estoque compartilham a mesma transação para evitar histórico sem estoque atualizado.
             var saleItems = await BaixarEstoqueAsync(db, transaction, companyId, request.Items);
 
-            await using (var saleCommand = new SqlCommand(
+            await using (var saleCommand = new NpgsqlCommand(
                              """
                              INSERT INTO Vendas
                                  (Id, CompanyId, SaleNumber, CustomerName, CustomerCpf, PaymentType, TotalAmount, OperatorName, SaleDate)
@@ -85,7 +85,7 @@ public class HistoricoVendasAB(Connection connection)
             {
                 var item = saleItems[index];
                 var itemId = $"{saleId}-item-{index + 1:000}";
-                await using var itemCommand = new SqlCommand(
+                await using var itemCommand = new NpgsqlCommand(
                     """
                     INSERT INTO VendaItens
                         (Id, VendaId, ProductCode, ProductName, Quantity, UnitPrice, ItemTotal)
@@ -130,18 +130,30 @@ public class HistoricoVendasAB(Connection connection)
         }
     }
 
-    private static async Task<string> NextSaleNumberAsync(SqlConnection db, SqlTransaction transaction)
+    private static async Task<string> NextSaleNumberAsync(NpgsqlConnection db, NpgsqlTransaction transaction)
     {
-        await using var command = new SqlCommand(
-            "SELECT CONVERT(NVARCHAR(30), ISNULL(MAX(TRY_CONVERT(INT, SaleNumber)), 15039) + 1) FROM Vendas WITH (UPDLOCK, HOLDLOCK);",
+        await using (var lockCommand = new NpgsqlCommand(
+            "SELECT pg_advisory_xact_lock(hashtext('vendas_sale_number'));",
+            db,
+            transaction))
+        {
+            await lockCommand.ExecuteNonQueryAsync();
+        }
+
+        await using var command = new NpgsqlCommand(
+            """
+            SELECT COALESCE(MAX(NULLIF(regexp_replace(SaleNumber, '\\D', '', 'g'), '')::integer), 15039) + 1
+            FROM Vendas;
+            """,
             db,
             transaction);
+
         return Convert.ToString(await command.ExecuteScalarAsync()) ?? "15040";
     }
 
     private static async Task<List<VendaItemRecord>> BaixarEstoqueAsync(
-        SqlConnection db,
-        SqlTransaction transaction,
+        NpgsqlConnection db,
+        NpgsqlTransaction transaction,
         string companyId,
         IEnumerable<VendaItemRequest> items)
     {
@@ -162,7 +174,7 @@ public class HistoricoVendasAB(Connection connection)
                 throw new InvalidOperationException("Quantidade da venda deve ser maior que zero.");
             }
 
-            await using var select = new SqlCommand(
+            await using var select = new NpgsqlCommand(
                 """
                 SELECT Id, ProductName, ProductQnt, ProductUnitPrice, ProductSalePrice
                 FROM Produtos WITH (UPDLOCK, ROWLOCK)
@@ -193,7 +205,7 @@ public class HistoricoVendasAB(Connection connection)
             }
 
             var nextStock = currentStock - item.Quantity;
-            await using var update = new SqlCommand(
+            await using var update = new NpgsqlCommand(
                 """
                 UPDATE Produtos
                    SET ProductQnt = @ProductQnt,
@@ -211,7 +223,7 @@ public class HistoricoVendasAB(Connection connection)
         return groupedItems;
     }
 
-    private static VendaHistoricoAD Map(SqlDataReader reader) => new()
+    private static VendaHistoricoAD Map(NpgsqlDataReader reader) => new()
     {
         SaleNumber = ReadString(reader, "SaleNumber"),
         CustomerName = ReadString(reader, "CustomerName"),
@@ -227,7 +239,7 @@ public class HistoricoVendasAB(Connection connection)
         SaleDate = reader.GetDateTimeOffset(reader.GetOrdinal("SaleDate")).LocalDateTime.ToString("dd/MM/yyyy HH:mm:ss")
     };
 
-    private static async Task EnsurePrintColumnsAsync(SqlConnection db)
+    private static async Task EnsurePrintColumnsAsync(NpgsqlConnection db)
     {
         const string schemaSql = """
             IF COL_LENGTH('Vendas', 'PaymentType') IS NULL
@@ -268,12 +280,12 @@ public class HistoricoVendasAB(Connection connection)
                ) IS NOT NULL;
             """;
 
-        await using (var schemaCommand = new SqlCommand(schemaSql, db))
+        await using (var schemaCommand = new NpgsqlCommand(schemaSql, db))
         {
             await schemaCommand.ExecuteNonQueryAsync();
         }
 
-        await using var backfillCommand = new SqlCommand(backfillSql, db);
+        await using var backfillCommand = new NpgsqlCommand(backfillSql, db);
         await backfillCommand.ExecuteNonQueryAsync();
     }
 
@@ -295,7 +307,7 @@ public class HistoricoVendasAB(Connection connection)
         return (parsed * quantity).ToString("N2", new System.Globalization.CultureInfo("pt-BR"));
     }
 
-    private static string ReadString(SqlDataReader reader, string name)
+    private static string ReadString(NpgsqlDataReader reader, string name)
     {
         var ordinal = reader.GetOrdinal(name);
         return reader.IsDBNull(ordinal) ? string.Empty : reader.GetString(ordinal);

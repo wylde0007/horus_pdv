@@ -4,7 +4,7 @@
  * Entradas esperadas: recebe conexão configurada, parâmetros normalizados e executa leitura/escrita no SQL Server.
  */
 using HORUSPDV_API.Repositories.DataAccess;
-using Microsoft.Data.SqlClient;
+using Npgsql;
 
 namespace HORUSPDV_API.Repositories.DatabaseAccess;
 
@@ -13,7 +13,7 @@ public class CaixaAB(Connection connection)
     public async Task<List<CaixaSessionAD>> ListarSessoesAsync(string companyId)
     {
         await using var db = await connection.OpenConnectionAsync();
-        await using var command = new SqlCommand(
+        await using var command = new NpgsqlCommand(
             """
             SELECT Id, OpenedAt, ClosedAt, OpeningAmount, ClosingAmount, OperatorName, ClosedByName, Note
             FROM CaixaSessoes
@@ -44,7 +44,7 @@ public class CaixaAB(Connection connection)
         string operatorName)
     {
         await using var db = await connection.OpenConnectionAsync();
-        await using var command = new SqlCommand(
+        await using var command = new NpgsqlCommand(
             """
             INSERT INTO CaixaSessoes
                 (Id, CompanyId, OpenedAt, OpeningAmount, ClosingAmount, OperatorId, OperatorName, ClosedById, ClosedByName, Note)
@@ -71,7 +71,7 @@ public class CaixaAB(Connection connection)
         string note)
     {
         await using var db = await connection.OpenConnectionAsync();
-        await using var command = new SqlCommand(
+        await using var command = new NpgsqlCommand(
             """
             UPDATE CaixaSessoes
                SET ClosedAt = @ClosedAt,
@@ -92,7 +92,7 @@ public class CaixaAB(Connection connection)
         await command.ExecuteNonQueryAsync();
     }
 
-    private static CaixaSessionAD Map(SqlDataReader reader) => new()
+    private static CaixaSessionAD Map(NpgsqlDataReader reader) => new()
     {
         Id = ReadString(reader, "Id"),
         OpenedAt = reader.GetDateTimeOffset(reader.GetOrdinal("OpenedAt")),
@@ -106,7 +106,7 @@ public class CaixaAB(Connection connection)
         Note = ReadString(reader, "Note")
     };
 
-    private static string ReadString(SqlDataReader reader, string name)
+    private static string ReadString(NpgsqlDataReader reader, string name)
     {
         var ordinal = reader.GetOrdinal(name);
         return reader.IsDBNull(ordinal) ? string.Empty : reader.GetString(ordinal);

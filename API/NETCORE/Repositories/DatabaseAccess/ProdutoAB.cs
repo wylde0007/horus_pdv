@@ -4,7 +4,7 @@
  * Entradas esperadas: recebe conexão configurada, parâmetros normalizados e executa leitura/escrita no SQL Server.
  */
 using HORUSPDV_API.Repositories.DataAccess;
-using Microsoft.Data.SqlClient;
+using Npgsql;
 
 namespace HORUSPDV_API.Repositories.DatabaseAccess;
 
@@ -21,7 +21,7 @@ public class ProdutoAB(Connection connection)
             """;
 
         await using var db = await connection.OpenConnectionAsync();
-        await using var command = new SqlCommand(sql, db);
+        await using var command = new NpgsqlCommand(sql, db);
         command.Parameters.AddWithValue("@CompanyId", companyId);
         await using var reader = await command.ExecuteReaderAsync();
         var rows = new List<ProdutoAD>();
@@ -43,7 +43,7 @@ public class ProdutoAB(Connection connection)
             """;
 
         await using var db = await connection.OpenConnectionAsync();
-        await using var command = new SqlCommand(sql, db);
+        await using var command = new NpgsqlCommand(sql, db);
         command.Parameters.AddWithValue("@CompanyId", companyId);
         command.Parameters.AddWithValue("@Id", id);
         await using var reader = await command.ExecuteReaderAsync();
@@ -82,7 +82,7 @@ public class ProdutoAB(Connection connection)
             """;
 
         await using var db = await connection.OpenConnectionAsync();
-        await using var command = new SqlCommand(sql, db);
+        await using var command = new NpgsqlCommand(sql, db);
         command.Parameters.AddWithValue("@CompanyId", companyId);
         AddParameters(command, product, supplierId);
         await command.ExecuteNonQueryAsync();
@@ -92,7 +92,7 @@ public class ProdutoAB(Connection connection)
     public async Task<bool> ExcluirAsync(string companyId, string id)
     {
         await using var db = await connection.OpenConnectionAsync();
-        await using var command = new SqlCommand("DELETE FROM Produtos WHERE Id = @Id AND CompanyId = @CompanyId;", db);
+        await using var command = new NpgsqlCommand("DELETE FROM Produtos WHERE Id = @Id AND CompanyId = @CompanyId;", db);
         command.Parameters.AddWithValue("@CompanyId", companyId);
         command.Parameters.AddWithValue("@Id", id);
         return await command.ExecuteNonQueryAsync() > 0;
@@ -106,7 +106,7 @@ public class ProdutoAB(Connection connection)
             .ToList();
 
         await using var db = await connection.OpenConnectionAsync();
-        await using var transaction = (SqlTransaction)await db.BeginTransactionAsync();
+        await using var transaction = (NpgsqlTransaction)await db.BeginTransactionAsync();
 
         try
         {
@@ -118,7 +118,7 @@ public class ProdutoAB(Connection connection)
                     throw new InvalidOperationException("Quantidade da venda deve ser maior que zero.");
                 }
 
-                await using var select = new SqlCommand(
+                await using var select = new NpgsqlCommand(
                     """
                     SELECT Id, ProductName, ProductQnt, ProductUnitPrice
                     FROM Produtos WITH (UPDLOCK, ROWLOCK)
@@ -146,7 +146,7 @@ public class ProdutoAB(Connection connection)
                 }
 
                 var nextStock = currentStock - item.Quantity;
-                await using var update = new SqlCommand(
+                await using var update = new NpgsqlCommand(
                     """
                     UPDATE Produtos
                        SET ProductQnt = @ProductQnt,
@@ -173,20 +173,21 @@ public class ProdutoAB(Connection connection)
     private async Task<string?> ResolveSupplierIdAsync(string companyId, string supplierName)
     {
         const string sql = """
-            SELECT TOP 1 Id
+            SELECT Id
             FROM Fornecedores
-            WHERE CompanyId = @CompanyId AND (FantasyName = @Name OR CompanyName = @Name);
+            WHERE CompanyId = @CompanyId AND (FantasyName = @Name OR CompanyName = @Name)
+            LIMIT 1;
             """;
 
         await using var db = await connection.OpenConnectionAsync();
-        await using var command = new SqlCommand(sql, db);
+        await using var command = new NpgsqlCommand(sql, db);
         command.Parameters.AddWithValue("@CompanyId", companyId);
         command.Parameters.AddWithValue("@Name", supplierName);
         var result = await command.ExecuteScalarAsync();
         return result as string;
     }
 
-    private static void AddParameters(SqlCommand command, ProdutoAD product, string? supplierId)
+    private static void AddParameters(NpgsqlCommand command, ProdutoAD product, string? supplierId)
     {
         command.Parameters.AddWithValue("@Id", product.Id);
         command.Parameters.AddWithValue("@ProductImageUrl", product.ProductImageUrl);
@@ -202,7 +203,7 @@ public class ProdutoAB(Connection connection)
         command.Parameters.AddWithValue("@TotalPriceOnProduct", product.TotalPriceOnProduct);
     }
 
-    private static ProdutoAD Map(SqlDataReader source) => new()
+    private static ProdutoAD Map(NpgsqlDataReader source) => new()
     {
         Id = ReadString(source, "Id"),
         ProductImageUrl = ReadString(source, "ProductImageUrl"),
@@ -217,7 +218,7 @@ public class ProdutoAB(Connection connection)
         TotalPriceOnProduct = ReadString(source, "TotalPriceOnProduct")
     };
 
-    private static string ReadString(SqlDataReader reader, string name)
+    private static string ReadString(NpgsqlDataReader reader, string name)
     {
         var ordinal = reader.GetOrdinal(name);
         return reader.IsDBNull(ordinal) ? string.Empty : reader.GetString(ordinal);

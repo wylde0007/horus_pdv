@@ -5,7 +5,7 @@
  */
 using HORUSPDV_API.Repositories.DataAccess;
 using HORUSPDV_API.Services.Security;
-using Microsoft.Data.SqlClient;
+using Npgsql;
 
 namespace HORUSPDV_API.Repositories.DatabaseAccess;
 
@@ -17,7 +17,7 @@ public class EmpresaAB(Connection connection, HorusSecretProtector secretProtect
     public async Task<EmpresaAD?> ObterAsync(string companyId)
     {
         await using var db = await connection.OpenConnectionAsync();
-        await using var command = new SqlCommand(
+        await using var command = new NpgsqlCommand(
             """
             SELECT FantasyName, CorporateName, Cnpj, StateRegistration, Website, Email, SacPhone,
                    Phone, Mobile, Cep, Address, Number, Neighborhood, City, Uf, Complement,
@@ -38,7 +38,7 @@ public class EmpresaAB(Connection connection, HorusSecretProtector secretProtect
     public async Task<EmpresaAD> SalvarAsync(string companyId, EmpresaAD empresa)
     {
         await using var db = await connection.OpenConnectionAsync();
-        await using var command = new SqlCommand(
+        await using var command = new NpgsqlCommand(
             """
             IF EXISTS (SELECT 1 FROM Empresas WHERE Id = @Id)
             BEGIN
@@ -94,7 +94,7 @@ public class EmpresaAB(Connection connection, HorusSecretProtector secretProtect
         return await ObterAsync(companyId) ?? empresa;
     }
 
-    private void AddParameters(SqlCommand command, EmpresaAD source)
+    private void AddParameters(NpgsqlCommand command, EmpresaAD source)
     {
         command.Parameters.AddWithValue("@FantasyName", source.FantasyName.Trim());
         command.Parameters.AddWithValue("@CorporateName", source.CorporateName.Trim());
@@ -127,7 +127,7 @@ public class EmpresaAB(Connection connection, HorusSecretProtector secretProtect
         command.Parameters.AddWithValue("@EmailSmtpReplyTo", source.EmailSmtpReplyTo.Trim());
     }
 
-    private EmpresaAD Map(SqlDataReader source) => new()
+    private EmpresaAD Map(NpgsqlDataReader source) => new()
     {
         FantasyName = ReadString(source, "FantasyName"),
         CorporateName = ReadString(source, "CorporateName"),
@@ -156,19 +156,19 @@ public class EmpresaAB(Connection connection, HorusSecretProtector secretProtect
         EmailSmtpReplyTo = ReadString(source, "EmailSmtpReplyTo")
     };
 
-    private static string ReadString(SqlDataReader reader, string name)
+    private static string ReadString(NpgsqlDataReader reader, string name)
     {
         var ordinal = reader.GetOrdinal(name);
         return reader.IsDBNull(ordinal) ? string.Empty : reader.GetString(ordinal);
     }
 
-    private static bool ReadBool(SqlDataReader reader, string name)
+    private static bool ReadBool(NpgsqlDataReader reader, string name)
     {
         var ordinal = reader.GetOrdinal(name);
         return !reader.IsDBNull(ordinal) && reader.GetBoolean(ordinal);
     }
 
-    private static int ReadInt(SqlDataReader reader, string name)
+    private static int ReadInt(NpgsqlDataReader reader, string name)
     {
         var ordinal = reader.GetOrdinal(name);
         return reader.IsDBNull(ordinal) ? 0 : reader.GetInt32(ordinal);

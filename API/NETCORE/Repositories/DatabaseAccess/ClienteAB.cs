@@ -4,7 +4,7 @@
  * Entradas esperadas: recebe conexão configurada, parâmetros normalizados e executa leitura/escrita no SQL Server.
  */
 using HORUSPDV_API.Repositories.DataAccess;
-using Microsoft.Data.SqlClient;
+using Npgsql;
 
 namespace HORUSPDV_API.Repositories.DatabaseAccess;
 
@@ -21,7 +21,7 @@ public class ClienteAB(Connection connection)
             """;
 
         await using var db = await connection.OpenConnectionAsync();
-        await using var command = new SqlCommand(sql, db);
+        await using var command = new NpgsqlCommand(sql, db);
         command.Parameters.AddWithValue("@CompanyId", companyId);
         await using var reader = await command.ExecuteReaderAsync();
         var rows = new List<ClienteAD>();
@@ -43,7 +43,7 @@ public class ClienteAB(Connection connection)
             """;
 
         await using var db = await connection.OpenConnectionAsync();
-        await using var command = new SqlCommand(sql, db);
+        await using var command = new NpgsqlCommand(sql, db);
         command.Parameters.AddWithValue("@CompanyId", companyId);
         command.Parameters.AddWithValue("@Id", id);
         await using var reader = await command.ExecuteReaderAsync();
@@ -85,7 +85,7 @@ public class ClienteAB(Connection connection)
             """;
 
         await using var db = await connection.OpenConnectionAsync();
-        await using var command = new SqlCommand(sql, db);
+        await using var command = new NpgsqlCommand(sql, db);
         command.Parameters.AddWithValue("@CompanyId", companyId);
         AddParameters(command, customer);
         await command.ExecuteNonQueryAsync();
@@ -95,13 +95,13 @@ public class ClienteAB(Connection connection)
     public async Task<bool> ExcluirAsync(string companyId, string id)
     {
         await using var db = await connection.OpenConnectionAsync();
-        await using var command = new SqlCommand("DELETE FROM Clientes WHERE Id = @Id AND CompanyId = @CompanyId;", db);
+        await using var command = new NpgsqlCommand("DELETE FROM Clientes WHERE Id = @Id AND CompanyId = @CompanyId;", db);
         command.Parameters.AddWithValue("@CompanyId", companyId);
         command.Parameters.AddWithValue("@Id", id);
         return await command.ExecuteNonQueryAsync() > 0;
     }
 
-    private static void AddParameters(SqlCommand command, ClienteAD customer)
+    private static void AddParameters(NpgsqlCommand command, ClienteAD customer)
     {
         command.Parameters.AddWithValue("@Id", customer.Id);
         command.Parameters.AddWithValue("@CustomerName", customer.CustomerName);
@@ -121,7 +121,7 @@ public class ClienteAB(Connection connection)
         command.Parameters.AddWithValue("@Email", customer.Email);
     }
 
-    private static ClienteAD Map(SqlDataReader source) => new()
+    private static ClienteAD Map(NpgsqlDataReader source) => new()
     {
         Id = ReadString(source, "Id"),
         CustomerName = ReadString(source, "CustomerName"),
@@ -141,7 +141,7 @@ public class ClienteAB(Connection connection)
         Email = ReadString(source, "Email")
     };
 
-    private static string ReadString(SqlDataReader reader, string name)
+    private static string ReadString(NpgsqlDataReader reader, string name)
     {
         var ordinal = reader.GetOrdinal(name);
         return reader.IsDBNull(ordinal) ? string.Empty : reader.GetString(ordinal);

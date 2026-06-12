@@ -4,7 +4,7 @@
  * Entradas esperadas: recebe conexão configurada, parâmetros normalizados e executa leitura/escrita no SQL Server.
  */
 using HORUSPDV_API.Repositories.DataAccess;
-using Microsoft.Data.SqlClient;
+using Npgsql;
 
 namespace HORUSPDV_API.Repositories.DatabaseAccess;
 
@@ -13,7 +13,7 @@ public class ModuloMercadoAB(Connection connection)
     public async Task<bool> ExisteAsync(string id)
     {
         await using var db = await connection.OpenConnectionAsync();
-        await using var command = new SqlCommand("SELECT COUNT(1) FROM ModulosMercado WHERE Id = @Id;", db);
+        await using var command = new NpgsqlCommand("SELECT COUNT(1) FROM ModulosMercado WHERE Id = @Id;", db);
         command.Parameters.AddWithValue("@Id", id);
         return Convert.ToInt32(await command.ExecuteScalarAsync()) > 0;
     }
@@ -21,7 +21,7 @@ public class ModuloMercadoAB(Connection connection)
     public async Task GarantirModuloAsync(string id, string title)
     {
         await using var db = await connection.OpenConnectionAsync();
-        await using var command = new SqlCommand(
+        await using var command = new NpgsqlCommand(
             """
             IF NOT EXISTS (SELECT 1 FROM ModulosMercado WHERE Id = @Id)
             BEGIN
@@ -38,7 +38,7 @@ public class ModuloMercadoAB(Connection connection)
     public async Task<List<ModuloMercadoRegistroAD>> ListarRegistrosAsync(string companyId, string id)
     {
         await using var db = await connection.OpenConnectionAsync();
-        await using var command = new SqlCommand(
+        await using var command = new NpgsqlCommand(
             """
             SELECT Id, CompanyId, ModuleId, Title, Description, Status, Amount, Meta
             FROM ModuloMercadoRegistros
@@ -61,7 +61,7 @@ public class ModuloMercadoAB(Connection connection)
     public async Task CriarRegistroAsync(ModuloMercadoRegistroAD registro)
     {
         await using var db = await connection.OpenConnectionAsync();
-        await using var command = new SqlCommand(
+        await using var command = new NpgsqlCommand(
             """
             INSERT INTO ModuloMercadoRegistros (Id, CompanyId, ModuleId, Title, Description, Status, Amount, Meta)
             VALUES (@Id, @CompanyId, @ModuleId, @Title, @Description, @Status, @Amount, @Meta);
@@ -74,7 +74,7 @@ public class ModuloMercadoAB(Connection connection)
     public async Task<bool> AtualizarRegistroAsync(ModuloMercadoRegistroAD registro)
     {
         await using var db = await connection.OpenConnectionAsync();
-        await using var command = new SqlCommand(
+        await using var command = new NpgsqlCommand(
             """
             UPDATE ModuloMercadoRegistros
                SET Title = @Title,
@@ -92,7 +92,7 @@ public class ModuloMercadoAB(Connection connection)
     public async Task<bool> ExcluirRegistroAsync(string companyId, string moduleId, string recordId)
     {
         await using var db = await connection.OpenConnectionAsync();
-        await using var command = new SqlCommand(
+        await using var command = new NpgsqlCommand(
             "DELETE FROM ModuloMercadoRegistros WHERE CompanyId = @CompanyId AND ModuleId = @ModuleId AND Id = @Id;",
             db);
         command.Parameters.AddWithValue("@CompanyId", companyId);
@@ -101,7 +101,7 @@ public class ModuloMercadoAB(Connection connection)
         return await command.ExecuteNonQueryAsync() > 0;
     }
 
-    private static void AddParameters(SqlCommand command, ModuloMercadoRegistroAD registro)
+    private static void AddParameters(NpgsqlCommand command, ModuloMercadoRegistroAD registro)
     {
         command.Parameters.AddWithValue("@Id", registro.Id);
         command.Parameters.AddWithValue("@CompanyId", registro.CompanyId);
@@ -113,7 +113,7 @@ public class ModuloMercadoAB(Connection connection)
         command.Parameters.AddWithValue("@Meta", registro.Meta);
     }
 
-    private static ModuloMercadoRegistroAD Map(SqlDataReader reader) => new()
+    private static ModuloMercadoRegistroAD Map(NpgsqlDataReader reader) => new()
     {
         Id = ReadString(reader, "Id"),
         CompanyId = ReadString(reader, "CompanyId"),
@@ -125,7 +125,7 @@ public class ModuloMercadoAB(Connection connection)
         Meta = ReadString(reader, "Meta")
     };
 
-    private static string ReadString(SqlDataReader reader, string name)
+    private static string ReadString(NpgsqlDataReader reader, string name)
     {
         var ordinal = reader.GetOrdinal(name);
         return reader.IsDBNull(ordinal) ? string.Empty : reader.GetString(ordinal);

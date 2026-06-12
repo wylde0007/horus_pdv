@@ -1,10 +1,9 @@
 /**
  * Arquivo: API/NETCORE/Repositories/HorusDatabaseInitializer.cs
- * Objetivo: executa a inicialização controlada do banco a partir dos scripts SQL do projeto.
- * Entradas esperadas: espera provedor de serviços configurado e SQL Server disponível no ambiente.
+ * Objetivo: executa a inicialização controlada do banco PostgreSQL/Supabase a partir dos scripts SQL do projeto.
  */
 using System.Text.RegularExpressions;
-using Microsoft.Data.SqlClient;
+using Npgsql;
 
 namespace HORUSPDV_API.Repositories;
 
@@ -17,9 +16,11 @@ public static class HorusDatabaseInitializer
     public static async Task InitializeAsync(IServiceProvider services)
     {
         using var scope = services.CreateScope();
+
         var connection = scope.ServiceProvider.GetRequiredService<Connection>();
         var logger = scope.ServiceProvider.GetRequiredService<ILoggerFactory>()
             .CreateLogger("HorusDatabaseInitializer");
+
         var scriptPath = Path.Combine(AppContext.BaseDirectory, "DataBase", "Resumo.sql");
 
         if (!File.Exists(scriptPath))
@@ -34,18 +35,21 @@ public static class HorusDatabaseInitializer
         }
 
         var script = await File.ReadAllTextAsync(scriptPath);
+
         var batches = BatchSeparator.Split(script)
             .Select(batch => batch.Trim())
             .Where(batch => !string.IsNullOrWhiteSpace(batch))
             .ToList();
 
-        await using var sqlConnection = await connection.OpenConnectionAsync(database: "master");
+        await using var sqlConnection = await connection.OpenConnectionAsync();
+
         foreach (var batch in batches)
         {
-            await using var command = new SqlCommand(batch, sqlConnection)
+            await using var command = new NpgsqlCommand(batch, sqlConnection)
             {
                 CommandTimeout = 180
             };
+
             await command.ExecuteNonQueryAsync();
         }
 

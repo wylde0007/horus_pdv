@@ -1,9 +1,8 @@
 /**
  * Arquivo: API/NETCORE/Repositories/Connection.cs
- * Objetivo: centraliza a criação de conexões SQL Server usadas pelos repositórios da API.
- * Entradas esperadas: espera configuração de connection string válida para abrir conexões com o banco.
+ * Objetivo: centraliza a criação de conexões PostgreSQL/Supabase usadas pelos repositórios da API.
  */
-using Microsoft.Data.SqlClient;
+using Npgsql;
 
 namespace HORUSPDV_API.Repositories;
 
@@ -11,34 +10,37 @@ public sealed class Connection(IConfiguration configuration)
 {
     public string ConnectionString { get; } = ResolveConnectionString(configuration);
 
-    public async Task<SqlConnection> OpenConnectionAsync(
+    public async Task<NpgsqlConnection> OpenConnectionAsync(
         CancellationToken cancellationToken = default,
         string? database = null)
     {
         var connectionString = string.IsNullOrWhiteSpace(database)
             ? ConnectionString
             : BuildConnectionString(database);
-        var connection = new SqlConnection(connectionString);
+
+        var connection = new NpgsqlConnection(connectionString);
         await connection.OpenAsync(cancellationToken);
         return connection;
     }
 
-    public SqlConnection OpenConnection(string? database = null)
+    public NpgsqlConnection OpenConnection(string? database = null)
     {
         var connectionString = string.IsNullOrWhiteSpace(database)
             ? ConnectionString
             : BuildConnectionString(database);
-        var connection = new SqlConnection(connectionString);
+
+        var connection = new NpgsqlConnection(connectionString);
         connection.Open();
         return connection;
     }
 
     private string BuildConnectionString(string database)
     {
-        var builder = new SqlConnectionStringBuilder(ConnectionString)
+        var builder = new NpgsqlConnectionStringBuilder(ConnectionString)
         {
-            InitialCatalog = database
+            Database = database
         };
+
         return builder.ConnectionString;
     }
 
@@ -46,16 +48,14 @@ public sealed class Connection(IConfiguration configuration)
     {
         var connectionString =
             FirstNonEmpty(
+                Environment.GetEnvironmentVariable("HORUSPDV_CONNECTION_STRING"),
                 configuration.GetConnectionString("HorusPdv"),
-                configuration.GetConnectionString("DefaultConnection"),
-                Environment.GetEnvironmentVariable("SQLCONNSTR_HorusPdv"),
-                Environment.GetEnvironmentVariable("SQLCONNSTR_DefaultConnection"),
-                Environment.GetEnvironmentVariable("HORUSPDV_CONNECTION_STRING"));
+                configuration.GetConnectionString("DefaultConnection"));
 
         if (string.IsNullOrWhiteSpace(connectionString))
         {
             throw new InvalidOperationException(
-                "Connection string não configurada. Defina ConnectionStrings:HorusPdv ou HORUSPDV_CONNECTION_STRING.");
+                "Connection string não configurada. Defina HORUSPDV_CONNECTION_STRING ou ConnectionStrings:HorusPdv.");
         }
 
         return connectionString;
