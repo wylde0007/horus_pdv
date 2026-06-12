@@ -20,3 +20,7 @@ dist/
 bin/
 obj/
 horus_pdv/
+API/NETCORE/appsettings.Development.json
+API/NETCORE/appsettings.Development.json.save
+FRONTEND/.env
+FRONTEND/.env.development
