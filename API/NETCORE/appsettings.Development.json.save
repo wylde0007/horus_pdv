@@ -28,11 +28,10 @@
   },
   "Security": {
     "EncryptionKey": "horus-pdv-development-encryption-key-change-before-production-2026",
-    "CorsOrigins": "http://localhost:5173,https://localhost:5173,http://127.0.0.1:5173,https://127.0.0.1:5173,https://psychic-yodel-4vpxpgx9xxq3qv5w-5173.app.github.dev",
+    "CorsOrigins": "http://localhost:5173,https://localhost:5173,http://127.0.0.1:5173,https://127.0.0.1:5173,http://localhost:4173,https://localhost:4173,http://127.0.0.1:4173,https://127.0.0.1:4173",
     "TrustForwardedHeaders": false,
     "MaxRequestBodyBytes": 2000000,
-    "RateLimit": {
-      "WindowSeconds": 60,
+    "RateLimit": {"CorsOrigins": "http://localhost:5173,https://localhost:5173,http://127.0.0.1:5173,https://127.0.0.1:5173,https://psychic-yodel-4vpxpgx9xxq3qv5w-5173.app.github.dev"      "WindowSeconds": 60,
       "MaxRequests": 240
     }
   },
