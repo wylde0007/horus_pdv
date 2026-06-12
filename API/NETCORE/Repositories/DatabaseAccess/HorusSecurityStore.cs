@@ -688,18 +688,16 @@ public class HorusSecurityStore(Connection connection, HorusSecurityOptions secu
         using var db = connection.OpenConnection();
         using var command = new NpgsqlCommand(
             """
-            IF NOT EXISTS (SELECT 1 FROM Empresas WHERE Id = @Id)
-            BEGIN
-                INSERT INTO Empresas
-                    (Id, FantasyName, CorporateName, Cnpj, StateRegistration, Website, Email, SacPhone, Phone, Mobile,
-                     Cep, Address, Number, Neighborhood, City, Uf, Complement, EmailSmtpEnabled, EmailSmtpHost,
-                     EmailSmtpPort, EmailSmtpEnableSsl, EmailSmtpUser, EmailSmtpPassword, EmailSmtpFromEmail,
-                     EmailSmtpFromName, EmailSmtpReplyTo)
-                VALUES
-                    (@Id, @FantasyName, @CorporateName, @Cnpj, N'', N'', @Email, N'', @Phone, @Phone,
-                     N'', N'', N'', N'', N'', N'', N'', 0, N'smtp-mail.outlook.com',
-                     587, 1, N'', N'', N'', @FantasyName, N'');
-            END;
+            INSERT INTO Empresas
+                (Id, FantasyName, CorporateName, Cnpj, StateRegistration, Website, Email, SacPhone, Phone, Mobile,
+                 Cep, Address, Number, Neighborhood, City, Uf, Complement, EmailSmtpEnabled, EmailSmtpHost,
+                 EmailSmtpPort, EmailSmtpEnableSsl, EmailSmtpUser, EmailSmtpPassword, EmailSmtpFromEmail,
+                 EmailSmtpFromName, EmailSmtpReplyTo)
+            VALUES
+                (@Id, @FantasyName, @CorporateName, @Cnpj, '', '', @Email, '', @Phone, @Phone,
+                 '', '', '', '', '', '', '', false, 'smtp-mail.outlook.com',
+                 587, true, '', '', '', @FantasyName, '')
+            ON CONFLICT (Id) DO NOTHING;
             """,
             db);
         command.Parameters.AddWithValue("@Id", companyId);
