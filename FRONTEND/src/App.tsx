@@ -410,7 +410,16 @@ export default function App() {
         };
       }
 
-      setAuthSession(result.user, remember);
+      const authToken = result.accessToken || result.token;
+
+      if (!authToken) {
+        return {
+          success: false,
+          message: "A API não retornou o token de autenticação.",
+        };
+      }
+
+      setAuthSession(result.user, remember, authToken);
       setCurrentUser(toCurrentUser(result.user));
       setIsAuthenticated(true);
       setActivePage(isStandalonePos ? "vendas" : "home");

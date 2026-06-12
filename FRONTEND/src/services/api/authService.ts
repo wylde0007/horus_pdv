@@ -17,6 +17,8 @@ export type LoginPayload = {
 
 export type LoginResponse = {
   tokenType: "Bearer";
+  token?: string;
+  accessToken?: string;
   expiresInSeconds: number;
   sessionId: string;
   user: AuthenticatedUser;

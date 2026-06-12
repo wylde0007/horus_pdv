@@ -1,9 +1,9 @@
 /**
  * Arquivo: src/services/api/apiClient.ts
  * Objetivo: centralizar chamadas HTTP para a API .NET do Hórus PDV.
-  * Entradas esperadas: recebe caminho, método e payload opcional para executar requisições autenticadas.
-*/
-import { clearAuthSession } from "@/utils/authStorage";
+ * Entradas esperadas: recebe caminho, método e payload opcional para executar requisições autenticadas.
+ */
+import { clearAuthSession, getStoredAuthToken } from "@/utils/authStorage";
 
 export type ApiResponse<T> = {
   success: boolean;
@@ -20,13 +20,25 @@ export async function apiRequest<T>(
   endpointUrl: string,
   options: ApiRequestOptions = {},
 ): Promise<ApiResponse<T>> {
-  const { skipAuth: _skipAuth, headers, ...requestOptions } = options;
+  const { skipAuth = false, headers, ...requestOptions } = options;
+
+  const requestHeaders = new Headers(headers);
+
+  if (!requestHeaders.has("Content-Type")) {
+    requestHeaders.set("Content-Type", "application/json");
+  }
+
+  if (!skipAuth) {
+    const token = getStoredAuthToken();
+
+    if (token) {
+      requestHeaders.set("Authorization", `Bearer ${token}`);
+    }
+  }
+
   const response = await fetch(endpointUrl, {
     credentials: "include",
-    headers: {
-      "Content-Type": "application/json",
-      ...headers,
-    },
+    headers: requestHeaders,
     ...requestOptions,
   });
 
@@ -38,7 +50,7 @@ export async function apiRequest<T>(
         message: response.ok ? "Operação concluída." : "Erro ao comunicar com a API.",
       } as ApiResponse<T>);
 
-  if (response.status === 401) {
+  if (response.status === 401 && !skipAuth) {
     clearAuthSession();
   }
 
