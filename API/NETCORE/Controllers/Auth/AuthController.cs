@@ -72,6 +72,8 @@ public class AuthController(
             Data = new
             {
                 tokenType = "Bearer",
+                token = token,
+                accessToken = token,
                 expiresInSeconds = jwtService.SessionHours * 60 * 60,
                 sessionId = result.Session.Id,
                 user = result.User
