@@ -265,7 +265,7 @@ public class HistoricoVendasAB(Connection connection)
         Quantity = reader.GetInt32(reader.GetOrdinal("Quantity")),
         UnitPrice = ReadString(reader, "UnitPrice"),
         ItemTotal = ReadString(reader, "ItemTotal"),
-        SaleDate = reader.GetDateTimeOffset(reader.GetOrdinal("SaleDate")).LocalDateTime.ToString("dd/MM/yyyy HH:mm:ss")
+        SaleDate = ReadString(reader, "SaleDate")
     };
 
     private static async Task EnsurePrintColumnsAsync(NpgsqlConnection db)
