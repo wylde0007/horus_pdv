@@ -53,9 +53,8 @@ public class FornecedorAB(Connection connection)
     public async Task<FornecedorAD> SalvarAsync(string companyId, FornecedorAD supplier)
     {
         const string sql = """
-            IF EXISTS (SELECT 1 FROM Fornecedores WHERE Id = @Id AND CompanyId = @CompanyId)
-            BEGIN
-                UPDATE Fornecedores
+            WITH updated AS (
+            UPDATE Fornecedores
                    SET CompanyName = @CompanyName,
                        FantasyName = @FantasyName,
                        Cnpj = @Cnpj,
@@ -70,17 +69,16 @@ public class FornecedorAB(Connection connection)
                        Telephone = @Telephone,
                        Cellphone = @Cellphone,
                        Email = @Email
-                 WHERE Id = @Id AND CompanyId = @CompanyId;
-            END
-            ELSE
-            BEGIN
-                INSERT INTO Fornecedores
+                 WHERE Id = @Id AND CompanyId = @CompanyId
+            RETURNING 1
+            )
+            INSERT INTO Fornecedores
                     (Id, CompanyId, CompanyName, FantasyName, Cnpj, Cep, City, State, Address, Neighborhood,
                      StreetComplement, Number, ReferencePoint, Telephone, Cellphone, Email)
-                VALUES
-                    (@Id, @CompanyId, @CompanyName, @FantasyName, @Cnpj, @Cep, @City, @State, @Address, @Neighborhood,
-                     @StreetComplement, @Number, @ReferencePoint, @Telephone, @Cellphone, @Email);
-            END;
+            SELECT
+            @Id, @CompanyId, @CompanyName, @FantasyName, @Cnpj, @Cep, @City, @State, @Address, @Neighborhood,
+                     @StreetComplement, @Number, @ReferencePoint, @Telephone, @Cellphone, @Email
+            WHERE NOT EXISTS (SELECT 1 FROM updated);
             """;
 
         await using var db = await connection.OpenConnectionAsync();

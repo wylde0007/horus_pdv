@@ -54,9 +54,8 @@ public class ProdutoAB(Connection connection)
     {
         var supplierId = await ResolveSupplierIdAsync(companyId, product.ProductSupplier);
         const string sql = """
-            IF EXISTS (SELECT 1 FROM Produtos WHERE Id = @Id AND CompanyId = @CompanyId)
-            BEGIN
-                UPDATE Produtos
+            WITH updated AS (
+            UPDATE Produtos
                    SET ProductImageUrl = @ProductImageUrl,
                        ProductImageName = @ProductImageName,
                        ProductName = @ProductName,
@@ -68,17 +67,16 @@ public class ProdutoAB(Connection connection)
                        ProductUnitPrice = @ProductUnitPrice,
                        ProductSalePrice = @ProductSalePrice,
                        TotalPriceOnProduct = @TotalPriceOnProduct
-                 WHERE Id = @Id AND CompanyId = @CompanyId;
-            END
-            ELSE
-            BEGIN
-                INSERT INTO Produtos
+                 WHERE Id = @Id AND CompanyId = @CompanyId
+            RETURNING 1
+            )
+            INSERT INTO Produtos
                     (Id, CompanyId, ProductImageUrl, ProductImageName, ProductName, ProductCode, ProductSupplier, SupplierId,
                      ProductDescription, ProductQnt, ProductUnitPrice, ProductSalePrice, TotalPriceOnProduct)
-                VALUES
-                    (@Id, @CompanyId, @ProductImageUrl, @ProductImageName, @ProductName, @ProductCode, @ProductSupplier, @SupplierId,
-                     @ProductDescription, @ProductQnt, @ProductUnitPrice, @ProductSalePrice, @TotalPriceOnProduct);
-            END;
+            SELECT
+            @Id, @CompanyId, @ProductImageUrl, @ProductImageName, @ProductName, @ProductCode, @ProductSupplier, @SupplierId,
+                     @ProductDescription, @ProductQnt, @ProductUnitPrice, @ProductSalePrice, @TotalPriceOnProduct
+            WHERE NOT EXISTS (SELECT 1 FROM updated);
             """;
 
         await using var db = await connection.OpenConnectionAsync();

@@ -23,11 +23,9 @@ public class ModuloMercadoAB(Connection connection)
         await using var db = await connection.OpenConnectionAsync();
         await using var command = new NpgsqlCommand(
             """
-            IF NOT EXISTS (SELECT 1 FROM ModulosMercado WHERE Id = @Id)
-            BEGIN
-                INSERT INTO ModulosMercado (Id, Title)
-                VALUES (@Id, @Title);
-            END;
+            INSERT INTO ModulosMercado (Id, Title)
+            SELECT @Id, @Title
+            WHERE NOT EXISTS (SELECT 1 FROM ModulosMercado WHERE Id = @Id);
             """,
             db);
         command.Parameters.AddWithValue("@Id", id);

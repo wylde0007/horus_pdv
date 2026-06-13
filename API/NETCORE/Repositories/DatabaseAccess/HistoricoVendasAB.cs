@@ -260,23 +260,23 @@ public class HistoricoVendasAB(Connection connection)
               FROM VendaItens i
               INNER JOIN Produtos p ON p.ProductCode = i.ProductCode
              WHERE NULLIF(LTRIM(RTRIM(i.UnitPrice)), '') IS NULL
-                OR REPLACE(REPLACE(REPLACE(LTRIM(RTRIM(i.UnitPrice)), N'R$', N''), N'.', N''), N',', N'.') IN (N'0', N'0.00');
+                OR REPLACE(REPLACE(REPLACE(LTRIM(RTRIM(i.UnitPrice)), N'R$', ''), N'.', ''), N',', N'.') IN (N'0', N'0.00');
 
             UPDATE i
                SET ItemTotal = FORMAT(
                     TRY_CONVERT(
                         DECIMAL(18, 2),
-                        REPLACE(REPLACE(REPLACE(LTRIM(RTRIM(i.UnitPrice)), N'R$', N''), N'.', N''), N',', N'.')
+                        REPLACE(REPLACE(REPLACE(LTRIM(RTRIM(i.UnitPrice)), N'R$', ''), N'.', ''), N',', N'.')
                     ) * i.Quantity,
                     N'N2',
                     N'pt-BR'
                )
               FROM VendaItens i
              WHERE (NULLIF(LTRIM(RTRIM(i.ItemTotal)), '') IS NULL
-                OR REPLACE(REPLACE(REPLACE(LTRIM(RTRIM(i.ItemTotal)), N'R$', N''), N'.', N''), N',', N'.') IN (N'0', N'0.00'))
+                OR REPLACE(REPLACE(REPLACE(LTRIM(RTRIM(i.ItemTotal)), N'R$', ''), N'.', ''), N',', N'.') IN (N'0', N'0.00'))
                AND TRY_CONVERT(
                     DECIMAL(18, 2),
-                    REPLACE(REPLACE(REPLACE(LTRIM(RTRIM(i.UnitPrice)), N'R$', N''), N'.', N''), N',', N'.')
+                    REPLACE(REPLACE(REPLACE(LTRIM(RTRIM(i.UnitPrice)), N'R$', ''), N'.', ''), N',', N'.')
                ) IS NOT NULL;
             """;
 

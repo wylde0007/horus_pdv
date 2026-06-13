@@ -40,9 +40,8 @@ public class EmpresaAB(Connection connection, HorusSecretProtector secretProtect
         await using var db = await connection.OpenConnectionAsync();
         await using var command = new NpgsqlCommand(
             """
-            IF EXISTS (SELECT 1 FROM Empresas WHERE Id = @Id)
-            BEGIN
-                UPDATE Empresas
+            WITH updated AS (
+            UPDATE Empresas
                    SET FantasyName = @FantasyName,
                        CorporateName = @CorporateName,
                        Cnpj = @Cnpj,
@@ -65,27 +64,26 @@ public class EmpresaAB(Connection connection, HorusSecretProtector secretProtect
                        EmailSmtpEnableSsl = @EmailSmtpEnableSsl,
                        EmailSmtpUser = @EmailSmtpUser,
                        EmailSmtpPassword = CASE
-                           WHEN @EmailSmtpPassword = N'' THEN EmailSmtpPassword
+                           WHEN @EmailSmtpPassword = '' THEN EmailSmtpPassword
                            ELSE @EmailSmtpPassword
                        END,
                        EmailSmtpFromEmail = @EmailSmtpFromEmail,
                        EmailSmtpFromName = @EmailSmtpFromName,
                        EmailSmtpReplyTo = @EmailSmtpReplyTo
-                 WHERE Id = @Id;
-            END
-            ELSE
-            BEGIN
-                INSERT INTO Empresas
+                 WHERE Id = @Id
+            RETURNING 1
+            )
+            INSERT INTO Empresas
                     (Id, FantasyName, CorporateName, Cnpj, StateRegistration, Website, Email, SacPhone,
                      Phone, Mobile, Cep, Address, Number, Neighborhood, City, Uf, Complement,
                      EmailSmtpEnabled, EmailSmtpHost, EmailSmtpPort, EmailSmtpEnableSsl, EmailSmtpUser,
                      EmailSmtpPassword, EmailSmtpFromEmail, EmailSmtpFromName, EmailSmtpReplyTo)
-                VALUES
-                    (@Id, @FantasyName, @CorporateName, @Cnpj, @StateRegistration, @Website,
+            SELECT
+            @Id, @FantasyName, @CorporateName, @Cnpj, @StateRegistration, @Website,
                      @Email, @SacPhone, @Phone, @Mobile, @Cep, @Address, @Number, @Neighborhood, @City, @Uf, @Complement,
                      @EmailSmtpEnabled, @EmailSmtpHost, @EmailSmtpPort, @EmailSmtpEnableSsl, @EmailSmtpUser,
-                     @EmailSmtpPassword, @EmailSmtpFromEmail, @EmailSmtpFromName, @EmailSmtpReplyTo);
-            END;
+                     @EmailSmtpPassword, @EmailSmtpFromEmail, @EmailSmtpFromName, @EmailSmtpReplyTo
+            WHERE NOT EXISTS (SELECT 1 FROM updated);
             """,
             db);
         command.Parameters.AddWithValue("@Id", companyId);

@@ -49,7 +49,7 @@ public class CaixaAB(Connection connection)
             INSERT INTO CaixaSessoes
                 (Id, CompanyId, OpenedAt, OpeningAmount, ClosingAmount, OperatorId, OperatorName, ClosedById, ClosedByName, Note)
             VALUES
-                (@Id, @CompanyId, @OpenedAt, @OpeningAmount, N'0,00', @OperatorId, @OperatorName, N'', N'', N'');
+                (@Id, @CompanyId, @OpenedAt, @OpeningAmount, N'0,00', @OperatorId, @OperatorName, '', '', '');
             """,
             db);
         command.Parameters.AddWithValue("@Id", id);

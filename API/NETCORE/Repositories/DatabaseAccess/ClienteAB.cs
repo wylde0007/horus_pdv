@@ -53,9 +53,8 @@ public class ClienteAB(Connection connection)
     public async Task<ClienteAD> SalvarAsync(string companyId, ClienteAD customer)
     {
         const string sql = """
-            IF EXISTS (SELECT 1 FROM Clientes WHERE Id = @Id AND CompanyId = @CompanyId)
-            BEGIN
-                UPDATE Clientes
+            WITH updated AS (
+            UPDATE Clientes
                    SET CustomerName = @CustomerName,
                        Document = @Document,
                        BirthDate = @BirthDate,
@@ -71,17 +70,16 @@ public class ClienteAB(Connection connection)
                        Telephone = @Telephone,
                        Cellphone = @Cellphone,
                        Email = @Email
-                 WHERE Id = @Id AND CompanyId = @CompanyId;
-            END
-            ELSE
-            BEGIN
-                INSERT INTO Clientes
+                 WHERE Id = @Id AND CompanyId = @CompanyId
+            RETURNING 1
+            )
+            INSERT INTO Clientes
                     (Id, CompanyId, CustomerName, Document, BirthDate, Age, Cep, City, State, Address, Neighborhood,
                      StreetComplement, Number, ReferencePoint, Telephone, Cellphone, Email)
-                VALUES
-                    (@Id, @CompanyId, @CustomerName, @Document, @BirthDate, @Age, @Cep, @City, @State, @Address, @Neighborhood,
-                     @StreetComplement, @Number, @ReferencePoint, @Telephone, @Cellphone, @Email);
-            END;
+            SELECT
+            @Id, @CompanyId, @CustomerName, @Document, @BirthDate, @Age, @Cep, @City, @State, @Address, @Neighborhood,
+                     @StreetComplement, @Number, @ReferencePoint, @Telephone, @Cellphone, @Email
+            WHERE NOT EXISTS (SELECT 1 FROM updated);
             """;
 
         await using var db = await connection.OpenConnectionAsync();
