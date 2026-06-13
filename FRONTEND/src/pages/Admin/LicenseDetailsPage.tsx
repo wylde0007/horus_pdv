@@ -47,28 +47,28 @@ export default function LicenseDetailsPage() {
             </p>
             <div className="mt-3 space-y-1 text-sm text-text-secondary">
               <p>
-                Autor: <strong className="text-text-primary">Flávio Oliveira</strong>
+                Autor: <strong className="text-text-primary">Bruno Ferrenha</strong>
               </p>
               <p>
                 GitHub:{" "}
                 <a
-                  href="https://github.com/flaviooliveira-code"
+                  href="https://github.com/wylde0007"
                   target="_blank"
                   rel="noreferrer"
                   className="text-accent hover:underline"
                 >
-                  github.com/flaviooliveira-code
+                  github.com/wylde0007
                 </a>
               </p>
               <p>
                 LinkedIn:{" "}
                 <a
-                  href="https://www.linkedin.com/in/fladoliveira"
+                  href="https://www.linkedin.com/in/bruno-laerte-almeida-ferrenha-44b21bb5/"
                   target="_blank"
                   rel="noreferrer"
                   className="text-accent hover:underline"
                 >
-                  linkedin.com/in/fladoliveira
+                  linkedin.com/in/bruno-laerte-almeida-ferrenha
                 </a>
               </p>
             </div>
@@ -80,7 +80,7 @@ export default function LicenseDetailsPage() {
               Evolução do projeto
             </p>
             <p className="mt-2 text-sm text-text-secondary">
-              Criado em 2020 e evoluído continuamente até esta versão de 2026, com melhorias de
+              Criado em 2026 e evoluído continuamente até esta versão de 2026, com melhorias de
               arquitetura e experiência de uso.
             </p>
           </article>
