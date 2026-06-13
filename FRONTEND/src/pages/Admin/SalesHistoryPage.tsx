@@ -58,7 +58,14 @@ export default function SalesHistoryPage() {
   const [receiptPreview, setReceiptPreview] = useState<SaleReceipt | null>(null);
 
   useEffect(() => {
-    salesHistoryService.list().then(setSalesHistory).catch(() => setSalesHistory([]));
+    salesHistoryService
+      .list()
+      .then(setSalesHistory)
+      .catch((error) => {
+        Toast.error(error instanceof Error ? error.message : "Erro ao buscar histórico de vendas.");
+        setSalesHistory([]);
+      });
+
     companyService.get().then((data) => setCompany(data ?? null)).catch(() => setCompany(null));
   }, []);
 

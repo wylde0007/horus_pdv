@@ -13,14 +13,35 @@ public class HistoricoVendasAB(Connection connection)
 {
     public async Task<List<VendaHistoricoAD>> ListarAsync(string companyId, string? saleNumber = null)
     {
-        const string sql = """
-            SELECT v.SaleNumber, v.CustomerName, v.CustomerCpf, v.PaymentType,
-                   v.TotalAmount, v.OperatorName, v.SaleDate,
-                   i.ProductCode, i.ProductName, i.Quantity, i.UnitPrice, i.ItemTotal
+        var hasSaleNumber = !string.IsNullOrWhiteSpace(saleNumber);
+
+        var sql = """
+            SELECT
+                v.SaleNumber AS "SaleNumber",
+                v.CustomerName AS "CustomerName",
+                v.CustomerCpf AS "CustomerCpf",
+                v.PaymentType AS "PaymentType",
+                v.TotalAmount AS "TotalAmount",
+                v.OperatorName AS "OperatorName",
+                v.SaleDate AS "SaleDate",
+                i.ProductCode AS "ProductCode",
+                i.ProductName AS "ProductName",
+                i.Quantity AS "Quantity",
+                i.UnitPrice AS "UnitPrice",
+                i.ItemTotal AS "ItemTotal"
             FROM VendaItens i
             INNER JOIN Vendas v ON v.Id = i.VendaId
             WHERE v.CompanyId = @CompanyId
-              AND (@SaleNumber IS NULL OR v.SaleNumber = @SaleNumber)
+            """;
+
+        if (hasSaleNumber)
+        {
+            sql += """
+                 AND v.SaleNumber = @SaleNumber
+                """;
+        }
+
+        sql += """
             ORDER BY v.SaleDate DESC;
             """;
 
@@ -28,9 +49,15 @@ public class HistoricoVendasAB(Connection connection)
         await EnsurePrintColumnsAsync(db);
         await using var command = new NpgsqlCommand(sql, db);
         command.Parameters.AddWithValue("@CompanyId", companyId);
-        command.Parameters.AddWithValue("@SaleNumber", string.IsNullOrWhiteSpace(saleNumber) ? DBNull.Value : saleNumber);
+
+        if (hasSaleNumber)
+        {
+            command.Parameters.AddWithValue("@SaleNumber", saleNumber!.Trim());
+        }
+
         await using var reader = await command.ExecuteReaderAsync();
         var rows = new List<VendaHistoricoAD>();
+
         while (await reader.ReadAsync())
         {
             rows.Add(Map(reader));
@@ -38,6 +65,7 @@ public class HistoricoVendasAB(Connection connection)
 
         return rows;
     }
+
 
     public async Task<VendaRegistroResultadoAD> RegistrarAsync(string companyId, VendaRequest request)
     {
