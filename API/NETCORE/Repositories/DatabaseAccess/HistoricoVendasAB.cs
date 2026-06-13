@@ -15,38 +15,50 @@ public class HistoricoVendasAB(Connection connection)
     {
         var hasSaleNumber = !string.IsNullOrWhiteSpace(saleNumber);
 
-        var sql = """
-            SELECT
-                v.SaleNumber AS "SaleNumber",
-                v.CustomerName AS "CustomerName",
-                v.CustomerCpf AS "CustomerCpf",
-                v.PaymentType AS "PaymentType",
-                v.TotalAmount AS "TotalAmount",
-                v.OperatorName AS "OperatorName",
-                TO_CHAR(v.SaleDate AT TIME ZONE 'America/Sao_Paulo', 'DD/MM/YYYY HH24:MI:SS') AS "SaleDate",
-                i.ProductCode AS "ProductCode",
-                i.ProductName AS "ProductName",
-                i.Quantity AS "Quantity",
-                i.UnitPrice AS "UnitPrice",
-                i.ItemTotal AS "ItemTotal"
-            FROM VendaItens i
-            INNER JOIN Vendas v ON v.Id = i.VendaId
-            WHERE v.CompanyId = @CompanyId
-            """;
-
-        if (hasSaleNumber)
-        {
-            sql += """
-                 AND v.SaleNumber = @SaleNumber
-                """;
-        }
-
-        sql += """
-            ORDER BY v.SaleDate DESC;
-            """;
+        var sql = hasSaleNumber
+            ? """
+              SELECT
+                  v.SaleNumber AS "SaleNumber",
+                  v.CustomerName AS "CustomerName",
+                  v.CustomerCpf AS "CustomerCpf",
+                  v.PaymentType AS "PaymentType",
+                  v.TotalAmount AS "TotalAmount",
+                  v.OperatorName AS "OperatorName",
+                  TO_CHAR(v.SaleDate AT TIME ZONE 'America/Sao_Paulo', 'DD/MM/YYYY HH24:MI:SS') AS "SaleDate",
+                  i.ProductCode AS "ProductCode",
+                  i.ProductName AS "ProductName",
+                  i.Quantity AS "Quantity",
+                  i.UnitPrice AS "UnitPrice",
+                  i.ItemTotal AS "ItemTotal"
+              FROM VendaItens i
+              INNER JOIN Vendas v ON v.Id = i.VendaId
+              WHERE v.CompanyId = @CompanyId
+                AND v.SaleNumber = @SaleNumber
+              ORDER BY v.SaleDate DESC;
+              """
+            : """
+              SELECT
+                  v.SaleNumber AS "SaleNumber",
+                  v.CustomerName AS "CustomerName",
+                  v.CustomerCpf AS "CustomerCpf",
+                  v.PaymentType AS "PaymentType",
+                  v.TotalAmount AS "TotalAmount",
+                  v.OperatorName AS "OperatorName",
+                  TO_CHAR(v.SaleDate AT TIME ZONE 'America/Sao_Paulo', 'DD/MM/YYYY HH24:MI:SS') AS "SaleDate",
+                  i.ProductCode AS "ProductCode",
+                  i.ProductName AS "ProductName",
+                  i.Quantity AS "Quantity",
+                  i.UnitPrice AS "UnitPrice",
+                  i.ItemTotal AS "ItemTotal"
+              FROM VendaItens i
+              INNER JOIN Vendas v ON v.Id = i.VendaId
+              WHERE v.CompanyId = @CompanyId
+              ORDER BY v.SaleDate DESC;
+              """;
 
         await using var db = await connection.OpenConnectionAsync();
         await EnsurePrintColumnsAsync(db);
+
         await using var command = new NpgsqlCommand(sql, db);
         command.Parameters.AddWithValue("@CompanyId", companyId);
 
