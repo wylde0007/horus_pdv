@@ -177,8 +177,9 @@ public class HistoricoVendasAB(Connection connection)
             await using var select = new NpgsqlCommand(
                 """
                 SELECT Id, ProductName, ProductQnt, ProductUnitPrice, ProductSalePrice
-                FROM Produtos WITH (UPDLOCK, ROWLOCK)
-                WHERE CompanyId = @CompanyId AND ProductCode = @ProductCode;
+                FROM Produtos
+                WHERE CompanyId = @CompanyId AND ProductCode = @ProductCode
+                FOR UPDATE;
                 """,
                 db,
                 transaction);
@@ -242,50 +243,48 @@ public class HistoricoVendasAB(Connection connection)
     private static async Task EnsurePrintColumnsAsync(NpgsqlConnection db)
     {
         const string schemaSql = """
-            IF COL_LENGTH('Vendas', 'CompanyId') IS NULL
-                ALTER TABLE Vendas ADD CompanyId NVARCHAR(40) NOT NULL CONSTRAINT DF_Vendas_CompanyId DEFAULT N'empresa-principal';
-            IF COL_LENGTH('Vendas', 'CustomerName') IS NULL
-                ALTER TABLE Vendas ADD CustomerName NVARCHAR(180) NOT NULL CONSTRAINT DF_Vendas_CustomerName DEFAULT N'Consumidor';
-            IF COL_LENGTH('Vendas', 'CustomerCpf') IS NULL
-                ALTER TABLE Vendas ADD CustomerCpf NVARCHAR(30) NOT NULL CONSTRAINT DF_Vendas_CustomerCpf DEFAULT N'-';
-            IF COL_LENGTH('Vendas', 'PaymentType') IS NULL
-                ALTER TABLE Vendas ADD PaymentType NVARCHAR(30) NOT NULL CONSTRAINT DF_Vendas_PaymentType DEFAULT N'-';
-            IF COL_LENGTH('Vendas', 'TotalAmount') IS NULL
-                ALTER TABLE Vendas ADD TotalAmount NVARCHAR(30) NOT NULL CONSTRAINT DF_Vendas_TotalAmount DEFAULT N'0,00';
-            IF COL_LENGTH('Vendas', 'OperatorName') IS NULL
-                ALTER TABLE Vendas ADD OperatorName NVARCHAR(180) NOT NULL CONSTRAINT DF_Vendas_OperatorName DEFAULT N'Operador';
-            IF COL_LENGTH('Vendas', 'SaleDate') IS NULL
-                ALTER TABLE Vendas ADD SaleDate DATETIMEOFFSET NOT NULL CONSTRAINT DF_Vendas_SaleDate DEFAULT SYSDATETIMEOFFSET();
-            IF COL_LENGTH('VendaItens', 'UnitPrice') IS NULL
-                ALTER TABLE VendaItens ADD UnitPrice NVARCHAR(30) NOT NULL CONSTRAINT DF_VendaItens_UnitPrice DEFAULT N'0,00';
-            IF COL_LENGTH('VendaItens', 'ItemTotal') IS NULL
-                ALTER TABLE VendaItens ADD ItemTotal NVARCHAR(30) NOT NULL CONSTRAINT DF_VendaItens_ItemTotal DEFAULT N'0,00';
+            ALTER TABLE Vendas ADD COLUMN IF NOT EXISTS CompanyId VARCHAR(40) NOT NULL DEFAULT 'empresa-principal';
+            ALTER TABLE Vendas ADD COLUMN IF NOT EXISTS CustomerName VARCHAR(180) NOT NULL DEFAULT 'Consumidor';
+            ALTER TABLE Vendas ADD COLUMN IF NOT EXISTS CustomerCpf VARCHAR(30) NOT NULL DEFAULT '-';
+            ALTER TABLE Vendas ADD COLUMN IF NOT EXISTS PaymentType VARCHAR(30) NOT NULL DEFAULT '-';
+            ALTER TABLE Vendas ADD COLUMN IF NOT EXISTS TotalAmount VARCHAR(30) NOT NULL DEFAULT '0,00';
+            ALTER TABLE Vendas ADD COLUMN IF NOT EXISTS OperatorName VARCHAR(180) NOT NULL DEFAULT 'Operador';
+            ALTER TABLE Vendas ADD COLUMN IF NOT EXISTS SaleDate TIMESTAMPTZ NOT NULL DEFAULT NOW();
+
+            ALTER TABLE VendaItens ADD COLUMN IF NOT EXISTS UnitPrice VARCHAR(30) NOT NULL DEFAULT '0,00';
+            ALTER TABLE VendaItens ADD COLUMN IF NOT EXISTS ItemTotal VARCHAR(30) NOT NULL DEFAULT '0,00';
             """;
 
         const string backfillSql = """
-            UPDATE i
-               SET UnitPrice = COALESCE(NULLIF(LTRIM(RTRIM(p.ProductSalePrice)), ''), NULLIF(LTRIM(RTRIM(p.ProductUnitPrice)), ''), N'0,00')
-              FROM VendaItens i
-              INNER JOIN Produtos p ON p.ProductCode = i.ProductCode
-             WHERE NULLIF(LTRIM(RTRIM(i.UnitPrice)), '') IS NULL
-                OR REPLACE(REPLACE(REPLACE(LTRIM(RTRIM(i.UnitPrice)), N'R$', ''), N'.', ''), N',', N'.') IN (N'0', N'0.00');
+            UPDATE VendaItens i
+               SET UnitPrice = COALESCE(NULLIF(TRIM(p.ProductSalePrice), ''), NULLIF(TRIM(p.ProductUnitPrice), ''), '0,00')
+              FROM Produtos p
+             WHERE p.ProductCode = i.ProductCode
+               AND (
+                    NULLIF(TRIM(i.UnitPrice), '') IS NULL
+                    OR REPLACE(REPLACE(REPLACE(TRIM(i.UnitPrice), 'R$', ''), '.', ''), ',', '.') IN ('0', '0.00')
+               );
 
-            UPDATE i
-               SET ItemTotal = FORMAT(
-                    TRY_CONVERT(
-                        DECIMAL(18, 2),
-                        REPLACE(REPLACE(REPLACE(LTRIM(RTRIM(i.UnitPrice)), N'R$', ''), N'.', ''), N',', N'.')
-                    ) * i.Quantity,
-                    N'N2',
-                    N'pt-BR'
+            WITH normalized AS (
+                SELECT
+                    Id,
+                    REGEXP_REPLACE(
+                        REPLACE(REPLACE(REPLACE(TRIM(UnitPrice), 'R$', ''), '.', ''), ',', '.'),
+                        '\s+',
+                        '',
+                        'g'
+                    ) AS Amount
+                FROM VendaItens
+            )
+            UPDATE VendaItens i
+               SET ItemTotal = REPLACE(TO_CHAR((n.Amount::NUMERIC * i.Quantity), 'FM999999999990.00'), '.', ',')
+              FROM normalized n
+             WHERE n.Id = i.Id
+               AND (
+                    NULLIF(TRIM(i.ItemTotal), '') IS NULL
+                    OR REPLACE(REPLACE(REPLACE(TRIM(i.ItemTotal), 'R$', ''), '.', ''), ',', '.') IN ('0', '0.00')
                )
-              FROM VendaItens i
-             WHERE (NULLIF(LTRIM(RTRIM(i.ItemTotal)), '') IS NULL
-                OR REPLACE(REPLACE(REPLACE(LTRIM(RTRIM(i.ItemTotal)), N'R$', ''), N'.', ''), N',', N'.') IN (N'0', N'0.00'))
-               AND TRY_CONVERT(
-                    DECIMAL(18, 2),
-                    REPLACE(REPLACE(REPLACE(LTRIM(RTRIM(i.UnitPrice)), N'R$', ''), N'.', ''), N',', N'.')
-               ) IS NOT NULL;
+               AND n.Amount ~ '^-?[0-9]+(\.[0-9]+)?$';
             """;
 
         await using (var schemaCommand = new NpgsqlCommand(schemaSql, db))
@@ -296,6 +295,7 @@ public class HistoricoVendasAB(Connection connection)
         await using var backfillCommand = new NpgsqlCommand(backfillSql, db);
         await backfillCommand.ExecuteNonQueryAsync();
     }
+
 
     private static int ParseInt(string value)
         => int.TryParse(value, out var parsed) ? parsed : 0;
