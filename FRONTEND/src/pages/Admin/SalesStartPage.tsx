@@ -410,7 +410,7 @@ export default function SalesStartPage({
         customerName: "Consumidor",
         customerCpf: cpfNota || "-",
         paymentType,
-        totalAmount: formatMoneyBr(subtotal),
+        totalAmount: subtotal.toFixed(2),
         operatorName,
         items: cart.map((item) => ({
           productCode: item.code,
