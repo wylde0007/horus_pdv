@@ -242,12 +242,20 @@ public class HistoricoVendasAB(Connection connection)
     private static async Task EnsurePrintColumnsAsync(NpgsqlConnection db)
     {
         const string schemaSql = """
+            IF COL_LENGTH('Vendas', 'CompanyId') IS NULL
+                ALTER TABLE Vendas ADD CompanyId NVARCHAR(40) NOT NULL CONSTRAINT DF_Vendas_CompanyId DEFAULT N'empresa-principal';
+            IF COL_LENGTH('Vendas', 'CustomerName') IS NULL
+                ALTER TABLE Vendas ADD CustomerName NVARCHAR(180) NOT NULL CONSTRAINT DF_Vendas_CustomerName DEFAULT N'Consumidor';
+            IF COL_LENGTH('Vendas', 'CustomerCpf') IS NULL
+                ALTER TABLE Vendas ADD CustomerCpf NVARCHAR(30) NOT NULL CONSTRAINT DF_Vendas_CustomerCpf DEFAULT N'-';
             IF COL_LENGTH('Vendas', 'PaymentType') IS NULL
                 ALTER TABLE Vendas ADD PaymentType NVARCHAR(30) NOT NULL CONSTRAINT DF_Vendas_PaymentType DEFAULT N'-';
             IF COL_LENGTH('Vendas', 'TotalAmount') IS NULL
                 ALTER TABLE Vendas ADD TotalAmount NVARCHAR(30) NOT NULL CONSTRAINT DF_Vendas_TotalAmount DEFAULT N'0,00';
             IF COL_LENGTH('Vendas', 'OperatorName') IS NULL
                 ALTER TABLE Vendas ADD OperatorName NVARCHAR(180) NOT NULL CONSTRAINT DF_Vendas_OperatorName DEFAULT N'Operador';
+            IF COL_LENGTH('Vendas', 'SaleDate') IS NULL
+                ALTER TABLE Vendas ADD SaleDate DATETIMEOFFSET NOT NULL CONSTRAINT DF_Vendas_SaleDate DEFAULT SYSDATETIMEOFFSET();
             IF COL_LENGTH('VendaItens', 'UnitPrice') IS NULL
                 ALTER TABLE VendaItens ADD UnitPrice NVARCHAR(30) NOT NULL CONSTRAINT DF_VendaItens_UnitPrice DEFAULT N'0,00';
             IF COL_LENGTH('VendaItens', 'ItemTotal') IS NULL

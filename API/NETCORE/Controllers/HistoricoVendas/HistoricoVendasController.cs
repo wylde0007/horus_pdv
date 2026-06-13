@@ -36,7 +36,7 @@ public class HistoricoVendasController(HistoricoVendasAB historicoVendasAB, Horu
         var currentUser = GetCurrentUser();
         if (currentUser is null) return Unauthorized(new ApiResponse<object> { Success = false, Message = "Sessão não encontrada." });
 
-        if (request.Items.Count == 0)
+        if (request.Items is null || request.Items.Count == 0)
         {
             return BadRequest(new ApiResponse<object> { Success = false, Message = "Venda sem itens." });
         }
