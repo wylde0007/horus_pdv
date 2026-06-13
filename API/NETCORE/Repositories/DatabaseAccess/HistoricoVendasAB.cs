@@ -23,7 +23,7 @@ public class HistoricoVendasAB(Connection connection)
                 v.PaymentType AS "PaymentType",
                 v.TotalAmount AS "TotalAmount",
                 v.OperatorName AS "OperatorName",
-                v.SaleDate AS "SaleDate",
+                TO_CHAR(v.SaleDate AT TIME ZONE 'America/Sao_Paulo', 'DD/MM/YYYY HH24:MI:SS') AS "SaleDate",
                 i.ProductCode AS "ProductCode",
                 i.ProductName AS "ProductName",
                 i.Quantity AS "Quantity",
