@@ -15,11 +15,18 @@ import AddressContactFields from "@/components/Register/AddressContactFields";
 import { Toast, useStatusDialog } from "@/hooks/Dialog";
 import useInputMasks from "@/hooks/InputMasks/useInputMasks";
 import PageLayout from "@/layout/PageLayout";
-import { productService } from "@/services/api/productService";
+import { productService, type ProductUnit } from "@/services/api/productService";
 import { supplierService, type SupplierPayload } from "@/services/api/supplierService";
 import { lookupAddressByCep } from "@/utils/cepLookup";
 import { onlyDigits } from "@/utils/inputMasks";
 import { isValidCnpj, isValidEmail } from "@/utils/validators";
+
+const PRODUCT_UNIT_OPTIONS: Array<{ value: ProductUnit; label: string }> = [
+  { value: "unidade", label: "Unidade (un)" },
+  { value: "kg", label: "Quilograma (kg)" },
+  { value: "g", label: "Grama (g)" },
+  { value: "mg", label: "Miligrama (mg)" },
+];
 
 type Product = {
   id: string;
@@ -29,6 +36,7 @@ type Product = {
   productCode: string;
   productSupplier: string;
   productDescription: string;
+  productUnit: ProductUnit;
   productQnt: string;
   productUnitPrice: string;
   productSalePrice: string;
@@ -46,6 +54,7 @@ const EMPTY_FORM: ProductFormData = {
   productCode: "",
   productSupplier: "",
   productDescription: "",
+  productUnit: "unidade",
   productQnt: "",
   productUnitPrice: "",
   productSalePrice: "",
@@ -76,6 +85,28 @@ function preventNonDigitBeforeInput(event: FormEvent<HTMLInputElement>) {
   }
 }
 
+function parseQuantity(value: string) {
+  const normalized = value.trim().replace(",", ".");
+  const parsed = Number(normalized);
+  return Number.isFinite(parsed) ? parsed : 0;
+}
+
+function sanitizeQuantityInput(value: string) {
+  const normalized = value.replace(",", ".").replace(/[^0-9.]/g, "");
+  const [integerPart = "", ...decimalParts] = normalized.split(".");
+  const decimalPart = decimalParts.join("").slice(0, 3);
+  return decimalParts.length > 0 ? `${integerPart}.${decimalPart}` : integerPart;
+}
+
+function formatQuantity(value: string | number) {
+  const parsed = typeof value === "number" ? value : parseQuantity(value);
+  return parsed.toLocaleString("pt-BR", { maximumFractionDigits: 3 });
+}
+
+function getProductUnitLabel(unit: ProductUnit) {
+  return PRODUCT_UNIT_OPTIONS.find((option) => option.value === unit)?.label ?? unit;
+}
+
 function ProductFormDrawer({
   open,
   isEditMode,
@@ -102,7 +133,6 @@ function ProductFormDrawer({
     maskMoneyBr,
     parseMoneyBr,
     formatMoneyBr,
-    sanitizeIntegerInput,
   } = useInputMasks();
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const [isDragActive, setIsDragActive] = useState(false);
@@ -117,7 +147,7 @@ function ProductFormDrawer({
     fieldValue: ProductFormData[K],
   ) => {
     const next = { ...value, [key]: fieldValue };
-    const quantity = Number(next.productQnt || 0);
+    const quantity = parseQuantity(next.productQnt);
     const unitPrice = parseMoneyBr(next.productUnitPrice);
     next.totalPriceOnProduct = quantity > 0 ? formatMoneyBr(quantity * unitPrice) : "";
     onChange(next);
@@ -390,18 +420,29 @@ function ProductFormDrawer({
           <section className="card rounded-2xl p-4">
             <h4 className="text-sm font-semibold text-text-secondary">Preço e estoque</h4>
             <div className="mt-3 grid gap-3 md:grid-cols-2">
+              <SearchableSelectField
+                label="Unidade de medida *"
+                value={value.productUnit}
+                options={PRODUCT_UNIT_OPTIONS}
+                onChange={(nextValue) => setField("productUnit", nextValue as ProductUnit)}
+                getOptionValue={(option) => option.value}
+                getOptionLabel={(option) => option.label}
+                placeholder="Selecione a unidade"
+                emptyMessage="Unidade não encontrada."
+              />
               <label className="block">
                 <span className="mb-1.5 block text-sm text-text-secondary">
-                  Quantidade do Produto *
+                  Quantidade em estoque *
                 </span>
                 <input
                   value={value.productQnt}
-                  inputMode="numeric"
+                  inputMode="decimal"
+                  pattern="[0-9.,]*"
                   onChange={(event) =>
-                    setField("productQnt", sanitizeIntegerInput(event.target.value).slice(0, 8))
+                    setField("productQnt", sanitizeQuantityInput(event.target.value).slice(0, 12))
                   }
                   className="input-field w-full"
-                  placeholder="Quantidade"
+                  placeholder={value.productUnit === "unidade" ? "Quantidade" : "Ex.: 1,500"}
                 />
               </label>
               <label className="block">
@@ -661,7 +702,7 @@ export default function ProductRegisterPage() {
 
   const openEditDrawer = (product: Product) => {
     setEditingId(product.id);
-    setForm({ ...product });
+    setForm({ ...product, productUnit: product.productUnit || "unidade" });
     setDrawerOpen(true);
   };
 
@@ -777,6 +818,7 @@ export default function ProductRegisterPage() {
       "productCode",
       "productSupplier",
       "productDescription",
+      "productUnit",
       "productQnt",
       "productUnitPrice",
       "productSalePrice",
@@ -794,8 +836,14 @@ export default function ProductRegisterPage() {
       return false;
     }
 
-    if (Number(form.productQnt) < 1) {
+    const quantity = parseQuantity(form.productQnt);
+    if (quantity <= 0) {
       Toast.error("A quantidade do produto deve ser maior que 0.");
+      return false;
+    }
+
+    if (form.productUnit === "unidade" && !Number.isInteger(quantity)) {
+      Toast.error("Produtos por unidade não podem ter quantidade fracionada.");
       return false;
     }
 
@@ -939,7 +987,9 @@ export default function ProductRegisterPage() {
                   <td className="px-4 py-3">{product.productName}</td>
                   <td className="px-4 py-3">{product.productCode}</td>
                   <td className="px-4 py-3">{product.productSupplier}</td>
-                  <td className="px-4 py-3">{product.productQnt}</td>
+                  <td className="px-4 py-3">
+                    {formatQuantity(product.productQnt)} {getProductUnitLabel(product.productUnit || "unidade")}
+                  </td>
                   <td className="px-4 py-3">{product.productSalePrice}</td>
                   <td className="px-4 py-3">
                     <RowActionsMenu

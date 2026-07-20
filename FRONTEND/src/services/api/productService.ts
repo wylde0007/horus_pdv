@@ -8,6 +8,10 @@ import { apiRequest } from "./apiClient";
 const PRODUTO_API_URL =
   import.meta.env.VITE_PRODUTO_API_URL ?? "http://localhost:5260/api/Produto";
 
+export type ProductUnit = "unidade" | "kg" | "g" | "mg";
+
+export type ProductUnit = "unidade" | "kg" | "g" | "mg";
+
 export type ProductDto = {
   id: string;
   productImageUrl: string;
@@ -16,6 +20,7 @@ export type ProductDto = {
   productCode: string;
   productSupplier: string;
   productDescription: string;
+  productUnit: ProductUnit;
   productQnt: string;
   productUnitPrice: string;
   productSalePrice: string;
