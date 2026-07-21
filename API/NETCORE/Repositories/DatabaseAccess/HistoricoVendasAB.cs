@@ -26,8 +26,9 @@ public class HistoricoVendasAB(Connection connection)
                   v.OperatorName AS "OperatorName",
                   TO_CHAR(v.SaleDate AT TIME ZONE 'America/Sao_Paulo', 'DD/MM/YYYY HH24:MI:SS') AS "SaleDate",
                   i.ProductCode AS "ProductCode",
-                  i.ProductName AS "ProductName",
-                  i.Quantity AS "Quantity",
+                   i.ProductName AS "ProductName",
+                   i.ProductUnit AS "ProductUnit",
+                   i.Quantity AS "Quantity",
                   i.UnitPrice AS "UnitPrice",
                   i.ItemTotal AS "ItemTotal"
               FROM VendaItens i
@@ -46,8 +47,9 @@ public class HistoricoVendasAB(Connection connection)
                   v.OperatorName AS "OperatorName",
                   TO_CHAR(v.SaleDate AT TIME ZONE 'America/Sao_Paulo', 'DD/MM/YYYY HH24:MI:SS') AS "SaleDate",
                   i.ProductCode AS "ProductCode",
-                  i.ProductName AS "ProductName",
-                  i.Quantity AS "Quantity",
+                   i.ProductName AS "ProductName",
+                   i.ProductUnit AS "ProductUnit",
+                   i.Quantity AS "Quantity",
                   i.UnitPrice AS "UnitPrice",
                   i.ItemTotal AS "ItemTotal"
               FROM VendaItens i
@@ -92,8 +94,8 @@ public class HistoricoVendasAB(Connection connection)
             var saleId = $"sale-{saleNumber}";
             var customerName = string.IsNullOrWhiteSpace(request.CustomerName) ? "Consumidor" : request.CustomerName.Trim();
             var customerCpf = string.IsNullOrWhiteSpace(request.CustomerCpf) ? "-" : request.CustomerCpf.Trim();
-            var paymentType = string.IsNullOrWhiteSpace(request.PaymentType) ? "-" : request.PaymentType.Trim();
             var totalAmount = string.IsNullOrWhiteSpace(request.TotalAmount) ? "0,00" : request.TotalAmount.Trim();
+            var paymentType = BuildPaymentSummary(request, ParseMoney(totalAmount));
             var operatorName = string.IsNullOrWhiteSpace(request.OperatorName) ? "Operador" : request.OperatorName.Trim();
             // A venda e a baixa de estoque compartilham a mesma transação para evitar histórico sem estoque atualizado.
             var saleItems = await BaixarEstoqueAsync(db, transaction, companyId, request.Items);
@@ -128,9 +130,9 @@ public class HistoricoVendasAB(Connection connection)
                 await using var itemCommand = new NpgsqlCommand(
                     """
                     INSERT INTO VendaItens
-                        (Id, VendaId, ProductCode, ProductName, Quantity, UnitPrice, ItemTotal)
+                        (Id, VendaId, ProductCode, ProductName, ProductUnit, Quantity, UnitPrice, ItemTotal)
                     VALUES
-                        (@Id, @VendaId, @ProductCode, @ProductName, @Quantity, @UnitPrice, @ItemTotal);
+                        (@Id, @VendaId, @ProductCode, @ProductName, @ProductUnit, @Quantity, @UnitPrice, @ItemTotal);
                     """,
                     db,
                     transaction);
@@ -138,6 +140,7 @@ public class HistoricoVendasAB(Connection connection)
                 itemCommand.Parameters.AddWithValue("@VendaId", saleId);
                 itemCommand.Parameters.AddWithValue("@ProductCode", item.ProductCode);
                 itemCommand.Parameters.AddWithValue("@ProductName", item.ProductName);
+                itemCommand.Parameters.AddWithValue("@ProductUnit", item.ProductUnit);
                 itemCommand.Parameters.AddWithValue("@Quantity", item.Quantity);
                 itemCommand.Parameters.AddWithValue("@UnitPrice", item.UnitPrice);
                 itemCommand.Parameters.AddWithValue("@ItemTotal", CalculateTotal(item.UnitPrice, item.Quantity));
@@ -153,6 +156,7 @@ public class HistoricoVendasAB(Connection connection)
                     OperatorName = operatorName,
                     ProductCode = item.ProductCode,
                     ProductName = item.ProductName,
+                    ProductUnit = item.ProductUnit,
                     Quantity = item.Quantity,
                     UnitPrice = item.UnitPrice,
                     ItemTotal = CalculateTotal(item.UnitPrice, item.Quantity),
@@ -202,8 +206,11 @@ public class HistoricoVendasAB(Connection connection)
             .Select(group => new VendaItemRecord
             {
                 ProductCode = group.Key,
-                ProductName = group.First().ProductName.Trim(),
-                Quantity = group.Sum(item => item.Quantity)
+                    ProductName = group.First().ProductName.Trim(),
+                    ProductUnit = string.IsNullOrWhiteSpace(group.First().ProductUnit)
+                        ? "unidade"
+                        : group.First().ProductUnit.Trim().ToLowerInvariant(),
+                    Quantity = group.Sum(item => item.Quantity)
             })
             .ToList();
 
@@ -216,7 +223,7 @@ public class HistoricoVendasAB(Connection connection)
 
             await using var select = new NpgsqlCommand(
                 """
-                SELECT Id, ProductName, ProductQnt, ProductUnitPrice, ProductSalePrice
+                SELECT Id, ProductName, ProductUnit, ProductQnt, ProductUnitPrice, ProductSalePrice
                 FROM Produtos
                 WHERE CompanyId = @CompanyId AND ProductCode = @ProductCode
                 FOR UPDATE;
@@ -233,16 +240,22 @@ public class HistoricoVendasAB(Connection connection)
 
             var productId = ReadString(reader, "Id");
             item.ProductName = ReadString(reader, "ProductName");
-            var currentStock = ParseInt(ReadString(reader, "ProductQnt"));
+            item.ProductUnit = ReadString(reader, "ProductUnit");
+            var currentStock = ParseQuantity(ReadString(reader, "ProductQnt"));
             var unitPrice = ReadString(reader, "ProductUnitPrice");
             var salePrice = ReadString(reader, "ProductSalePrice");
             item.UnitPrice = string.IsNullOrWhiteSpace(salePrice) ? unitPrice : salePrice;
             await reader.CloseAsync();
 
+            if (item.ProductUnit == "unidade" && decimal.Truncate(item.Quantity) != item.Quantity)
+            {
+                throw new InvalidOperationException("Produtos por unidade não aceitam quantidade fracionada.");
+            }
+
             if (currentStock < item.Quantity)
             {
                 throw new InvalidOperationException(
-                    $"Estoque insuficiente para {item.ProductName}. Disponível: {currentStock}.");
+                    $"Estoque insuficiente para {item.ProductName}. Disponível: {FormatQuantity(currentStock)} {item.ProductUnit}.");
             }
 
             var nextStock = currentStock - item.Quantity;
@@ -255,7 +268,7 @@ public class HistoricoVendasAB(Connection connection)
                 """,
                 db,
                 transaction);
-            update.Parameters.AddWithValue("@ProductQnt", nextStock.ToString());
+            update.Parameters.AddWithValue("@ProductQnt", FormatQuantity(nextStock));
             update.Parameters.AddWithValue("@TotalPriceOnProduct", CalculateTotal(unitPrice, nextStock));
             update.Parameters.AddWithValue("@Id", productId);
             await update.ExecuteNonQueryAsync();
@@ -274,7 +287,8 @@ public class HistoricoVendasAB(Connection connection)
         OperatorName = ReadString(reader, "OperatorName"),
         ProductCode = ReadString(reader, "ProductCode"),
         ProductName = ReadString(reader, "ProductName"),
-        Quantity = reader.GetInt32(reader.GetOrdinal("Quantity")),
+        ProductUnit = ReadString(reader, "ProductUnit"),
+        Quantity = reader.GetDecimal(reader.GetOrdinal("Quantity")),
         UnitPrice = ReadString(reader, "UnitPrice"),
         ItemTotal = ReadString(reader, "ItemTotal"),
         SaleDate = ReadString(reader, "SaleDate")
@@ -286,11 +300,14 @@ public class HistoricoVendasAB(Connection connection)
             ALTER TABLE Vendas ADD COLUMN IF NOT EXISTS CompanyId VARCHAR(40) NOT NULL DEFAULT 'empresa-principal';
             ALTER TABLE Vendas ADD COLUMN IF NOT EXISTS CustomerName VARCHAR(180) NOT NULL DEFAULT 'Consumidor';
             ALTER TABLE Vendas ADD COLUMN IF NOT EXISTS CustomerCpf VARCHAR(30) NOT NULL DEFAULT '-';
-            ALTER TABLE Vendas ADD COLUMN IF NOT EXISTS PaymentType VARCHAR(30) NOT NULL DEFAULT '-';
+            ALTER TABLE Vendas ADD COLUMN IF NOT EXISTS PaymentType VARCHAR(500) NOT NULL DEFAULT '-';
+            ALTER TABLE Vendas ALTER COLUMN PaymentType TYPE VARCHAR(500);
             ALTER TABLE Vendas ADD COLUMN IF NOT EXISTS TotalAmount VARCHAR(30) NOT NULL DEFAULT '0,00';
             ALTER TABLE Vendas ADD COLUMN IF NOT EXISTS OperatorName VARCHAR(180) NOT NULL DEFAULT 'Operador';
             ALTER TABLE Vendas ADD COLUMN IF NOT EXISTS SaleDate TIMESTAMPTZ NOT NULL DEFAULT NOW();
 
+            ALTER TABLE VendaItens ADD COLUMN IF NOT EXISTS ProductUnit VARCHAR(20) NOT NULL DEFAULT 'unidade';
+            ALTER TABLE VendaItens ALTER COLUMN Quantity TYPE NUMERIC(18,3) USING Quantity::NUMERIC;
             ALTER TABLE VendaItens ADD COLUMN IF NOT EXISTS UnitPrice VARCHAR(30) NOT NULL DEFAULT '0,00';
             ALTER TABLE VendaItens ADD COLUMN IF NOT EXISTS ItemTotal VARCHAR(30) NOT NULL DEFAULT '0,00';
             """;
@@ -337,10 +354,113 @@ public class HistoricoVendasAB(Connection connection)
     }
 
 
-    private static int ParseInt(string value)
-        => int.TryParse(value, out var parsed) ? parsed : 0;
+    private static decimal ParseQuantity(string value)
+    {
+        var normalized = value.Trim().Replace(",", ".");
+        return decimal.TryParse(
+            normalized,
+            System.Globalization.NumberStyles.Number,
+            System.Globalization.CultureInfo.InvariantCulture,
+            out var parsed)
+            ? parsed
+            : 0;
+    }
 
-    private static string CalculateTotal(string unitPrice, int quantity)
+    private static decimal ParseMoney(string value)
+    {
+        var raw = value.Trim().Replace("R$", "").Replace(" ", "");
+        var normalized = raw.Contains(',')
+            ? raw.Replace(".", "").Replace(",", ".")
+            : raw;
+        return decimal.TryParse(
+            normalized,
+            System.Globalization.NumberStyles.Number,
+            System.Globalization.CultureInfo.InvariantCulture,
+            out var parsed)
+            ? parsed
+            : 0;
+    }
+
+    private static string FormatQuantity(decimal value)
+        => value.ToString("0.###", System.Globalization.CultureInfo.InvariantCulture);
+
+    private static string BuildPaymentSummary(VendaRequest request, decimal totalAmount)
+    {
+        if (request.Payments is null || request.Payments.Count == 0)
+        {
+            return string.IsNullOrWhiteSpace(request.PaymentType) ? "-" : request.PaymentType.Trim();
+        }
+
+        if (request.Payments.Count > 2)
+        {
+            throw new InvalidOperationException("A venda aceita no máximo duas formas de pagamento.");
+        }
+
+        var payments = request.Payments
+            .Select(payment => new
+            {
+                Type = NormalizePaymentType(payment.PaymentType),
+                Amount = ParseMoney(payment.Amount)
+            })
+            .ToList();
+
+        if (payments.Any(payment => payment.Amount <= 0))
+        {
+            throw new InvalidOperationException("O valor de cada pagamento deve ser maior que zero.");
+        }
+
+        if (payments.Select(payment => payment.Type).Distinct(StringComparer.OrdinalIgnoreCase).Count() != payments.Count)
+        {
+            throw new InvalidOperationException("As formas de pagamento devem ser diferentes.");
+        }
+
+        var paidAmount = payments.Sum(payment => payment.Amount);
+        if (paidAmount + 0.009m < totalAmount)
+        {
+            throw new InvalidOperationException("O total informado nos pagamentos é menor que o total da venda.");
+        }
+
+        var hasCash = payments.Any(payment => payment.Type == "dinheiro");
+        if (paidAmount > totalAmount + 0.009m && !hasCash)
+        {
+            throw new InvalidOperationException("Somente pagamento em dinheiro pode gerar troco.");
+        }
+
+        var culture = new System.Globalization.CultureInfo("pt-BR");
+        var summary = string.Join(
+            " + ",
+            payments.Select(payment => $"{PaymentLabel(payment.Type)} R$ {payment.Amount.ToString("N2", culture)}"));
+
+        var change = paidAmount - totalAmount;
+        return change > 0.009m
+            ? $"{summary} (troco R$ {change.ToString("N2", culture)})"
+            : summary;
+    }
+
+    private static string NormalizePaymentType(string? value)
+    {
+        var normalized = (value ?? string.Empty).Trim().ToLowerInvariant();
+        return normalized switch
+        {
+            "dinheiro" => "dinheiro",
+            "pix" => "pix",
+            "debito" or "débito" => "debito",
+            "credito" or "crédito" => "credito",
+            _ => throw new InvalidOperationException("Forma de pagamento inválida.")
+        };
+    }
+
+    private static string PaymentLabel(string paymentType)
+        => paymentType switch
+        {
+            "dinheiro" => "Dinheiro",
+            "pix" => "PIX",
+            "debito" => "Cartão Débito",
+            "credito" => "Cartão Crédito",
+            _ => paymentType
+        };
+
+    private static string CalculateTotal(string unitPrice, decimal quantity)
     {
         var normalized = unitPrice.Replace(".", "").Replace(",", ".");
         if (!decimal.TryParse(
@@ -366,6 +486,7 @@ public class HistoricoVendasAB(Connection connection)
         public string ProductCode { get; set; } = string.Empty;
         public string ProductName { get; set; } = string.Empty;
         public string UnitPrice { get; set; } = string.Empty;
-        public int Quantity { get; set; }
+        public string ProductUnit { get; set; } = "unidade";
+        public decimal Quantity { get; set; }
     }
 }

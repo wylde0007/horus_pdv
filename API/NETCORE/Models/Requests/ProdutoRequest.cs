@@ -13,6 +13,7 @@ public class ProdutoRequest
     public string ProductCode { get; set; } = string.Empty;
     public string ProductSupplier { get; set; } = string.Empty;
     public string ProductDescription { get; set; } = string.Empty;
+    public string ProductUnit { get; set; } = "unidade";
     public string ProductQnt { get; set; } = string.Empty;
     public string ProductUnitPrice { get; set; } = string.Empty;
     public string ProductSalePrice { get; set; } = string.Empty;

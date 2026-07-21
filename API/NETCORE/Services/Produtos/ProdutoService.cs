@@ -56,9 +56,16 @@ public class ProdutoService(ProdutoAB produtosAB, FornecedorAB fornecedoresAB) :
             throw new InvalidOperationException("Fornecedor do produto e obrigatorio.");
         }
 
-        if (!int.TryParse(request.ProductQnt, out var quantity) || quantity <= 0)
+        var productUnit = NormalizeProductUnit(request.ProductUnit);
+        var quantity = ParseQuantity(request.ProductQnt);
+        if (quantity <= 0)
         {
             throw new InvalidOperationException("Quantidade do produto deve ser maior que zero.");
+        }
+
+        if (productUnit == "unidade" && decimal.Truncate(quantity) != quantity)
+        {
+            throw new InvalidOperationException("Produtos por unidade não aceitam quantidade fracionada.");
         }
 
         if (ParseMoney(request.ProductUnitPrice) <= 0)
@@ -102,7 +109,8 @@ public class ProdutoService(ProdutoAB produtosAB, FornecedorAB fornecedoresAB) :
         ProductCode = request.ProductCode.Trim(),
         ProductSupplier = request.ProductSupplier.Trim(),
         ProductDescription = request.ProductDescription.Trim(),
-        ProductQnt = request.ProductQnt,
+        ProductUnit = NormalizeProductUnit(request.ProductUnit),
+        ProductQnt = FormatQuantity(ParseQuantity(request.ProductQnt)),
         ProductUnitPrice = request.ProductUnitPrice,
         ProductSalePrice = request.ProductSalePrice,
         TotalPriceOnProduct = request.TotalPriceOnProduct
@@ -117,11 +125,40 @@ public class ProdutoService(ProdutoAB produtosAB, FornecedorAB fornecedoresAB) :
         ProductCode = source.ProductCode,
         ProductSupplier = source.ProductSupplier,
         ProductDescription = source.ProductDescription,
+        ProductUnit = source.ProductUnit,
         ProductQnt = source.ProductQnt,
         ProductUnitPrice = source.ProductUnitPrice,
         ProductSalePrice = source.ProductSalePrice,
         TotalPriceOnProduct = source.TotalPriceOnProduct
     };
+
+    private static decimal ParseQuantity(string value)
+    {
+        var normalized = value.Trim().Replace(",", ".");
+        return decimal.TryParse(
+            normalized,
+            System.Globalization.NumberStyles.Number,
+            System.Globalization.CultureInfo.InvariantCulture,
+            out var parsed)
+            ? parsed
+            : 0;
+    }
+
+    private static string FormatQuantity(decimal value)
+        => value.ToString("0.###", System.Globalization.CultureInfo.InvariantCulture);
+
+    private static string NormalizeProductUnit(string? value)
+    {
+        var normalized = (value ?? "unidade").Trim().ToLowerInvariant();
+        return normalized switch
+        {
+            "unidade" or "un" => "unidade",
+            "kg" or "quilo" or "quilograma" => "kg",
+            "g" or "grama" => "g",
+            "mg" or "miligrama" => "mg",
+            _ => throw new InvalidOperationException("Unidade de medida inválida.")
+        };
+    }
 
     private static decimal ParseMoney(string value)
     {

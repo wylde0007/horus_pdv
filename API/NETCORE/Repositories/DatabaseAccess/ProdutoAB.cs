@@ -14,7 +14,7 @@ public class ProdutoAB(Connection connection)
     {
         const string sql = """
             SELECT Id, ProductImageUrl, ProductImageName, ProductName, ProductCode, ProductSupplier,
-                   ProductDescription, ProductQnt, ProductUnitPrice, ProductSalePrice, TotalPriceOnProduct
+                   ProductDescription, ProductUnit, ProductQnt, ProductUnitPrice, ProductSalePrice, TotalPriceOnProduct
             FROM Produtos
             WHERE CompanyId = @CompanyId
             ORDER BY ProductName;
@@ -37,7 +37,7 @@ public class ProdutoAB(Connection connection)
     {
         const string sql = """
             SELECT Id, ProductImageUrl, ProductImageName, ProductName, ProductCode, ProductSupplier,
-                   ProductDescription, ProductQnt, ProductUnitPrice, ProductSalePrice, TotalPriceOnProduct
+                   ProductDescription, ProductUnit, ProductQnt, ProductUnitPrice, ProductSalePrice, TotalPriceOnProduct
             FROM Produtos
             WHERE Id = @Id AND CompanyId = @CompanyId;
             """;
@@ -62,8 +62,9 @@ public class ProdutoAB(Connection connection)
                        ProductCode = @ProductCode,
                        ProductSupplier = @ProductSupplier,
                        SupplierId = @SupplierId,
-                       ProductDescription = @ProductDescription,
-                       ProductQnt = @ProductQnt,
+                        ProductDescription = @ProductDescription,
+                        ProductUnit = @ProductUnit,
+                        ProductQnt = @ProductQnt,
                        ProductUnitPrice = @ProductUnitPrice,
                        ProductSalePrice = @ProductSalePrice,
                        TotalPriceOnProduct = @TotalPriceOnProduct
@@ -72,10 +73,10 @@ public class ProdutoAB(Connection connection)
             )
             INSERT INTO Produtos
                     (Id, CompanyId, ProductImageUrl, ProductImageName, ProductName, ProductCode, ProductSupplier, SupplierId,
-                     ProductDescription, ProductQnt, ProductUnitPrice, ProductSalePrice, TotalPriceOnProduct)
+                     ProductDescription, ProductUnit, ProductQnt, ProductUnitPrice, ProductSalePrice, TotalPriceOnProduct)
             SELECT
             @Id, @CompanyId, @ProductImageUrl, @ProductImageName, @ProductName, @ProductCode, @ProductSupplier, @SupplierId,
-                     @ProductDescription, @ProductQnt, @ProductUnitPrice, @ProductSalePrice, @TotalPriceOnProduct
+                     @ProductDescription, @ProductUnit, @ProductQnt, @ProductUnitPrice, @ProductSalePrice, @TotalPriceOnProduct
             WHERE NOT EXISTS (SELECT 1 FROM updated);
             """;
 
@@ -195,6 +196,7 @@ public class ProdutoAB(Connection connection)
         command.Parameters.AddWithValue("@ProductSupplier", product.ProductSupplier);
         command.Parameters.AddWithValue("@SupplierId", supplierId is null ? DBNull.Value : supplierId);
         command.Parameters.AddWithValue("@ProductDescription", product.ProductDescription);
+        command.Parameters.AddWithValue("@ProductUnit", product.ProductUnit);
         command.Parameters.AddWithValue("@ProductQnt", product.ProductQnt);
         command.Parameters.AddWithValue("@ProductUnitPrice", product.ProductUnitPrice);
         command.Parameters.AddWithValue("@ProductSalePrice", product.ProductSalePrice);
@@ -210,6 +212,7 @@ public class ProdutoAB(Connection connection)
         ProductCode = ReadString(source, "ProductCode"),
         ProductSupplier = ReadString(source, "ProductSupplier"),
         ProductDescription = ReadString(source, "ProductDescription"),
+        ProductUnit = ReadString(source, "ProductUnit"),
         ProductQnt = ReadString(source, "ProductQnt"),
         ProductUnitPrice = ReadString(source, "ProductUnitPrice"),
         ProductSalePrice = ReadString(source, "ProductSalePrice"),

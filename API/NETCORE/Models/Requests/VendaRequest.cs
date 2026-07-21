@@ -12,12 +12,20 @@ public class VendaRequest
     public string PaymentType { get; set; } = string.Empty;
     public string TotalAmount { get; set; } = string.Empty;
     public string OperatorName { get; set; } = string.Empty;
+    public List<VendaPagamentoRequest> Payments { get; set; } = [];
     public List<VendaItemRequest> Items { get; set; } = [];
+}
+
+public class VendaPagamentoRequest
+{
+    public string PaymentType { get; set; } = string.Empty;
+    public string Amount { get; set; } = string.Empty;
 }
 
 public class VendaItemRequest
 {
     public string ProductCode { get; set; } = string.Empty;
     public string ProductName { get; set; } = string.Empty;
-    public int Quantity { get; set; }
+    public string ProductUnit { get; set; } = "unidade";
+    public decimal Quantity { get; set; }
 }

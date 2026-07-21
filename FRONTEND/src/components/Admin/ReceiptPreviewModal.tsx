@@ -24,9 +24,16 @@ export type SaleReceiptItem = {
   id: string;
   code: string;
   name: string;
+  unit?: string;
   quantity: number;
   unitPrice: number;
   total: number;
+};
+
+export type SaleReceiptPayment = {
+  type: PaymentType;
+  label: string;
+  amount: number;
 };
 
 export type SaleReceipt = {
@@ -37,6 +44,7 @@ export type SaleReceipt = {
   customerCpf: string;
   paymentType: PaymentType;
   paymentLabel: string;
+  payments?: SaleReceiptPayment[];
   operatorName: string;
   subtotal: number;
   cashGiven: number;
@@ -55,6 +63,15 @@ function formatReceiptDate(value: string) {
     minute: "2-digit",
     second: "2-digit",
   });
+}
+
+function formatQuantity(value: number) {
+  return value.toLocaleString("pt-BR", { maximumFractionDigits: 3 });
+}
+
+function unitLabel(unit?: string) {
+  const labels: Record<string, string> = { unidade: "UN", kg: "KG", g: "G", mg: "MG" };
+  return labels[unit || "unidade"] || String(unit || "UN").toUpperCase();
 }
 
 function escapeHtml(value: string) {
@@ -84,14 +101,23 @@ function buildReceiptPrintHtml(receipt: SaleReceipt, formatMoney: (value: number
           <div class="line grid">
             <span>${String(index + 1).padStart(2, "0")}</span>
             <span>${escapeHtml(item.name)}</span>
-            <span class="right">${item.quantity}</span>
-            <span class="right">${formatMoney(item.total)}</span>
-          </div>
-          <div class="item-meta">${escapeHtml(item.code)} - UN ${formatMoney(item.unitPrice)}</div>
+             <span class="right">${formatQuantity(item.quantity)}</span>
+             <span class="right">${formatMoney(item.total)}</span>
+           </div>
+           <div class="item-meta">${escapeHtml(item.code)} - ${unitLabel(item.unit)} ${formatMoney(item.unitPrice)}</div>
         </div>
       `,
     )
     .join("");
+
+  const paymentRows = receipt.payments?.length
+    ? receipt.payments
+        .map(
+          (payment) =>
+            `<div class="line"><span>${escapeHtml(payment.label)}</span><span>R$ ${formatMoney(payment.amount)}</span></div>`,
+        )
+        .join("")
+    : `<div class="line"><span>Pagamento</span><span>${escapeHtml(receipt.paymentLabel || "-")}</span></div>`;
 
   return `<!doctype html>
 <html lang="pt-BR">
@@ -140,9 +166,9 @@ function buildReceiptPrintHtml(receipt: SaleReceipt, formatMoney: (value: number
       <div class="divider"></div>
       <section>
         <div class="line bold"><span>TOTAL</span><span>R$ ${formatMoney(receipt.subtotal)}</span></div>
-        <div class="line"><span>Pagamento</span><span>${escapeHtml(receipt.paymentLabel || "-")}</span></div>
+         ${paymentRows}
         ${
-          receipt.paymentType === "dinheiro"
+          receipt.paymentType === "dinheiro" || receipt.change > 0
             ? `<div class="line"><span>Valor recebido</span><span>R$ ${formatMoney(receipt.cashGiven)}</span></div>
                <div class="line"><span>Troco</span><span>R$ ${formatMoney(receipt.change)}</span></div>`
             : ""
@@ -243,11 +269,11 @@ export default function ReceiptPreviewModal({
                     <div className="grid grid-cols-[28px_1fr_44px_64px] gap-1">
                       <span>{String(index + 1).padStart(2, "0")}</span>
                       <span className="truncate">{item.name}</span>
-                      <span className="text-right">{item.quantity}</span>
+                      <span className="text-right">{formatQuantity(item.quantity)}</span>
                       <span className="text-right">{formatMoney(item.total)}</span>
                     </div>
                     <p className="pl-7 text-[11px]">
-                      {item.code} - UN {formatMoney(item.unitPrice)}
+                      {item.code} - {unitLabel(item.unit)} {formatMoney(item.unitPrice)}
                     </p>
                   </div>
                 ))}
@@ -260,11 +286,20 @@ export default function ReceiptPreviewModal({
                   <span>TOTAL</span>
                   <span>R$ {formatMoney(receipt.subtotal)}</span>
                 </div>
-                <div className="flex justify-between">
-                  <span>Pagamento</span>
-                  <span>{receipt.paymentLabel}</span>
-                </div>
-                {receipt.paymentType === "dinheiro" ? (
+                {receipt.payments?.length ? (
+                  receipt.payments.map((payment, index) => (
+                    <div key={`${payment.type}-${index}`} className="flex justify-between">
+                      <span>{payment.label}</span>
+                      <span>R$ {formatMoney(payment.amount)}</span>
+                    </div>
+                  ))
+                ) : (
+                  <div className="flex justify-between">
+                    <span>Pagamento</span>
+                    <span>{receipt.paymentLabel}</span>
+                  </div>
+                )}
+                {receipt.paymentType === "dinheiro" || receipt.change > 0 ? (
                   <>
                     <div className="flex justify-between">
                       <span>Valor recebido</span>

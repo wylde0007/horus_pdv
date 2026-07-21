@@ -26,7 +26,7 @@ import ReceiptPreviewModal, {
   type SaleReceipt,
 } from "@/components/Admin/ReceiptPreviewModal";
 import { companyService, type CompanyDto } from "@/services/api/companyService";
-import { productService } from "@/services/api/productService";
+import { productService, type ProductUnit } from "@/services/api/productService";
 import { salesHistoryService } from "@/services/api/salesHistoryService";
 import { getPrintPreviewEnabled } from "@/utils/pdvPreferences";
 
@@ -41,14 +41,22 @@ type Product = {
   name: string;
   code: string;
   stock: number;
+  unit: ProductUnit;
   salePrice: number;
   imageUrl?: string;
+};
+
+type PaymentEntry = {
+  id: string;
+  type: PaymentType;
+  amount: string;
 };
 
 type CartItem = {
   id: string;
   code: string;
   name: string;
+  unit: ProductUnit;
   quantity: number;
   unitPrice: number;
 };
@@ -88,6 +96,31 @@ function getPaymentLabel(paymentType: PaymentType) {
   return PAYMENT_OPTIONS.find((option) => option.value === paymentType)?.label ?? paymentType;
 }
 
+function getUnitLabel(unit: ProductUnit) {
+  const labels: Record<ProductUnit, string> = { unidade: "un", kg: "kg", g: "g", mg: "mg" };
+  return labels[unit];
+}
+
+function formatQuantity(value: number) {
+  return value.toLocaleString("pt-BR", { maximumFractionDigits: 3 });
+}
+
+function parseQuantityInput(value: string) {
+  const parsed = Number(value.replace(",", "."));
+  return Number.isFinite(parsed) ? parsed : 0;
+}
+
+function sanitizeQuantityInput(value: string) {
+  const normalized = value.replace(",", ".").replace(/[^0-9.]/g, "");
+  const [integerPart = "", ...decimalParts] = normalized.split(".");
+  const decimalPart = decimalParts.join("").slice(0, 3);
+  return decimalParts.length > 0 ? `${integerPart}.${decimalPart}` : integerPart;
+}
+
+function createPaymentEntry(type: PaymentType, amount: string): PaymentEntry {
+  return { id: `${Date.now()}-${Math.random()}`, type, amount };
+}
+
 function formatCashElapsed(minutes?: number) {
   if (!minutes || minutes < 1) return "menos de 1 min";
   const hours = Math.floor(minutes / 60);
@@ -100,7 +133,7 @@ export default function SalesStartPage({
   standalone = false,
   operatorName = "Operador",
 }: SalesStartPageProps) {
-  const { formatMoneyBr, maskMoneyBr, parseMoneyBr, sanitizeIntegerInput } = useInputMasks();
+  const { formatMoneyBr, maskMoneyBr, parseMoneyBr } = useInputMasks();
   const statusDialog = useStatusDialog();
   const productInputRef = useRef<HTMLInputElement | null>(null);
   const qtyInputRef = useRef<HTMLInputElement | null>(null);
@@ -117,18 +150,22 @@ export default function SalesStartPage({
   const [cart, setCart] = useState<CartItem[]>([]);
 
   const [checkoutOpen, setCheckoutOpen] = useState(false);
-  const [paymentType, setPaymentType] = useState<PaymentType>("dinheiro");
+  const [payments, setPayments] = useState<PaymentEntry[]>([
+    createPaymentEntry("dinheiro", ""),
+  ]);
   const [cpfNota, setCpfNota] = useState("");
-  const [cashGiven, setCashGiven] = useState("");
   const [lastReceipt, setLastReceipt] = useState<SaleReceipt | null>(null);
   const [receiptPreview, setReceiptPreview] = useState<SaleReceipt | null>(null);
   const [printPreviewEnabled, setPrintPreviewEnabled] = useState(() =>
     getPrintPreviewEnabled(),
   );
 
-  const pasteCashGiven = (event: ClipboardEvent<HTMLInputElement>) => {
+  const pastePaymentAmount = (event: ClipboardEvent<HTMLInputElement>, paymentId: string) => {
     event.preventDefault();
-    setCashGiven(maskMoneyBr(event.clipboardData.getData("text")));
+    const amount = maskMoneyBr(event.clipboardData.getData("text"));
+    setPayments((current) =>
+      current.map((payment) => (payment.id === paymentId ? { ...payment, amount } : payment)),
+    );
   };
 
   const selectedProduct = useMemo(
@@ -137,10 +174,10 @@ export default function SalesStartPage({
   );
 
   const quantity = useMemo(() => {
-    const parsed = Number(quantityInput);
-    if (!Number.isFinite(parsed) || parsed < 1) return 1;
-    return Math.floor(parsed);
-  }, [quantityInput]);
+    const parsed = parseQuantityInput(quantityInput);
+    if (parsed <= 0) return selectedProduct?.unit === "unidade" ? 1 : 0.001;
+    return selectedProduct?.unit === "unidade" ? parsed : Math.round(parsed * 1000) / 1000;
+  }, [quantityInput, selectedProduct?.unit]);
 
   const filteredProducts = useMemo(() => {
     const normalized = productSearch.trim().toLowerCase();
@@ -156,13 +193,16 @@ export default function SalesStartPage({
     () => cart.reduce((sum, item) => sum + item.unitPrice * item.quantity, 0),
     [cart],
   );
-  const totalVolumes = useMemo(
-    () => cart.reduce((sum, item) => sum + item.quantity, 0),
-    [cart],
-  );
+  const totalVolumes = cart.length;
 
-  const cashGivenValue = parseMoneyBr(cashGiven || "0");
-  const changeValue = paymentType === "dinheiro" ? Math.max(0, cashGivenValue - subtotal) : 0;
+  const paymentTotal = useMemo(
+    () => payments.reduce((sum, payment) => sum + parseMoneyBr(payment.amount || "0"), 0),
+    [payments, parseMoneyBr],
+  );
+  const hasCashPayment = payments.some((payment) => payment.type === "dinheiro");
+  const changeValue = hasCashPayment ? Math.max(0, paymentTotal - subtotal) : 0;
+  const remainingPayment = Math.max(0, subtotal - paymentTotal);
+  const paymentType: PaymentType = payments.length > 1 ? "multiplo" : payments[0]?.type || "dinheiro";
 
   const activeProductName =
     cart.length > 0 ? cart[cart.length - 1].name : selectedProduct?.name ?? "";
@@ -181,7 +221,8 @@ export default function SalesStartPage({
         id: item.id,
         name: item.productName,
         code: item.productCode,
-        stock: Number(item.productQnt || 0),
+        stock: parseQuantityInput(item.productQnt || "0"),
+        unit: item.productUnit || "unidade",
         salePrice: parseMoneyBr(item.productSalePrice || "0"),
         imageUrl: item.productImageUrl,
       })),
@@ -299,8 +340,14 @@ export default function SalesStartPage({
       Toast.error("Selecione um produto.");
       return;
     }
+    if (matchedFromSearch.unit === "unidade" && !Number.isInteger(quantity)) {
+      Toast.error("Produtos por unidade não aceitam quantidade fracionada.");
+      return;
+    }
     if (quantity > matchedFromSearch.stock) {
-      Toast.error(`Estoque insuficiente. Disponível: ${matchedFromSearch.stock}.`);
+      Toast.error(
+        `Estoque insuficiente. Disponível: ${formatQuantity(matchedFromSearch.stock)} ${getUnitLabel(matchedFromSearch.unit)}.`,
+      );
       return;
     }
 
@@ -313,6 +360,7 @@ export default function SalesStartPage({
             id: matchedFromSearch.id,
             code: matchedFromSearch.code,
             name: matchedFromSearch.name,
+            unit: matchedFromSearch.unit,
             quantity,
             unitPrice: matchedFromSearch.salePrice,
           },
@@ -362,7 +410,7 @@ export default function SalesStartPage({
     if (!confirmed) return;
     setCart([]);
     setCpfNota("");
-    setCashGiven("");
+    setPayments([createPaymentEntry("dinheiro", "")]);
     setCheckoutOpen(false);
     Toast.info("Venda cancelada.");
   }, [cart.length, statusDialog]);
@@ -386,14 +434,54 @@ export default function SalesStartPage({
       return;
     }
 
-    setPaymentType("dinheiro");
-    setCashGiven(formatMoneyBr(subtotal));
+    setPayments([createPaymentEntry("dinheiro", formatMoneyBr(subtotal))]);
     setCheckoutOpen(true);
   }, [cart.length, formatMoneyBr, loadCashStatus, subtotal]);
 
+  const updatePayment = (paymentId: string, patch: Partial<Pick<PaymentEntry, "type" | "amount">>) => {
+    setPayments((current) =>
+      current.map((payment) => (payment.id === paymentId ? { ...payment, ...patch } : payment)),
+    );
+  };
+
+  const addSecondPayment = () => {
+    if (payments.length >= 2) return;
+    const usedType = payments[0]?.type;
+    const nextType = PAYMENT_OPTIONS.find((option) => option.value !== usedType)?.value || "debito";
+    setPayments((current) => [
+      ...current,
+      createPaymentEntry(nextType, remainingPayment > 0 ? formatMoneyBr(remainingPayment) : ""),
+    ]);
+  };
+
+  const removeSecondPayment = (paymentId: string) => {
+    setPayments((current) => {
+      const next = current.filter((payment) => payment.id !== paymentId);
+      return next.map((payment, index) =>
+        index === 0 ? { ...payment, amount: formatMoneyBr(subtotal) } : payment,
+      );
+    });
+  };
+
   const confirmPayment = async () => {
-    if (paymentType === "dinheiro" && cashGivenValue < subtotal) {
-      Toast.error("Valor recebido menor que total.");
+    const paymentAmounts = payments.map((payment) => parseMoneyBr(payment.amount || "0"));
+    if (payments.some((payment, index) => !payment.type || paymentAmounts[index] <= 0)) {
+      Toast.error("Informe a forma e o valor de cada pagamento.");
+      return;
+    }
+
+    if (new Set(payments.map((payment) => payment.type)).size !== payments.length) {
+      Toast.error("Selecione formas de pagamento diferentes.");
+      return;
+    }
+
+    if (paymentTotal + 0.009 < subtotal) {
+      Toast.error(`Ainda faltam R$ ${formatMoneyBr(subtotal - paymentTotal)}.`);
+      return;
+    }
+
+    if (paymentTotal > subtotal + 0.009 && !hasCashPayment) {
+      Toast.error("Somente pagamento em dinheiro pode gerar troco.");
       return;
     }
 
@@ -409,12 +497,17 @@ export default function SalesStartPage({
       const result = await salesHistoryService.register({
         customerName: "Consumidor",
         customerCpf: cpfNota || "-",
-        paymentType,
+        paymentType: payments.map((payment) => payment.type).join("+"),
         totalAmount: subtotal.toFixed(2),
         operatorName,
+        payments: payments.map((payment) => ({
+          paymentType: payment.type,
+          amount: parseMoneyBr(payment.amount).toFixed(2),
+        })),
         items: cart.map((item) => ({
           productCode: item.code,
           productName: item.name,
+          productUnit: item.unit,
           quantity: item.quantity,
         })),
       });
@@ -437,11 +530,16 @@ export default function SalesStartPage({
           : null,
         customerCpf: cpfNota || "-",
         paymentType,
-        paymentLabel: getPaymentLabel(paymentType),
+        paymentLabel: payments.length > 1 ? "Pagamento combinado" : getPaymentLabel(paymentType),
+        payments: payments.map((payment) => ({
+          type: payment.type,
+          label: getPaymentLabel(payment.type),
+          amount: parseMoneyBr(payment.amount),
+        })),
         operatorName,
         subtotal,
-        cashGiven: paymentType === "dinheiro" ? cashGivenValue : subtotal,
-        change: paymentType === "dinheiro" ? changeValue : 0,
+        cashGiven: paymentTotal,
+        change: changeValue,
         items: cart.map((item) => ({
           ...item,
           total: item.quantity * item.unitPrice,
@@ -465,9 +563,8 @@ export default function SalesStartPage({
     setProductSearch("");
     setShowProductOptions(false);
     setQuantityInput("1");
-    setPaymentType("dinheiro");
+    setPayments([createPaymentEntry("dinheiro", "")]);
     setCpfNota("");
-    setCashGiven("");
     window.setTimeout(() => productInputRef.current?.focus(), 0);
   };
 
@@ -623,18 +720,20 @@ export default function SalesStartPage({
             </label>
 
             <label className="mb-2 block">
-              <span className="mb-1 block text-xs font-semibold uppercase">Quantidade (volume):</span>
+              <span className="mb-1 block text-xs font-semibold uppercase">
+                Quantidade {selectedProduct ? `(${getUnitLabel(selectedProduct.unit)})` : ""}:
+              </span>
               <input
                 ref={qtyInputRef}
                 value={quantityInput}
-                inputMode="numeric"
-                pattern="[0-9]*"
+                inputMode="decimal"
+                pattern="[0-9.,]*"
                 onFocus={(event) => event.target.select()}
                 onChange={(event) =>
-                  setQuantityInput(sanitizeIntegerInput(event.target.value).slice(0, 4))
+                  setQuantityInput(sanitizeQuantityInput(event.target.value).slice(0, 10))
                 }
                 onBlur={() => {
-                  if (!quantityInput || Number(quantityInput) < 1) setQuantityInput("1");
+                  if (parseQuantityInput(quantityInput) <= 0) setQuantityInput("1");
                 }}
                 className="input-field h-10 w-full text-lg font-semibold"
               />
@@ -667,7 +766,7 @@ export default function SalesStartPage({
             </button>
 
             <div className="mt-2 border-t border-border-primary pt-2 text-sm">
-              <p className="font-semibold">Total volumes: {String(totalVolumes).padStart(4, "0")}</p>
+              <p className="font-semibold">Itens no cupom: {String(totalVolumes).padStart(4, "0")}</p>
             </div>
 
             <div className="mt-3 hidden rounded-xl border border-border-primary bg-bg-light p-3 sm:block">
@@ -754,7 +853,9 @@ export default function SalesStartPage({
                             <div className="mt-2 grid grid-cols-3 gap-2 text-xs">
                               <div>
                                 <p className="text-text-secondary">Qtd</p>
-                                <p className="font-semibold text-text-primary">{item.quantity}</p>
+                                 <p className="font-semibold text-text-primary">
+                                   {formatQuantity(item.quantity)} {getUnitLabel(item.unit)}
+                                 </p>
                               </div>
                               <div>
                                 <p className="text-text-secondary">Vl. Unit</p>
@@ -794,7 +895,9 @@ export default function SalesStartPage({
                               <td className="w-12 px-2 py-1 text-center">{index + 1}</td>
                               <td className="w-28 px-2 py-1">{item.code}</td>
                               <td className="px-2 py-1">{item.name}</td>
-                              <td className="w-16 px-2 py-1 text-center">{item.quantity}</td>
+                               <td className="w-16 px-2 py-1 text-center">
+                                 {formatQuantity(item.quantity)} {getUnitLabel(item.unit)}
+                               </td>
                               <td className="w-32 px-2 py-1 text-right">{formatMoneyBr(item.unitPrice)}</td>
                               <td className="w-32 px-2 py-1 text-right">{formatMoneyBr(total)}</td>
                               <td className="w-12 px-1 py-1 text-center">
@@ -894,44 +997,80 @@ export default function SalesStartPage({
                 />
               </label>
 
-              <SearchableSelectField
-                label="Forma de pagamento"
-                value={paymentType}
-                options={PAYMENT_OPTIONS}
-                onChange={(nextValue) => setPaymentType(nextValue as PaymentType)}
-                getOptionValue={(option) => option.value}
-                getOptionLabel={(option) => option.label}
-                placeholder="Selecione a forma de pagamento"
-                emptyMessage="Forma de pagamento não encontrada."
-              />
-
-              {paymentType === "dinheiro" && (
-                <label className="block">
-                  <span className="mb-1.5 block text-sm text-text-secondary">Valor recebido</span>
-                  <input
-                    value={cashGiven}
-                    inputMode="numeric"
-                    pattern="[0-9,.]*"
-                    onBeforeInput={preventNonDigitBeforeInput}
-                    onPaste={pasteCashGiven}
-                    onChange={(event) => setCashGiven(maskMoneyBr(event.target.value))}
-                    className="input-field w-full"
-                    placeholder="0,00"
-                  />
-                </label>
-              )}
+              <div className="space-y-3">
+                {payments.map((payment, index) => (
+                  <div
+                    key={payment.id}
+                    className="grid gap-3 rounded-xl border border-border-primary bg-bg-primary/40 p-3 sm:grid-cols-[1fr_180px_auto]"
+                  >
+                    <SearchableSelectField
+                      label={`Forma ${index + 1}`}
+                      value={payment.type}
+                      options={PAYMENT_OPTIONS}
+                      onChange={(nextValue) =>
+                        updatePayment(payment.id, { type: nextValue as PaymentType })
+                      }
+                      getOptionValue={(option) => option.value}
+                      getOptionLabel={(option) => option.label}
+                      placeholder="Selecione a forma"
+                      emptyMessage="Forma não encontrada."
+                    />
+                    <label className="block">
+                      <span className="mb-1.5 block text-sm text-text-secondary">Valor pago</span>
+                      <input
+                        value={payment.amount}
+                        inputMode="numeric"
+                        pattern="[0-9,.]*"
+                        onBeforeInput={preventNonDigitBeforeInput}
+                        onPaste={(event) => pastePaymentAmount(event, payment.id)}
+                        onChange={(event) =>
+                          updatePayment(payment.id, { amount: maskMoneyBr(event.target.value) })
+                        }
+                        className="input-field w-full"
+                        placeholder="0,00"
+                      />
+                    </label>
+                    {index === 1 ? (
+                      <button
+                        type="button"
+                        onClick={() => removeSecondPayment(payment.id)}
+                        className="btn-cancel self-end"
+                      >
+                        Remover
+                      </button>
+                    ) : (
+                      <span />
+                    )}
+                  </div>
+                ))}
+                {payments.length < 2 ? (
+                  <button type="button" onClick={addSecondPayment} className="btn-outline-secondary w-full">
+                    + Adicionar segunda forma de pagamento
+                  </button>
+                ) : null}
+              </div>
 
               <div className="rounded-xl border border-border-primary bg-bg-primary p-3 text-sm">
                 <div className="flex items-center justify-between">
                   <span className="text-text-secondary">Total</span>
                   <span className="font-semibold text-text-primary">R$ {formatMoneyBr(subtotal)}</span>
                 </div>
-                {paymentType === "dinheiro" && (
+                <div className="mt-1 flex items-center justify-between">
+                  <span className="text-text-secondary">Total informado</span>
+                  <span className="font-semibold text-text-primary">R$ {formatMoneyBr(paymentTotal)}</span>
+                </div>
+                {remainingPayment > 0 ? (
+                  <div className="mt-1 flex items-center justify-between">
+                    <span className="text-text-secondary">Falta</span>
+                    <span className="font-semibold text-primary">R$ {formatMoneyBr(remainingPayment)}</span>
+                  </div>
+                ) : null}
+                {changeValue > 0 ? (
                   <div className="mt-1 flex items-center justify-between">
                     <span className="text-text-secondary">Troco</span>
                     <span className="font-semibold text-success">R$ {formatMoneyBr(changeValue)}</span>
                   </div>
-                )}
+                ) : null}
               </div>
             </div>
 

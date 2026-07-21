@@ -17,6 +17,7 @@ export type SaleHistoryDto = {
   operatorName: string;
   productCode: string;
   productName: string;
+  productUnit: string;
   quantity: number;
   unitPrice: string;
   itemTotal: string;
@@ -29,9 +30,14 @@ export type RegisterSalePayload = {
   paymentType: string;
   totalAmount: string;
   operatorName: string;
+  payments: Array<{
+    paymentType: string;
+    amount: string;
+  }>;
   items: Array<{
     productCode: string;
     productName: string;
+    productUnit: string;
     quantity: number;
   }>;
 };

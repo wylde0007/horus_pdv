@@ -26,6 +26,15 @@ const PAYMENT_LABEL: Record<string, string> = {
   credito: "Cartão Crédito",
 };
 
+function formatQuantity(value: number) {
+  return value.toLocaleString("pt-BR", { maximumFractionDigits: 3 });
+}
+
+function unitLabel(unit?: string) {
+  const labels: Record<string, string> = { unidade: "un", kg: "kg", g: "g", mg: "mg" };
+  return labels[unit || "unidade"] || unit || "un";
+}
+
 function toCompanyReceipt(company: CompanyDto | null): SaleReceipt["company"] {
   if (!company) return null;
   return {
@@ -109,6 +118,7 @@ export default function SalesHistoryPage() {
         id: `${row.saleNumber}-${row.productCode}-${index}`,
         code: row.productCode,
         name: row.productName,
+        unit: row.productUnit || "unidade",
         quantity: row.quantity,
         unitPrice,
         total: itemTotal,
@@ -222,7 +232,9 @@ export default function SalesHistoryPage() {
                       {sale.productName}
                     </span>
                   </td>
-                  <td className="px-3 py-3 text-center tabular-nums">{sale.quantity}</td>
+                  <td className="px-3 py-3 text-center tabular-nums">
+                    {formatQuantity(sale.quantity)} {unitLabel(sale.productUnit)}
+                  </td>
                   <td className="px-3 py-3 text-right font-medium text-text-primary">
                     R$ {formatMoneyBr(getUnitPrice(sale))}
                   </td>

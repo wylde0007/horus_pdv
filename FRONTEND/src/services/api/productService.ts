@@ -10,8 +10,6 @@ const PRODUTO_API_URL =
 
 export type ProductUnit = "unidade" | "kg" | "g" | "mg";
 
-export type ProductUnit = "unidade" | "kg" | "g" | "mg";
-
 export type ProductDto = {
   id: string;
   productImageUrl: string;
