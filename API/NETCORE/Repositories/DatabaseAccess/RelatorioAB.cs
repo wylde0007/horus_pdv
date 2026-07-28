@@ -353,8 +353,61 @@ public class RelatorioAB(Connection connection)
 
     private static decimal ParseMoney(string value)
     {
-        var normalized = value.Trim().Replace("R$", "", StringComparison.OrdinalIgnoreCase).Replace(".", "").Replace(",", ".");
-        return decimal.TryParse(normalized, NumberStyles.Number, CultureInfo.InvariantCulture, out var parsed)
+        if (string.IsNullOrWhiteSpace(value))
+        {
+            return 0;
+        }
+
+        var normalized = value
+            .Trim()
+            .Replace("R$", "", StringComparison.OrdinalIgnoreCase)
+            .Replace("\u00A0", "")
+            .Replace(" ", "");
+
+        var lastComma = normalized.LastIndexOf(',');
+        var lastDot = normalized.LastIndexOf('.');
+
+        if (lastComma >= 0 && lastDot >= 0)
+        {
+            if (lastComma > lastDot)
+            {
+                normalized = normalized
+                    .Replace(".", "")
+                    .Replace(",", ".");
+            }
+            else
+            {
+                normalized = normalized.Replace(",", "");
+            }
+        }
+        else if (lastComma >= 0)
+        {
+            normalized = normalized
+                .Replace(".", "")
+                .Replace(",", ".");
+        }
+        else if (lastDot >= 0)
+        {
+            var decimalDigits = normalized.Length - lastDot - 1;
+
+            if (decimalDigits > 2)
+            {
+                normalized = normalized.Replace(".", "");
+            }
+            else if (normalized.IndexOf('.') != lastDot)
+            {
+                normalized =
+                    normalized[..lastDot].Replace(".", "") +
+                    normalized[lastDot..];
+            }
+        }
+
+        return decimal.TryParse(
+            normalized,
+            NumberStyles.Number,
+            CultureInfo.InvariantCulture,
+            out var parsed
+        )
             ? parsed
             : 0;
     }
