@@ -150,11 +150,9 @@ export const reportCatalog: ReportDefinition[] = [
   {
     id: "desempenho-caixa",
     title: "Desempenho de Caixa",
-    description: "Analisa abertura, fechamento e variação por operador de caixa.",
+    description:
+      "Concilia fundo inicial, faturamento, entradas em dinheiro, sangria estimada e fechamento por sessão e operador.",
     icon: BarChart3,
-    filters: [
-      ...periodFilters,
-      { id: "paymentMethod", label: "Forma de pagamento", type: "select", options: paymentMethodOptions },
-    ],
+    filters: [...periodFilters],
   },
 ];

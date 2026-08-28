@@ -7,6 +7,7 @@ using Npgsql;
 using System.Globalization;
 using System.Text;
 using System.Text.Json;
+using System.Text.RegularExpressions;
 
 namespace HORUSPDV_API.Repositories.DatabaseAccess;
 
@@ -170,20 +171,151 @@ public class RelatorioAB(Connection connection)
     {
         var startDate = GetDate(filters, "startDate") ?? DateTimeOffset.Now.AddDays(-30).Date;
         var endDate = (GetDate(filters, "endDate") ?? DateTimeOffset.Now.Date).AddDays(1);
+        var now = DateTimeOffset.Now;
+
+        // ListarVendasAsync retorna uma linha por item da venda.
+        // Para a conciliação, cada venda deve entrar uma única vez.
+        var sales = (await ListarVendasAsync(companyId))
+            .GroupBy(item => item.SaleNumber)
+            .Select(group => group.First())
+            .ToList();
+
         var rows = (await ListarCaixasAsync(companyId))
             .Where(item => item.OpenedAt >= startDate && item.OpenedAt < endDate)
-            .Select(item => Row(
-                ("abertura", item.OpenedAt.ToLocalTime().ToString("yyyy-MM-dd HH:mm:ss")),
-                ("fechamento", item.ClosedAt?.ToLocalTime().ToString("yyyy-MM-dd HH:mm:ss") ?? "-"),
-                ("operador", item.OperatorName),
-                ("valorAbertura", FormatMoney(item.OpeningAmount)),
-                ("valorFechamento", FormatMoney(item.ClosingAmount)),
-                ("status", item.ClosedAt is null ? "Aberto" : "Fechado")))
+            .Select(item =>
+            {
+                // Todas as vendas entre abertura e fechamento pertencem
+                // àquela sessão de caixa.
+                var sessionEnd = item.ClosedAt ?? now.AddTicks(1);
+
+                var sessionSales = sales
+                    .Where(sale =>
+                        sale.SaleDate >= item.OpenedAt &&
+                        sale.SaleDate < sessionEnd)
+                    .ToList();
+
+                // Todas as vendas da sessão, independentemente da forma de pagamento.
+                var totalRevenue = sessionSales.Sum(
+                    sale => sale.TotalAmount
+                );
+
+                // Somente o dinheiro que efetivamente permaneceu no caixa físico.
+                var cashEntries = sessionSales.Sum(
+                    GetCashRetainedFromSale
+                );
+
+                var expectedClosing =
+                    item.OpeningAmount + cashEntries;
+
+                var isClosed =
+                    item.ClosedAt is not null;
+
+                // Enquanto não existir tabela específica para sangrias,
+                // a retirada é inferida pela diferença entre o esperado
+                // e o valor contado no fechamento.
+                var inferredOutflow = isClosed
+                    ? Math.Max(
+                        0,
+                        expectedClosing - item.ClosingAmount
+                    )
+                    : 0;
+
+                // Se o operador informar valor superior ao esperado.
+                var surplus = isClosed
+                    ? Math.Max(
+                        0,
+                        item.ClosingAmount - expectedClosing
+                    )
+                    : 0;
+
+                // Variação efetiva do dinheiro físico.
+                var netMovement = isClosed
+                    ? item.ClosingAmount - item.OpeningAmount
+                    : cashEntries;
+
+                return Row(
+                    (
+                        "abertura",
+                        item.OpenedAt
+                            .ToLocalTime()
+                            .ToString("yyyy-MM-dd HH:mm:ss")
+                    ),
+                    (
+                        "fechamento",
+                        item.ClosedAt?
+                            .ToLocalTime()
+                            .ToString("yyyy-MM-dd HH:mm:ss")
+                            ?? "-"
+                    ),
+                    (
+                        "operador",
+                        item.OperatorName
+                    ),
+                    (
+                        "valorAbertura",
+                        FormatMoney(item.OpeningAmount)
+                    ),
+                    (
+                        "faturamento",
+                        FormatMoney(totalRevenue)
+                    ),
+                    (
+                        "entradaDinheiro",
+                        FormatMoney(cashEntries)
+                    ),
+                    (
+                        "saldoEsperado",
+                        FormatMoney(expectedClosing)
+                    ),
+                    (
+                        "saidaEstimada",
+                        isClosed
+                            ? FormatMoney(inferredOutflow)
+                            : "-"
+                    ),
+                    (
+                        "valorFechamento",
+                        isClosed
+                            ? FormatMoney(item.ClosingAmount)
+                            : "-"
+                    ),
+                    (
+                        "sobraCaixa",
+                        isClosed
+                            ? FormatMoney(surplus)
+                            : "-"
+                    ),
+                    (
+                        "movimentoLiquido",
+                        FormatMoney(netMovement)
+                    ),
+                    (
+                        "status",
+                        isClosed
+                            ? "Fechado"
+                            : "Aberto"
+                    )
+                );
+            })
             .ToList();
 
         return Result(
-            Columns(("abertura", "Abertura"), ("fechamento", "Fechamento"), ("operador", "Operador"), ("valorAbertura", "Valor abertura"), ("valorFechamento", "Valor fechamento"), ("status", "Status")),
-            rows);
+            Columns(
+                ("abertura", "Abertura"),
+                ("fechamento", "Fechamento"),
+                ("operador", "Operador"),
+                ("valorAbertura", "Fundo inicial"),
+                ("faturamento", "Faturamento do caixa"),
+                ("entradaDinheiro", "Entrou em dinheiro"),
+                ("saldoEsperado", "Saldo esperado"),
+                ("saidaEstimada", "Saiu / sangria estimada"),
+                ("valorFechamento", "Fechamento informado"),
+                ("sobraCaixa", "Sobra de caixa"),
+                ("movimentoLiquido", "Movimento líquido"),
+                ("status", "Status")
+            ),
+            rows
+        );
     }
 
     private async Task<List<ReportSaleRow>> ListarVendasAsync(string companyId)
@@ -448,6 +580,64 @@ public class RelatorioAB(Connection connection)
             .Select(item => item.GetString() ?? "")
             .Where(item => !string.IsNullOrWhiteSpace(item))
             .ToList();
+    }
+
+    private static decimal GetCashRetainedFromSale(
+        ReportSaleRow sale)
+    {
+        var paymentSummary =
+            sale.PaymentType ?? string.Empty;
+
+        // Compatibilidade com vendas antigas:
+        // PaymentType = "dinheiro".
+        if (
+            !paymentSummary.Contains(
+                "R$",
+                StringComparison.OrdinalIgnoreCase
+            )
+            &&
+            NormalizePaymentFilter(paymentSummary) == "cash"
+        )
+        {
+            return sale.TotalAmount;
+        }
+
+        // Exemplo atual:
+        // Dinheiro R$ 50,00 + PIX R$ 20,00
+        // (troco R$ 5,00)
+        var cashMatch = Regex.Match(
+            paymentSummary,
+            @"Dinheiro\s+R\$\s*([0-9][0-9\.,]*)",
+            RegexOptions.IgnoreCase |
+            RegexOptions.CultureInvariant
+        );
+
+        if (!cashMatch.Success)
+        {
+            return 0;
+        }
+
+        var cashReceived = ParseMoney(
+            cashMatch.Groups[1].Value
+        );
+
+        var changeMatch = Regex.Match(
+            paymentSummary,
+            @"troco\s+R\$\s*([0-9][0-9\.,]*)",
+            RegexOptions.IgnoreCase |
+            RegexOptions.CultureInvariant
+        );
+
+        var change = changeMatch.Success
+            ? ParseMoney(
+                changeMatch.Groups[1].Value
+            )
+            : 0;
+
+        return Math.Max(
+            0,
+            cashReceived - change
+        );
     }
 
     private static string NormalizePaymentType(string value)
