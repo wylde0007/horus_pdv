@@ -13,5 +13,6 @@ public class AuthRegisterRequest
     public string Phone { get; set; } = string.Empty;
     public string Password { get; set; } = string.Empty;
     public string ConfirmPassword { get; set; } = string.Empty;
+    public bool IsBranch { get; set; }
     public string RecaptchaToken { get; set; } = string.Empty;
 }

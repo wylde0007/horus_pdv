@@ -58,6 +58,20 @@ public class HorusSecurityStore(Connection connection, HorusSecurityOptions secu
             throw new InvalidOperationException("CNPJ invalido.");
         }
 
+        var cnpjAlreadyRegistered = CompanyCnpjExists(request.Cnpj);
+
+        if (cnpjAlreadyRegistered && !request.IsBranch)
+        {
+            throw new InvalidOperationException(
+                "Este CNPJ já está cadastrado. Para utilizar o mesmo CNPJ, marque o cadastro como filial.");
+        }
+
+        if (!cnpjAlreadyRegistered && request.IsBranch)
+        {
+            throw new InvalidOperationException(
+                "Não existe uma empresa matriz cadastrada com este CNPJ.");
+        }
+
         if (!request.Password.Equals(request.ConfirmPassword, StringComparison.Ordinal))
         {
             throw new InvalidOperationException("A confirmação de senha não confere.");
@@ -683,6 +697,26 @@ public class HorusSecurityStore(Connection connection, HorusSecurityOptions secu
         command.ExecuteNonQuery();
     }
 
+    private bool CompanyCnpjExists(string cnpj)
+    {
+        var normalizedCnpj = OnlyDigits(cnpj);
+
+        using var db = connection.OpenConnection();
+        using var command = new NpgsqlCommand(
+            """
+            SELECT EXISTS (
+                SELECT 1
+                FROM Empresas
+                WHERE REGEXP_REPLACE(Cnpj, '[^0-9]', '', 'g') = @Cnpj
+            );
+            """,
+            db);
+
+        command.Parameters.AddWithValue("@Cnpj", normalizedCnpj);
+
+        return command.ExecuteScalar() is bool exists && exists;
+    }
+
     private void EnsureCompanyForPublicRegistration(string companyId, AuthRegisterRequest request)
     {
         using var db = connection.OpenConnection();
@@ -692,11 +726,11 @@ public class HorusSecurityStore(Connection connection, HorusSecurityOptions secu
                 (Id, FantasyName, CorporateName, Cnpj, StateRegistration, Website, Email, SacPhone, Phone, Mobile,
                  Cep, Address, Number, Neighborhood, City, Uf, Complement, EmailSmtpEnabled, EmailSmtpHost,
                  EmailSmtpPort, EmailSmtpEnableSsl, EmailSmtpUser, EmailSmtpPassword, EmailSmtpFromEmail,
-                 EmailSmtpFromName, EmailSmtpReplyTo)
+                 EmailSmtpFromName, EmailSmtpReplyTo, IsBranch)
             VALUES
                 (@Id, @FantasyName, @CorporateName, @Cnpj, '', '', @Email, '', @Phone, @Phone,
                  '', '', '', '', '', '', '', false, 'smtp-mail.outlook.com',
-                 587, true, '', '', '', @FantasyName, '')
+                 587, true, '', '', '', @FantasyName, '', @IsBranch)
             ON CONFLICT (Id) DO NOTHING;
             """,
             db);
@@ -706,6 +740,7 @@ public class HorusSecurityStore(Connection connection, HorusSecurityOptions secu
         command.Parameters.AddWithValue("@Cnpj", request.Cnpj.Trim());
         command.Parameters.AddWithValue("@Email", request.Email.Trim().ToLowerInvariant());
         command.Parameters.AddWithValue("@Phone", request.Phone.Trim());
+        command.Parameters.AddWithValue("@IsBranch", request.IsBranch);
         command.ExecuteNonQuery();
     }
 
