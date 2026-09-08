@@ -20,6 +20,7 @@ const initialRegisterForm: RegisterFormPayload = {
   phone: "",
   password: "",
   confirmPassword: "",
+  isBranch: false,
 };
 
 type RegisterPageProps = {
@@ -149,6 +150,29 @@ export default function RegisterPage({
             />
           </div>
         </label>
+
+        <label className="flex items-start gap-3 sm:col-span-2">
+          <input
+            type="checkbox"
+            className="mt-1 h-4 w-4"
+            checked={form.isBranch}
+            onChange={(event) =>
+              setForm((current) => ({
+                ...current,
+                isBranch: event.target.checked,
+              }))
+            }
+          />
+
+          <div>
+            <span className="block text-sm font-semibold text-text-primary">
+              Cadastrar como filial
+            </span>
+            <span className="block text-xs text-text-tertiary">
+              Marque esta opção para utilizar um CNPJ que já está cadastrado.
+            </span>
+          </div>
+        </label>
       </div>
 
       <EmailField
@@ -188,7 +212,10 @@ export default function RegisterPage({
     </AuthLayout>
   );
 
-  function setField(field: keyof RegisterFormPayload, value: string) {
+  function setField(
+    field: Exclude<keyof RegisterFormPayload, "isBranch">,
+    value: string,
+  ) {
     setForm((current) => ({ ...current, [field]: value }));
   }
 }

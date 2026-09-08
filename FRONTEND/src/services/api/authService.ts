@@ -31,6 +31,7 @@ export type RegisterPayload = {
   phone: string;
   password: string;
   confirmPassword: string;
+  isBranch: boolean;
   recaptchaToken?: string;
 };
 
