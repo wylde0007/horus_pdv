@@ -78,6 +78,111 @@ const EMPTY_SUPPLIER_DRAFT: QuickSupplierDraft = {
   email: "",
 };
 
+const PRODUCT_IMAGE_MAX_DIMENSION = 1024;
+const PRODUCT_IMAGE_MAX_DATA_URL_LENGTH = 1_200_000;
+
+function isHeicFile(file: File) {
+  const type = file.type.toLowerCase();
+  const name = file.name.toLowerCase();
+
+  return (
+    type.includes("heic") ||
+    type.includes("heif") ||
+    name.endsWith(".heic") ||
+    name.endsWith(".heif")
+  );
+}
+
+function isSupportedProductImage(file: File) {
+  return (
+    file.type.startsWith("image/") ||
+    /\.(jpe?g|png|webp|gif|heic|heif)$/i.test(file.name)
+  );
+}
+
+function loadImageFromBlob(blob: Blob) {
+  return new Promise<HTMLImageElement>((resolve, reject) => {
+    const objectUrl = URL.createObjectURL(blob);
+    const image = new Image();
+
+    image.onload = () => {
+      URL.revokeObjectURL(objectUrl);
+      resolve(image);
+    };
+
+    image.onerror = () => {
+      URL.revokeObjectURL(objectUrl);
+      reject(new Error("Não foi possível ler a imagem selecionada."));
+    };
+
+    image.src = objectUrl;
+  });
+}
+
+async function optimizeProductImage(file: File) {
+  let sourceBlob: Blob = file;
+
+  if (isHeicFile(file)) {
+    const heic2any = (await import("heic2any")).default;
+
+    const converted = await heic2any({
+      blob: file,
+      toType: "image/jpeg",
+      quality: 0.9,
+    });
+
+    sourceBlob = Array.isArray(converted) ? converted[0] : converted;
+  }
+
+  const image = await loadImageFromBlob(sourceBlob);
+
+  const longestSide = Math.max(image.naturalWidth, image.naturalHeight);
+  const ratio =
+    longestSide > PRODUCT_IMAGE_MAX_DIMENSION
+      ? PRODUCT_IMAGE_MAX_DIMENSION / longestSide
+      : 1;
+
+  const width = Math.max(1, Math.round(image.naturalWidth * ratio));
+  const height = Math.max(1, Math.round(image.naturalHeight * ratio));
+
+  const canvas = document.createElement("canvas");
+  canvas.width = width;
+  canvas.height = height;
+
+  const context = canvas.getContext("2d");
+
+  if (!context) {
+    throw new Error("Não foi possível processar a imagem.");
+  }
+
+  context.drawImage(image, 0, 0, width, height);
+
+  let quality = 0.78;
+  let dataUrl = canvas.toDataURL("image/jpeg", quality);
+
+  while (
+    dataUrl.length > PRODUCT_IMAGE_MAX_DATA_URL_LENGTH &&
+    quality > 0.5
+  ) {
+    quality = Math.max(0.5, quality - 0.07);
+    dataUrl = canvas.toDataURL("image/jpeg", quality);
+  }
+
+  if (dataUrl.length > PRODUCT_IMAGE_MAX_DATA_URL_LENGTH) {
+    throw new Error(
+      "A imagem continua muito grande mesmo após a otimização.",
+    );
+  }
+
+  const baseName =
+    file.name.replace(/\.[^.]+$/, "").trim() || "produto";
+
+  return {
+    dataUrl,
+    fileName: `${baseName}.jpg`,
+  };
+}
+
 function preventNonDigitBeforeInput(event: FormEvent<HTMLInputElement>) {
   const data = (event.nativeEvent as InputEvent).data ?? "";
   if (data && /\D/.test(data)) {
@@ -153,19 +258,33 @@ function ProductFormDrawer({
     onChange(next);
   };
 
-  const applyImage = (file: File | null) => {
-    if (!file || !file.type.startsWith("image/")) return;
+  const applyImage = async (file: File | null) => {
+    if (!file) return;
 
-    const reader = new FileReader();
-    reader.onload = () => {
-      const result = typeof reader.result === "string" ? reader.result : "";
+    if (!isSupportedProductImage(file)) {
+      Toast.error("Selecione uma imagem válida.");
+      return;
+    }
+
+    try {
+      const optimizedImage = await optimizeProductImage(file);
+
       onChange({
         ...value,
-        productImageName: file.name,
-        productImageUrl: result,
+        productImageName: optimizedImage.fileName,
+        productImageUrl: optimizedImage.dataUrl,
       });
-    };
-    reader.readAsDataURL(file);
+    } catch (error) {
+      Toast.error(
+        error instanceof Error
+          ? error.message
+          : "Não foi possível processar a imagem.",
+      );
+    } finally {
+      if (fileInputRef.current) {
+        fileInputRef.current.value = "";
+      }
+    }
   };
 
   const setMoneyField = (
@@ -330,7 +449,7 @@ function ProductFormDrawer({
                   onDrop={(event) => {
                     event.preventDefault();
                     setIsDragActive(false);
-                    applyImage(event.dataTransfer.files?.[0] ?? null);
+                    void applyImage(event.dataTransfer.files?.[0] ?? null);
                   }}
                   className={`flex flex-col items-center justify-center rounded-xl border border-dashed p-4 transition ${
                     isDragActive
@@ -354,9 +473,9 @@ function ProductFormDrawer({
                   <input
                     ref={fileInputRef}
                     type="file"
-                    accept="image/*"
+                    accept="image/*,.heic,.heif,image/heic,image/heif"
                     className="hidden"
-                    onChange={(event) => applyImage(event.target.files?.[0] ?? null)}
+                    onChange={(event) => void applyImage(event.target.files?.[0] ?? null)}
                   />
                   <button
                     type="button"
