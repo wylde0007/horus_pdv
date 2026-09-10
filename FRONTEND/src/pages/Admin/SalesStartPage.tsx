@@ -216,17 +216,20 @@ export default function SalesStartPage({
 
   const loadProducts = useCallback(async () => {
     const items = await productService.list();
-    setProducts(
-      items.map((item) => ({
-        id: item.id,
-        name: item.productName,
-        code: item.productCode,
-        stock: parseQuantityInput(item.productQnt || "0"),
-        unit: item.productUnit || "unidade",
-        salePrice: parseMoneyBr(item.productSalePrice || "0"),
-        imageUrl: item.productImageUrl,
-      })),
-    );
+
+    const updatedProducts: Product[] = items.map((item) => ({
+      id: item.id,
+      name: item.productName,
+      code: item.productCode,
+      stock: parseQuantityInput(item.productQnt || "0"),
+      unit: item.productUnit || "unidade",
+      salePrice: parseMoneyBr(item.productSalePrice || "0"),
+      imageUrl: item.productImageUrl,
+    }));
+
+    setProducts(updatedProducts);
+
+    return updatedProducts;
   }, [parseMoneyBr]);
 
   const loadCashStatus = useCallback(async () => {
@@ -240,6 +243,20 @@ export default function SalesStartPage({
     loadProducts().catch(() => {
       Toast.error("Não foi possível carregar produtos da API no PDV.");
     });
+  }, [loadProducts]);
+
+  useEffect(() => {
+    const refreshProductsOnFocus = () => {
+      loadProducts().catch(() => {
+        Toast.error("Não foi possível atualizar o estoque dos produtos.");
+      });
+    };
+
+    window.addEventListener("focus", refreshProductsOnFocus);
+
+    return () => {
+      window.removeEventListener("focus", refreshProductsOnFocus);
+    };
   }, [loadProducts]);
 
   useEffect(() => {
@@ -326,33 +343,83 @@ export default function SalesStartPage({
     qtyInputRef.current?.focus();
   };
 
-  const addItem = useCallback(() => {
+  const addItem = useCallback(async () => {
+    let latestProducts: Product[];
+
+    try {
+      // Consulta novamente a API antes de validar o estoque.
+      latestProducts = await loadProducts();
+    } catch {
+      Toast.error("Não foi possível consultar o estoque atual do produto.");
+      return;
+    }
+
+    const normalizedSearch = productSearch.trim().toLowerCase();
+
+    const latestFilteredProducts = normalizedSearch
+      ? latestProducts.filter(
+          (item) =>
+            item.name.toLowerCase().includes(normalizedSearch) ||
+            item.code.toLowerCase().includes(normalizedSearch),
+        )
+      : latestProducts;
+
     const matchedFromSearch =
-      selectedProduct ??
-      filteredProducts.find(
+      (selectedProductId
+        ? latestProducts.find((item) => item.id === selectedProductId)
+        : null) ??
+      latestFilteredProducts.find(
         (item) =>
-          item.name.toLowerCase() === productSearch.trim().toLowerCase() ||
-          item.code.toLowerCase() === productSearch.trim().toLowerCase(),
+          item.name.toLowerCase() === normalizedSearch ||
+          item.code.toLowerCase() === normalizedSearch,
       ) ??
-      filteredProducts[0];
+      latestFilteredProducts[0];
 
     if (!matchedFromSearch) {
       Toast.error("Selecione um produto.");
       return;
     }
-    if (matchedFromSearch.unit === "unidade" && !Number.isInteger(quantity)) {
+
+    const parsedQuantity = parseQuantityInput(quantityInput);
+
+    const quantityToAdd =
+      parsedQuantity <= 0
+        ? matchedFromSearch.unit === "unidade"
+          ? 1
+          : 0.001
+        : matchedFromSearch.unit === "unidade"
+          ? parsedQuantity
+          : Math.round(parsedQuantity * 1000) / 1000;
+
+    if (
+      matchedFromSearch.unit === "unidade" &&
+      !Number.isInteger(quantityToAdd)
+    ) {
       Toast.error("Produtos por unidade não aceitam quantidade fracionada.");
       return;
     }
-    if (quantity > matchedFromSearch.stock) {
+
+    const existingItem = cart.find(
+      (item) => item.id === matchedFromSearch.id,
+    );
+
+    const totalQuantity =
+      (existingItem?.quantity ?? 0) + quantityToAdd;
+
+    if (totalQuantity > matchedFromSearch.stock) {
       Toast.error(
-        `Estoque insuficiente. Disponível: ${formatQuantity(matchedFromSearch.stock)} ${getUnitLabel(matchedFromSearch.unit)}.`,
+        `Estoque insuficiente. Disponível: ${formatQuantity(
+          matchedFromSearch.stock,
+        )} ${getUnitLabel(matchedFromSearch.unit)}.`,
       );
       return;
     }
 
     setCart((current) => {
-      const existing = current.find((item) => item.id === matchedFromSearch.id);
+      const existing = current.find(
+        (item) => item.id === matchedFromSearch.id,
+      );
+
       if (!existing) {
         return [
           ...current,
@@ -361,18 +428,19 @@ export default function SalesStartPage({
             code: matchedFromSearch.code,
             name: matchedFromSearch.name,
             unit: matchedFromSearch.unit,
-            quantity,
+            quantity: quantityToAdd,
             unitPrice: matchedFromSearch.salePrice,
           },
         ];
       }
-      const nextQuantity = existing.quantity + quantity;
-      if (nextQuantity > matchedFromSearch.stock) {
-        Toast.error(`Estoque insuficiente para ${matchedFromSearch.name}.`);
-        return current;
-      }
+
       return current.map((item) =>
-        item.id === matchedFromSearch.id ? { ...item, quantity: nextQuantity } : item,
+        item.id === matchedFromSearch.id
+          ? {
+              ...item,
+              quantity: item.quantity + quantityToAdd,
+            }
+          : item,
       );
     });
 
@@ -381,7 +449,13 @@ export default function SalesStartPage({
     setShowProductOptions(false);
     setQuantityInput("1");
     productInputRef.current?.focus();
-  }, [filteredProducts, productSearch, quantity, selectedProduct]);
+  }, [
+    cart,
+    loadProducts,
+    productSearch,
+    quantityInput,
+    selectedProductId,
+  ]);
 
   const removeItem = (id: string) => {
     setCart((current) => current.filter((item) => item.id !== id));
