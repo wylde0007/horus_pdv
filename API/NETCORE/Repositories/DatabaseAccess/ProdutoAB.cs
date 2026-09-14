@@ -50,7 +50,11 @@ public class ProdutoAB(Connection connection)
         return await reader.ReadAsync() ? Map(reader) : null;
     }
 
-    public async Task<ProdutoAD> SalvarAsync(string companyId, ProdutoAD product)
+    public async Task<ProdutoAD> SalvarAsync(
+        string companyId,
+        ProdutoAD product,
+        ProdutoHistoricoAD? history = null
+    )
     {
         var supplierId = await ResolveSupplierIdAsync(companyId, product.ProductSupplier);
         const string sql = """
@@ -81,11 +85,145 @@ public class ProdutoAB(Connection connection)
             """;
 
         await using var db = await connection.OpenConnectionAsync();
-        await using var command = new NpgsqlCommand(sql, db);
-        command.Parameters.AddWithValue("@CompanyId", companyId);
-        AddParameters(command, product, supplierId);
+        await using var transaction =
+            (NpgsqlTransaction)await db.BeginTransactionAsync();
+
+        try
+        {
+            await using var command =
+                new NpgsqlCommand(sql, db, transaction);
+
+            command.Parameters.AddWithValue("@CompanyId", companyId);
+            AddParameters(command, product, supplierId);
+
+            await command.ExecuteNonQueryAsync();
+
+            if (history is not null)
+            {
+                await RegistrarHistoricoAsync(
+                    db,
+                    transaction,
+                    history
+                );
+            }
+
+            await transaction.CommitAsync();
+
+            return product;
+        }
+        catch
+        {
+            await transaction.RollbackAsync();
+            throw;
+        }
+    }
+
+    private static async Task RegistrarHistoricoAsync(
+        NpgsqlConnection db,
+        NpgsqlTransaction transaction,
+        ProdutoHistoricoAD history
+    )
+    {
+        const string sql = """
+            INSERT INTO ProdutoHistorico
+            (
+                Id,
+                CompanyId,
+                ProductId,
+                ProductCode,
+                ProductName,
+                UserId,
+                UserName,
+                UserRole,
+                ProductQntAntes,
+                ProductQntDepois,
+                ProductUnitPriceAntes,
+                ProductUnitPriceDepois,
+                ProductSalePriceAntes,
+                ProductSalePriceDepois,
+                ChangedFields,
+                RequestId,
+                Ip
+            )
+            VALUES
+            (
+                @Id,
+                @CompanyId,
+                @ProductId,
+                @ProductCode,
+                @ProductName,
+                @UserId,
+                @UserName,
+                @UserRole,
+                @ProductQntAntes,
+                @ProductQntDepois,
+                @ProductUnitPriceAntes,
+                @ProductUnitPriceDepois,
+                @ProductSalePriceAntes,
+                @ProductSalePriceDepois,
+                @ChangedFields,
+                @RequestId,
+                @Ip
+            );
+            """;
+
+        await using var command =
+            new NpgsqlCommand(sql, db, transaction);
+
+        command.Parameters.AddWithValue("@Id", history.Id);
+        command.Parameters.AddWithValue("@CompanyId", history.CompanyId);
+
+        command.Parameters.AddWithValue("@ProductId", history.ProductId);
+        command.Parameters.AddWithValue("@ProductCode", history.ProductCode);
+        command.Parameters.AddWithValue("@ProductName", history.ProductName);
+
+        command.Parameters.AddWithValue("@UserId", history.UserId);
+        command.Parameters.AddWithValue("@UserName", history.UserName);
+        command.Parameters.AddWithValue("@UserRole", history.UserRole);
+
+        command.Parameters.AddWithValue(
+            "@ProductQntAntes",
+            history.ProductQntAntes
+        );
+        command.Parameters.AddWithValue(
+            "@ProductQntDepois",
+            history.ProductQntDepois
+        );
+
+        command.Parameters.AddWithValue(
+            "@ProductUnitPriceAntes",
+            history.ProductUnitPriceAntes
+        );
+        command.Parameters.AddWithValue(
+            "@ProductUnitPriceDepois",
+            history.ProductUnitPriceDepois
+        );
+
+        command.Parameters.AddWithValue(
+            "@ProductSalePriceAntes",
+            history.ProductSalePriceAntes
+        );
+        command.Parameters.AddWithValue(
+            "@ProductSalePriceDepois",
+            history.ProductSalePriceDepois
+        );
+
+        command.Parameters.AddWithValue(
+            "@ChangedFields",
+            history.ChangedFields
+        );
+
+        command.Parameters.AddWithValue(
+            "@RequestId",
+            history.RequestId
+        );
+
+        command.Parameters.AddWithValue(
+            "@Ip",
+            history.Ip
+        );
+
         await command.ExecuteNonQueryAsync();
-        return product;
     }
 
     public async Task<bool> ExcluirAsync(string companyId, string id)

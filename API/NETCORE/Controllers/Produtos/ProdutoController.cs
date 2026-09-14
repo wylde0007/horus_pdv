@@ -14,7 +14,10 @@ namespace HORUSPDV_API.Controllers.Produtos;
 
 [ApiController]
 [Route("api/[controller]")]
-public class ProdutoController(IProdutoService produtoService) : ControllerBase
+public class ProdutoController(
+    IProdutoService produtoService,
+    HorusSecurityOptions securityOptions
+) : ControllerBase
 {
     [HttpGet]
     [ProducesResponseType(typeof(ApiResponse<List<ProdutoModel>>), StatusCodes.Status200OK)]
@@ -67,7 +70,11 @@ public class ProdutoController(IProdutoService produtoService) : ControllerBase
                 currentUser.CompanyId,
                 id,
                 request,
-                currentUser.Role
+                currentUser.Id,
+                currentUser.Name,
+                currentUser.Role,
+                HttpContext.Items["RequestId"]?.ToString() ?? "",
+                HorusClientIpResolver.Resolve(HttpContext, securityOptions)
             );
             if (updated is null)
             {

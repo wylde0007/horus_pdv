@@ -45,6 +45,43 @@ ALTER TABLE Produtos ADD COLUMN IF NOT EXISTS CompanyId VARCHAR(40) NOT NULL DEF
 ALTER TABLE Produtos ADD COLUMN IF NOT EXISTS ProductUnit VARCHAR(20) NOT NULL DEFAULT 'unidade';
 ALTER TABLE Produtos ALTER COLUMN ProductImageUrl TYPE TEXT;
 
+CREATE TABLE IF NOT EXISTS ProdutoHistorico
+(
+    Id VARCHAR(40) PRIMARY KEY,
+    CompanyId VARCHAR(40) NOT NULL,
+    ProductId VARCHAR(40) NOT NULL,
+    ProductCode VARCHAR(80) NOT NULL DEFAULT '',
+    ProductName VARCHAR(180) NOT NULL DEFAULT '',
+
+    UserId VARCHAR(40) NOT NULL DEFAULT '',
+    UserName VARCHAR(180) NOT NULL DEFAULT '',
+    UserRole VARCHAR(60) NOT NULL DEFAULT '',
+
+    ProductQntAntes VARCHAR(30) NOT NULL DEFAULT '',
+    ProductQntDepois VARCHAR(30) NOT NULL DEFAULT '',
+
+    ProductUnitPriceAntes VARCHAR(30) NOT NULL DEFAULT '',
+    ProductUnitPriceDepois VARCHAR(30) NOT NULL DEFAULT '',
+
+    ProductSalePriceAntes VARCHAR(30) NOT NULL DEFAULT '',
+    ProductSalePriceDepois VARCHAR(30) NOT NULL DEFAULT '',
+
+    ChangedFields VARCHAR(200) NOT NULL DEFAULT '',
+    ChangedAt TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+
+    RequestId VARCHAR(64) NOT NULL DEFAULT '',
+    Ip VARCHAR(64) NOT NULL DEFAULT ''
+);
+
+CREATE INDEX IF NOT EXISTS IX_ProdutoHistorico_Company_ChangedAt
+    ON ProdutoHistorico (CompanyId, ChangedAt DESC);
+
+CREATE INDEX IF NOT EXISTS IX_ProdutoHistorico_ProductId
+    ON ProdutoHistorico (ProductId);
+
+CREATE INDEX IF NOT EXISTS IX_ProdutoHistorico_UserId
+    ON ProdutoHistorico (UserId);
+
 CREATE TABLE IF NOT EXISTS Clientes
 (
     Id VARCHAR(40) PRIMARY KEY,

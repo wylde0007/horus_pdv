@@ -23,7 +23,16 @@ public class ProdutoService(ProdutoAB produtosAB, FornecedorAB fornecedoresAB) :
         return ToModel(await produtosAB.SalvarAsync(companyId, product));
     }
 
-    public async Task<ProdutoModel?> AtualizarAsync(string companyId, string id, ProdutoRequest request, string userRole)
+    public async Task<ProdutoModel?> AtualizarAsync(
+        string companyId,
+        string id,
+        ProdutoRequest request,
+        string userId,
+        string userName,
+        string userRole,
+        string requestId,
+        string ip
+    )
     {
         Validate(request);
         var current = await produtosAB.ObterAsync(companyId, id);
@@ -32,36 +41,92 @@ public class ProdutoService(ProdutoAB produtosAB, FornecedorAB fornecedoresAB) :
             return null;
         }
 
+        var quantityChanged =
+            ParseQuantity(request.ProductQnt) !=
+            ParseQuantity(current.ProductQnt);
+
+        var unitPriceChanged =
+            ParseMoney(request.ProductUnitPrice) !=
+            ParseMoney(current.ProductUnitPrice);
+
+        var salePriceChanged =
+            ParseMoney(request.ProductSalePrice) !=
+            ParseMoney(current.ProductSalePrice);
+
         var isAdministrator =
             userRole.Trim().Equals(
                 "administrador",
                 StringComparison.OrdinalIgnoreCase
             );
 
-        if (!isAdministrator)
+        if (!isAdministrator &&
+            (quantityChanged || unitPriceChanged || salePriceChanged))
         {
-            var quantityChanged =
-                ParseQuantity(request.ProductQnt) !=
-                ParseQuantity(current.ProductQnt);
-
-            var unitPriceChanged =
-                ParseMoney(request.ProductUnitPrice) !=
-                ParseMoney(current.ProductUnitPrice);
-
-            var salePriceChanged =
-                ParseMoney(request.ProductSalePrice) !=
-                ParseMoney(current.ProductSalePrice);
-
-            if (quantityChanged || unitPriceChanged || salePriceChanged)
-            {
-                throw new InvalidOperationException(
-                    "Somente o administrador pode alterar a quantidade ou os preços do produto."
-                );
-            }
+            throw new InvalidOperationException(
+                "Somente o administrador pode alterar a quantidade ou os preços do produto."
+            );
         }
 
         await ValidateBusinessRulesAsync(companyId, request, id);
-        return ToModel(await produtosAB.SalvarAsync(companyId, MapRequest(id, request)));
+
+        var updatedProduct = MapRequest(id, request);
+        ProdutoHistoricoAD? history = null;
+
+        if (quantityChanged || unitPriceChanged || salePriceChanged)
+        {
+            var changedFields = new List<string>();
+
+            if (quantityChanged)
+            {
+                changedFields.Add("ProductQnt");
+            }
+
+            if (unitPriceChanged)
+            {
+                changedFields.Add("ProductUnitPrice");
+            }
+
+            if (salePriceChanged)
+            {
+                changedFields.Add("ProductSalePrice");
+            }
+
+            history = new ProdutoHistoricoAD
+            {
+                Id = $"ph-{Guid.NewGuid():N}",
+                CompanyId = companyId,
+
+                ProductId = current.Id,
+                ProductCode = updatedProduct.ProductCode,
+                ProductName = updatedProduct.ProductName,
+
+                UserId = userId,
+                UserName = userName,
+                UserRole = userRole,
+
+                ProductQntAntes = current.ProductQnt,
+                ProductQntDepois = updatedProduct.ProductQnt,
+
+                ProductUnitPriceAntes = current.ProductUnitPrice,
+                ProductUnitPriceDepois = updatedProduct.ProductUnitPrice,
+
+                ProductSalePriceAntes = current.ProductSalePrice,
+                ProductSalePriceDepois = updatedProduct.ProductSalePrice,
+
+                ChangedFields = string.Join(",", changedFields),
+
+                RequestId = requestId,
+                Ip = ip
+            };
+        }
+
+        return ToModel(
+            await produtosAB.SalvarAsync(
+                companyId,
+                updatedProduct,
+                history
+            )
+        );
     }
 
     public Task<bool> ExcluirAsync(string companyId, string id)
