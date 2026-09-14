@@ -19,6 +19,7 @@ import { productService, type ProductUnit } from "@/services/api/productService"
 import { supplierService, type SupplierPayload } from "@/services/api/supplierService";
 import { lookupAddressByCep } from "@/utils/cepLookup";
 import { onlyDigits } from "@/utils/inputMasks";
+import { getStoredAuthUser } from "@/utils/authStorage";
 import { isValidCnpj, isValidEmail } from "@/utils/validators";
 
 const PRODUCT_UNIT_OPTIONS: Array<{ value: ProductUnit; label: string }> = [
@@ -222,9 +223,11 @@ function ProductFormDrawer({
   onSave,
   supplierOptions,
   onCreateSupplier,
+  canEditStockAndPrices,
 }: {
   open: boolean;
   isEditMode: boolean;
+  canEditStockAndPrices: boolean;
   value: ProductFormData;
   isSaving: boolean;
   onClose: () => void;
@@ -240,6 +243,7 @@ function ProductFormDrawer({
     formatMoneyBr,
   } = useInputMasks();
   const fileInputRef = useRef<HTMLInputElement | null>(null);
+  const lockStockAndPrices = isEditMode && !canEditStockAndPrices;
   const [isDragActive, setIsDragActive] = useState(false);
   const [supplierModalOpen, setSupplierModalOpen] = useState(false);
   const [supplierDraft, setSupplierDraft] = useState<QuickSupplierDraft>(EMPTY_SUPPLIER_DRAFT);
@@ -555,6 +559,7 @@ function ProductFormDrawer({
                 </span>
                 <input
                   value={value.productQnt}
+                  disabled={lockStockAndPrices}
                   inputMode="decimal"
                   pattern="[0-9.,]*"
                   onChange={(event) =>
@@ -570,6 +575,7 @@ function ProductFormDrawer({
                 </span>
                 <input
                   value={value.productUnitPrice}
+                  disabled={lockStockAndPrices}
                   inputMode="numeric"
                   pattern="[0-9,.]*"
                   onBeforeInput={preventNonDigitBeforeInput}
@@ -585,6 +591,7 @@ function ProductFormDrawer({
                 </span>
                 <input
                   value={value.productSalePrice}
+                  disabled={lockStockAndPrices}
                   inputMode="numeric"
                   pattern="[0-9,.]*"
                   onBeforeInput={preventNonDigitBeforeInput}
@@ -735,6 +742,8 @@ function ProductFormDrawer({
 
 export default function ProductRegisterPage() {
   const statusDialog = useStatusDialog();
+  const canEditStockAndPrices =
+    getStoredAuthUser()?.role?.trim().toLowerCase() === "administrador";
   const [products, setProducts] = useState<Product[]>([]);
   const [supplierOptions, setSupplierOptions] = useState<string[]>([]);
   const [search, setSearch] = useState("");
@@ -1154,6 +1163,7 @@ export default function ProductRegisterPage() {
       <ProductFormDrawer
         open={drawerOpen}
         isEditMode={editingId !== null}
+        canEditStockAndPrices={canEditStockAndPrices}
         value={form}
         isSaving={saving}
         onClose={() => setDrawerOpen(false)}

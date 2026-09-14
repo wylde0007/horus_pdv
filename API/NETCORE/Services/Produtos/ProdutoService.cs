@@ -23,13 +23,41 @@ public class ProdutoService(ProdutoAB produtosAB, FornecedorAB fornecedoresAB) :
         return ToModel(await produtosAB.SalvarAsync(companyId, product));
     }
 
-    public async Task<ProdutoModel?> AtualizarAsync(string companyId, string id, ProdutoRequest request)
+    public async Task<ProdutoModel?> AtualizarAsync(string companyId, string id, ProdutoRequest request, string userRole)
     {
         Validate(request);
         var current = await produtosAB.ObterAsync(companyId, id);
         if (current is null)
         {
             return null;
+        }
+
+        var isAdministrator =
+            userRole.Trim().Equals(
+                "administrador",
+                StringComparison.OrdinalIgnoreCase
+            );
+
+        if (!isAdministrator)
+        {
+            var quantityChanged =
+                ParseQuantity(request.ProductQnt) !=
+                ParseQuantity(current.ProductQnt);
+
+            var unitPriceChanged =
+                ParseMoney(request.ProductUnitPrice) !=
+                ParseMoney(current.ProductUnitPrice);
+
+            var salePriceChanged =
+                ParseMoney(request.ProductSalePrice) !=
+                ParseMoney(current.ProductSalePrice);
+
+            if (quantityChanged || unitPriceChanged || salePriceChanged)
+            {
+                throw new InvalidOperationException(
+                    "Somente o administrador pode alterar a quantidade ou os preços do produto."
+                );
+            }
         }
 
         await ValidateBusinessRulesAsync(companyId, request, id);
