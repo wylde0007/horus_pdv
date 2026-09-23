@@ -667,12 +667,15 @@ export default function App() {
   }
 
   return (
-    <div className="relative flex h-screen overflow-hidden bg-bg-primary text-text-primary font-sans">
+    <div className="relative flex h-screen h-[100dvh] overflow-hidden bg-bg-primary text-text-primary font-sans">
       <header className="lg:hidden fixed top-0 left-0 right-0 z-layer-mobile-header h-14 bg-bg-light border-b border-border-primary px-3 shadow-sm">
         <div className="h-full flex items-center justify-between">
           <button
             type="button"
-            onClick={() => setMobileSidebarOpen(true)}
+            onClick={() => {
+              setCollapsed(false);
+              setMobileSidebarOpen(true);
+            }}
             className="p-2 rounded-lg border border-border-primary bg-bg-light shadow-sm"
             aria-label="Abrir menu"
           >

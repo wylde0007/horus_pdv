@@ -141,7 +141,7 @@ export default function AppSidebar({
   return (
     <>
       <aside
-        className={`fixed top-0 left-0 z-layer-sidebar h-screen bg-bg-light border-r border-border-primary shadow-sm transition-all duration-300 flex flex-col justify-between ${
+        className={`fixed top-0 left-0 z-layer-sidebar h-screen h-[100dvh] max-h-[100dvh] overflow-hidden bg-bg-light border-r border-border-primary shadow-sm transition-all duration-300 flex flex-col justify-between ${
           collapsed ? "w-20" : "w-72"
         } ${mobileOpen ? "translate-x-0" : "-translate-x-full"} lg:translate-x-0 lg:static`}
       >
@@ -175,7 +175,7 @@ export default function AppSidebar({
           </div>
         </div>
 
-        <nav className="flex-1 min-h-0 space-y-3 overflow-y-auto overflow-x-hidden px-2 py-3 text-sm font-medium">
+        <nav className="flex-1 min-h-0 space-y-3 overflow-y-auto overflow-x-hidden overscroll-contain px-2 py-3 text-sm font-medium">
           <div className="space-y-2">
             <SidebarSectionTitle label="Principal" collapsed={collapsed} />
 
@@ -332,7 +332,7 @@ export default function AppSidebar({
         </nav>
       </div>
 
-      <div className="p-3 border-t border-border-primary">
+      <div className="shrink-0 border-t border-border-primary px-3 pt-3 pb-[calc(0.75rem+env(safe-area-inset-bottom))]">
         <UserMenu
           collapsed={collapsed}
           currentUserName={currentUserName}
