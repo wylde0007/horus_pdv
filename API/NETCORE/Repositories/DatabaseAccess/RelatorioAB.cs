@@ -173,8 +173,8 @@ public class RelatorioAB(Connection connection)
         var endDate = (GetDate(filters, "endDate") ?? DateTimeOffset.Now.Date).AddDays(1);
         var now = DateTimeOffset.Now;
 
-        // ListarVendasAsync retorna uma linha por item da venda.
-        // Para a conciliação, cada venda deve entrar uma única vez.
+        // ListarVendasAsync retorna uma linha por item.
+        // Para o relatório financeiro cada venda entra somente uma vez.
         var sales = (await ListarVendasAsync(companyId))
             .GroupBy(item => item.SaleNumber)
             .Select(group => group.First())
@@ -184,8 +184,6 @@ public class RelatorioAB(Connection connection)
             .Where(item => item.OpenedAt >= startDate && item.OpenedAt < endDate)
             .Select(item =>
             {
-                // Todas as vendas entre abertura e fechamento pertencem
-                // àquela sessão de caixa.
                 var sessionEnd = item.ClosedAt ?? now.AddTicks(1);
 
                 var sessionSales = sales
@@ -194,15 +192,42 @@ public class RelatorioAB(Connection connection)
                         sale.SaleDate < sessionEnd)
                     .ToList();
 
-                // Todas as vendas da sessão, independentemente da forma de pagamento.
+                var paymentBreakdowns = sessionSales
+                    .Select(GetPaymentBreakdown)
+                    .ToList();
+
+                var salesCount = sessionSales.Count;
+
                 var totalRevenue = sessionSales.Sum(
                     sale => sale.TotalAmount
                 );
 
-                // Somente o dinheiro que efetivamente permaneceu no caixa físico.
-                var cashEntries = sessionSales.Sum(
-                    GetCashRetainedFromSale
+                var cashReceived = paymentBreakdowns.Sum(
+                    payment => payment.CashReceived
                 );
+
+                var changeTotal = paymentBreakdowns.Sum(
+                    payment => payment.Change
+                );
+
+                var cashEntries = paymentBreakdowns.Sum(
+                    payment => payment.CashRetained
+                );
+
+                var pixEntries = paymentBreakdowns.Sum(
+                    payment => payment.Pix
+                );
+
+                var debitEntries = paymentBreakdowns.Sum(
+                    payment => payment.Debit
+                );
+
+                var creditEntries = paymentBreakdowns.Sum(
+                    payment => payment.Credit
+                );
+
+                var cardEntries =
+                    debitEntries + creditEntries;
 
                 var expectedClosing =
                     item.OpeningAmount + cashEntries;
@@ -210,9 +235,6 @@ public class RelatorioAB(Connection connection)
                 var isClosed =
                     item.ClosedAt is not null;
 
-                // Enquanto não existir tabela específica para sangrias,
-                // a retirada é inferida pela diferença entre o esperado
-                // e o valor contado no fechamento.
                 var inferredOutflow = isClosed
                     ? Math.Max(
                         0,
@@ -220,7 +242,6 @@ public class RelatorioAB(Connection connection)
                     )
                     : 0;
 
-                // Se o operador informar valor superior ao esperado.
                 var surplus = isClosed
                     ? Math.Max(
                         0,
@@ -228,7 +249,6 @@ public class RelatorioAB(Connection connection)
                     )
                     : 0;
 
-                // Variação efetiva do dinheiro físico.
                 var netMovement = isClosed
                     ? item.ClosingAmount - item.OpeningAmount
                     : cashEntries;
@@ -252,16 +272,44 @@ public class RelatorioAB(Connection connection)
                         item.OperatorName
                     ),
                     (
-                        "valorAbertura",
-                        FormatMoney(item.OpeningAmount)
+                        "quantidadeVendas",
+                        salesCount
                     ),
                     (
                         "faturamento",
                         FormatMoney(totalRevenue)
                     ),
                     (
+                        "dinheiroRecebido",
+                        FormatMoney(cashReceived)
+                    ),
+                    (
+                        "troco",
+                        FormatMoney(changeTotal)
+                    ),
+                    (
                         "entradaDinheiro",
                         FormatMoney(cashEntries)
+                    ),
+                    (
+                        "pix",
+                        FormatMoney(pixEntries)
+                    ),
+                    (
+                        "debito",
+                        FormatMoney(debitEntries)
+                    ),
+                    (
+                        "credito",
+                        FormatMoney(creditEntries)
+                    ),
+                    (
+                        "cartao",
+                        FormatMoney(cardEntries)
+                    ),
+                    (
+                        "valorAbertura",
+                        FormatMoney(item.OpeningAmount)
                     ),
                     (
                         "saldoEsperado",
@@ -304,11 +352,18 @@ public class RelatorioAB(Connection connection)
                 ("abertura", "Abertura"),
                 ("fechamento", "Fechamento"),
                 ("operador", "Operador"),
+                ("quantidadeVendas", "Qtd. vendas"),
+                ("faturamento", "Faturamento total"),
+                ("dinheiroRecebido", "Dinheiro recebido"),
+                ("troco", "Troco"),
+                ("entradaDinheiro", "Entrada em dinheiro"),
+                ("pix", "PIX"),
+                ("debito", "Cartão débito"),
+                ("credito", "Cartão crédito"),
+                ("cartao", "Total cartão"),
                 ("valorAbertura", "Fundo inicial"),
-                ("faturamento", "Faturamento do caixa"),
-                ("entradaDinheiro", "Entrou em dinheiro"),
                 ("saldoEsperado", "Saldo esperado"),
-                ("saidaEstimada", "Saiu / sangria estimada"),
+                ("saidaEstimada", "Sangria estimada"),
                 ("valorFechamento", "Fechamento informado"),
                 ("sobraCaixa", "Sobra de caixa"),
                 ("movimentoLiquido", "Movimento líquido"),
@@ -582,62 +637,110 @@ public class RelatorioAB(Connection connection)
             .ToList();
     }
 
-    private static decimal GetCashRetainedFromSale(
+    private static PaymentBreakdown GetPaymentBreakdown(
         ReportSaleRow sale)
     {
-        var paymentSummary =
+        var summary =
             sale.PaymentType ?? string.Empty;
 
-        // Compatibilidade com vendas antigas:
-        // PaymentType = "dinheiro".
-        if (
-            !paymentSummary.Contains(
+        // Compatibilidade com vendas antigas, onde PaymentType
+        // armazenava apenas o nome da forma de pagamento.
+        if (!summary.Contains(
                 "R$",
-                StringComparison.OrdinalIgnoreCase
-            )
-            &&
-            NormalizePaymentFilter(paymentSummary) == "cash"
-        )
+                StringComparison.OrdinalIgnoreCase))
         {
-            return sale.TotalAmount;
+            return NormalizePaymentFilter(summary) switch
+            {
+                "cash" => new PaymentBreakdown(
+                    sale.TotalAmount,
+                    0,
+                    0,
+                    0,
+                    0
+                ),
+
+                "pix" => new PaymentBreakdown(
+                    0,
+                    sale.TotalAmount,
+                    0,
+                    0,
+                    0
+                ),
+
+                "debit" => new PaymentBreakdown(
+                    0,
+                    0,
+                    sale.TotalAmount,
+                    0,
+                    0
+                ),
+
+                "credit" => new PaymentBreakdown(
+                    0,
+                    0,
+                    0,
+                    sale.TotalAmount,
+                    0
+                ),
+
+                _ => new PaymentBreakdown(
+                    0,
+                    0,
+                    0,
+                    0,
+                    0
+                )
+            };
         }
 
-        // Exemplo atual:
-        // Dinheiro R$ 50,00 + PIX R$ 20,00
-        // (troco R$ 5,00)
-        var cashMatch = Regex.Match(
-            paymentSummary,
-            @"Dinheiro\s+R\$\s*([0-9][0-9\.,]*)",
+        var cash = GetPaymentAmount(
+            summary,
+            @"Dinheiro\s+R\$\s*([0-9][0-9\.,]*)"
+        );
+
+        var pix = GetPaymentAmount(
+            summary,
+            @"PIX\s+R\$\s*([0-9][0-9\.,]*)"
+        );
+
+        var debit = GetPaymentAmount(
+            summary,
+            @"Cart[aã]o\s+D[eé]bito\s+R\$\s*([0-9][0-9\.,]*)"
+        );
+
+        var credit = GetPaymentAmount(
+            summary,
+            @"Cart[aã]o\s+Cr[eé]dito\s+R\$\s*([0-9][0-9\.,]*)"
+        );
+
+        var change = GetPaymentAmount(
+            summary,
+            @"troco\s+R\$\s*([0-9][0-9\.,]*)"
+        );
+
+        return new PaymentBreakdown(
+            cash,
+            pix,
+            debit,
+            credit,
+            change
+        );
+    }
+
+    private static decimal GetPaymentAmount(
+        string summary,
+        string pattern)
+    {
+        var match = Regex.Match(
+            summary,
+            pattern,
             RegexOptions.IgnoreCase |
             RegexOptions.CultureInvariant
         );
 
-        if (!cashMatch.Success)
-        {
-            return 0;
-        }
-
-        var cashReceived = ParseMoney(
-            cashMatch.Groups[1].Value
-        );
-
-        var changeMatch = Regex.Match(
-            paymentSummary,
-            @"troco\s+R\$\s*([0-9][0-9\.,]*)",
-            RegexOptions.IgnoreCase |
-            RegexOptions.CultureInvariant
-        );
-
-        var change = changeMatch.Success
-            ? ParseMoney(
-                changeMatch.Groups[1].Value
-            )
+        return match.Success
+            ? ParseMoney(match.Groups[1].Value)
             : 0;
-
-        return Math.Max(
-            0,
-            cashReceived - change
-        );
     }
 
     private static string NormalizePaymentType(string value)
@@ -656,6 +759,20 @@ public class RelatorioAB(Connection connection)
         if (normalized.Contains("credito") || normalized.Contains("credit")) return "credit";
         if (normalized.Contains("dinheiro") || normalized.Contains("cash")) return "cash";
         return normalized;
+    }
+
+    private sealed record PaymentBreakdown(
+        decimal CashReceived,
+        decimal Pix,
+        decimal Debit,
+        decimal Credit,
+        decimal Change)
+    {
+        public decimal CashRetained =>
+            Math.Max(
+                0,
+                CashReceived - Change
+            );
     }
 
     private sealed record ReportSaleRow(
