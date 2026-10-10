@@ -15,6 +15,9 @@ public class ProdutoService(ProdutoAB produtosAB, FornecedorAB fornecedoresAB) :
     public async Task<List<ProdutoModel>> ListarAsync(string companyId)
         => (await produtosAB.ListarAsync(companyId)).Select(ToModel).ToList();
 
+    public async Task<List<ProdutoModel>> ListarPdvAsync(string companyId)
+        => (await produtosAB.ListarPdvAsync(companyId)).Select(ToModel).ToList();
+
     public async Task<ProdutoModel> CriarAsync(string companyId, ProdutoRequest request)
     {
         Validate(request);

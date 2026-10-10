@@ -32,6 +32,10 @@ export const productService = {
     const response = await apiRequest<ProductDto[]>(PRODUTO_API_URL);
     return response.data ?? [];
   },
+  async listPdv() {
+    const response = await apiRequest<ProductDto[]>(`${PRODUTO_API_URL}/pdv`);
+    return response.data ?? [];
+  },
   async create(payload: ProductPayload) {
     const response = await apiRequest<ProductDto>(PRODUTO_API_URL, {
       method: "POST",

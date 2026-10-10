@@ -11,6 +11,7 @@ namespace HORUSPDV_API.Services.Produtos;
 public interface IProdutoService
 {
     Task<List<ProdutoModel>> ListarAsync(string companyId);
+    Task<List<ProdutoModel>> ListarPdvAsync(string companyId);
     Task<ProdutoModel> CriarAsync(string companyId, ProdutoRequest request);
     Task<ProdutoModel?> AtualizarAsync(
         string companyId,

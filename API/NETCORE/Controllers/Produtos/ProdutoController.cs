@@ -34,6 +34,31 @@ public class ProdutoController(
         });
     }
 
+    [HttpGet("pdv")]
+    [ProducesResponseType(typeof(ApiResponse<List<ProdutoModel>>), StatusCodes.Status200OK)]
+    public async Task<IActionResult> ListarPdv()
+    {
+        var currentUser = GetCurrentUser();
+
+        if (currentUser is null)
+        {
+            return Unauthorized(new ApiResponse<List<ProdutoModel>>
+            {
+                Success = false,
+                Message = "Sessão não encontrada."
+            });
+        }
+
+        var data = await produtoService.ListarPdvAsync(currentUser.CompanyId);
+
+        return Ok(new ApiResponse<List<ProdutoModel>>
+        {
+            Success = true,
+            Message = "Produtos do PDV obtidos com sucesso.",
+            Data = data
+        });
+    }
+
     [HttpPost]
     [ProducesResponseType(typeof(ApiResponse<ProdutoModel>), StatusCodes.Status201Created)]
     [ProducesResponseType(typeof(ApiResponse<ProdutoModel>), StatusCodes.Status400BadRequest)]

@@ -214,8 +214,10 @@ export default function SalesStartPage({
     return products.find((item) => item.id === lastItem.id) ?? null;
   }, [selectedProduct, products, cart]);
 
-  const loadProducts = useCallback(async () => {
-    const items = await productService.list();
+  const loadProducts = useCallback(async (includeImages = false) => {
+    const items = includeImages
+      ? await productService.list()
+      : await productService.listPdv();
 
     const updatedProducts: Product[] = items.map((item) => ({
       id: item.id,
@@ -227,7 +229,18 @@ export default function SalesStartPage({
       imageUrl: item.productImageUrl,
     }));
 
-    setProducts(updatedProducts);
+    setProducts((previous) => {
+      if (includeImages) return updatedProducts;
+
+      const imagesById = new Map(
+        previous.map((item) => [item.id, item.imageUrl]),
+      );
+
+      return updatedProducts.map((item) => ({
+        ...item,
+        imageUrl: imagesById.get(item.id) || item.imageUrl,
+      }));
+    });
 
     return updatedProducts;
   }, [parseMoneyBr]);
@@ -240,7 +253,7 @@ export default function SalesStartPage({
 
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect
-    loadProducts().catch(() => {
+    loadProducts(true).catch(() => {
       Toast.error("Não foi possível carregar produtos da API no PDV.");
     });
   }, [loadProducts]);

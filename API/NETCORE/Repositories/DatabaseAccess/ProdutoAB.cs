@@ -33,6 +33,36 @@ public class ProdutoAB(Connection connection)
         return rows;
     }
 
+    // Lista produtos para o PDV sem transferir imagens Base64.
+    public async Task<List<ProdutoAD>> ListarPdvAsync(string companyId)
+    {
+        const string sql = """
+            SELECT Id,
+                   ''::text AS ProductImageUrl,
+                   ''::text AS ProductImageName,
+                   ProductName, ProductCode, ProductSupplier,
+                   ProductDescription, ProductUnit, ProductQnt,
+                   ProductUnitPrice, ProductSalePrice, TotalPriceOnProduct
+            FROM Produtos
+            WHERE CompanyId = @CompanyId
+            ORDER BY ProductName;
+            """;
+
+        await using var db = await connection.OpenConnectionAsync();
+        await using var command = new NpgsqlCommand(sql, db);
+        command.Parameters.AddWithValue("@CompanyId", companyId);
+
+        await using var reader = await command.ExecuteReaderAsync();
+        var rows = new List<ProdutoAD>();
+
+        while (await reader.ReadAsync())
+        {
+            rows.Add(Map(reader));
+        }
+
+        return rows;
+    }
+
     public async Task<ProdutoAD?> ObterAsync(string companyId, string id)
     {
         const string sql = """
