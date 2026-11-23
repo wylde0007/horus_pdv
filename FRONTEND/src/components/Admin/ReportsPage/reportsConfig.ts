@@ -117,6 +117,13 @@ export const reportCatalog: ReportDefinition[] = [
     ],
   },
   {
+    id: "produtos-cadastrados",
+    title: "Produtos Cadastrados",
+    description: "Todos os produtos cadastrados, com estoque, fornecedor e preços.",
+    icon: Boxes,
+    filters: [],
+  },
+  {
     id: "estoque-critico",
     title: "Estoque Crítico",
     description: "Identifica produtos abaixo do estoque mínimo para reposição.",

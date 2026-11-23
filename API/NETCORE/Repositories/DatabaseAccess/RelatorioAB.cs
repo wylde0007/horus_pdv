@@ -22,6 +22,7 @@ public class RelatorioAB(Connection connection)
             "historico-vendas" => await GerarHistoricoVendasAsync(companyId, filters),
             "produtos-mais-vendidos" => await GerarProdutosMaisVendidosAsync(companyId, filters),
             "clientes-frequentes" => await GerarClientesFrequentesAsync(companyId, filters),
+            "produtos-cadastrados" => await GerarProdutosCadastradosAsync(companyId),
             "estoque-critico" => await GerarEstoqueCriticoAsync(companyId, filters),
             "compras-fornecedor" => await GerarComprasFornecedorAsync(companyId),
             "movimento-estoque" => await GerarMovimentoEstoqueAsync(companyId),
@@ -111,6 +112,32 @@ public class RelatorioAB(Connection connection)
 
         return Result(
             Columns(("cliente", "Cliente"), ("compras", "Compras"), ("gastoTotal", "Gasto total"), ("ticketMedio", "Ticket médio")),
+            rows);
+    }
+
+    private async Task<object> GerarProdutosCadastradosAsync(string companyId)
+    {
+        var rows = (await ListarProdutosAsync(companyId))
+            .Select(item => Row(
+                ("codigo", item.Code),
+                ("produto", item.Name),
+                ("fornecedor", item.Supplier),
+                ("estoque", item.Quantity),
+                ("precoCusto", FormatMoney(item.UnitPrice)),
+                ("precoVenda", FormatMoney(item.SalePrice)),
+                ("valorEstoque", FormatMoney(item.UnitPrice * item.Quantity))))
+            .OrderBy(row => Convert.ToString(row["produto"]))
+            .ToList();
+
+        return Result(
+            Columns(
+                ("codigo", "Código"),
+                ("produto", "Produto"),
+                ("fornecedor", "Fornecedor"),
+                ("estoque", "Quantidade em estoque"),
+                ("precoCusto", "Preço de custo"),
+                ("precoVenda", "Preço de venda"),
+                ("valorEstoque", "Valor em estoque")),
             rows);
     }
 
