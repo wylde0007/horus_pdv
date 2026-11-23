@@ -175,55 +175,63 @@ function exportToExcel(
   URL.revokeObjectURL(url);
 }
 
-function exportToPdf(
+async function exportToPdf(
   title: string,
   columns: ReportResultColumn[],
   rows: ReportResultRow[],
 ) {
-  const popup = window.open("", "_blank", "noopener,noreferrer,width=1200,height=800");
-  if (!popup) return;
+  try {
+    // Carrega as bibliotecas apenas quando o usuário solicita o PDF.
+    const [{ jsPDF }, { default: autoTable }] = await Promise.all([
+      import("jspdf"),
+      import("jspdf-autotable"),
+    ]);
 
-  const header = columns
-    .map((column) => `<th>${escapeHtml(column.label)}</th>`)
-    .join("");
-  const body = rows
-    .map(
-      (row) =>
-        `<tr>${columns
-          .map((column) => `<td>${escapeHtml(row[column.key] ?? "-")}</td>`)
-          .join("")}</tr>`,
-    )
-    .join("");
+    const pdf = new jsPDF({
+      orientation: columns.length > 5 ? "landscape" : "portrait",
+      unit: "mm",
+      format: "a4",
+    });
 
-  popup.document.write(`
-    <!doctype html>
-    <html>
-      <head>
-        <meta charset="UTF-8" />
-        <title>${escapeHtml(title)}</title>
-        <style>
-          body { font-family: Arial, sans-serif; padding: 16px; color: #0f172a; }
-          h2 { margin: 0 0 12px; }
-          p { margin: 0 0 16px; font-size: 12px; color: #475569; }
-          table { width: 100%; border-collapse: collapse; font-size: 12px; }
-          th, td { border: 1px solid #d1d5db; padding: 8px; text-align: left; }
-          th { background: #f1f5f9; }
-        </style>
-      </head>
-      <body>
-        <h2>${escapeHtml(title)}</h2>
-        <p>Gerado em ${new Date().toLocaleString("pt-BR")}</p>
-        <table>
-          <thead><tr>${header}</tr></thead>
-          <tbody>${body}</tbody>
-        </table>
-      </body>
-    </html>
-  `);
+    const pageWidth = pdf.internal.pageSize.getWidth();
+    pdf.setFont("helvetica", "bold");
+    pdf.setFontSize(14);
+    pdf.text(title, 12, 15, { maxWidth: pageWidth - 24 });
+    pdf.setFont("helvetica", "normal");
+    pdf.setFontSize(9);
+    pdf.text(`Gerado em ${new Date().toLocaleString("pt-BR")}`, 12, 21);
 
-  popup.document.close();
-  popup.focus();
-  popup.print();
+    autoTable(pdf, {
+      head: [columns.map((column) => column.label)],
+      body: rows.map((row) =>
+        columns.map((column) => String(formatTableCellValue(row[column.key]))),
+      ),
+      startY: 27,
+      margin: { top: 15, right: 10, bottom: 17, left: 10 },
+      theme: "grid",
+      styles: { font: "helvetica", fontSize: 8, cellPadding: 2, overflow: "linebreak" },
+      headStyles: { fillColor: [40, 53, 70], textColor: 255 },
+      showHead: "everyPage",
+    });
+
+    const totalPages = pdf.getNumberOfPages();
+    for (let page = 1; page <= totalPages; page += 1) {
+      pdf.setPage(page);
+      pdf.setFontSize(8);
+      pdf.setTextColor(100);
+      pdf.text(
+        `Página ${page} de ${totalPages}`,
+        pageWidth - 12,
+        pdf.internal.pageSize.getHeight() - 8,
+        { align: "right" },
+      );
+    }
+
+    pdf.save(`${sanitizeFileName(title)}.pdf`);
+  } catch (error) {
+    console.error("Falha ao exportar relatório em PDF:", error);
+    window.alert("Não foi possível gerar o PDF. Tente novamente.");
+  }
 }
 
 export default function ReportFiltersView({ report, onBack }: ReportFiltersViewProps) {
